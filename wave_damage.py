@@ -6,22 +6,21 @@ import matplotlib.pyplot as plt
 import streamlit as st
 
 st.set_page_config(
-    page_title="Tri-HB Multidirectional Stress-Wave Superposition",
+    page_title="Wave–damage transition under multidirectional and sequential impact",
     layout="wide"
 )
 
-st.title("Multidirectional stress-wave superposition and stress-path evolution")
+st.title("Instability evolution under multidirectional and sequential impact loading")
 st.caption(
-    "Updated according to the final Paper 1 formulation: finite-duration windowed pulses, "
-    "P-wave travel time, p–q–θ invariants, failure index with Lode-angle/rate effects, "
-    "principal-axis rotation, and energy input."
+    "Updated for Paper 2: DEM–experimental interpretation of wave–damage transition, "
+    "normalised delay, loading-path dimensionality, wave-superposition factor, "
+    "damage evolution, stiffness degradation, energy balance and experimental observables."
 )
 
 # =============================================================================
 # Utility functions
 # =============================================================================
 def hann_window(t, td):
-    """Finite-support Hann window, active for 0 <= t <= td."""
     tau = np.asarray(t)
     g = np.zeros_like(tau, dtype=float)
     mask = (tau >= 0.0) & (tau <= td)
@@ -29,7 +28,6 @@ def hann_window(t, td):
     return g
 
 def half_sine_window(t, td):
-    """Finite-support half-sine pulse window, active for 0 <= t <= td."""
     tau = np.asarray(t)
     g = np.zeros_like(tau, dtype=float)
     mask = (tau >= 0.0) & (tau <= td)
@@ -37,7 +35,6 @@ def half_sine_window(t, td):
     return g
 
 def rectangular_window(t, td):
-    """Finite-support rectangular window."""
     tau = np.asarray(t)
     g = np.zeros_like(tau, dtype=float)
     mask = (tau >= 0.0) & (tau <= td)
@@ -51,40 +48,32 @@ def get_window(t, td, mode):
         return half_sine_window(t, td)
     return rectangular_window(t, td)
 
+def pulse(t, A, td, delay, mode, sign=1.0):
+    """A finite-duration compressive pulse. sign allows opposite-direction plotting if needed."""
+    tau = t - delay
+    return sign * A * get_window(tau, td, mode)
+
 def central_difference(y, t):
     return np.gradient(y, t)
 
-def compute_invariants(stress_tensor):
-    """
-    stress_tensor shape: (n, 3, 3), MPa.
-    Returns p, q, theta_deg, J2, J3, principal stresses.
-    """
-    n = stress_tensor.shape[0]
-    p = np.trace(stress_tensor, axis1=1, axis2=2) / 3.0
-    I = np.eye(3)[None, :, :]
-    s = stress_tensor - p[:, None, None] * I
-    J2 = 0.5 * np.sum(s * s, axis=(1, 2))
-    J3 = np.linalg.det(s)
-    q = np.sqrt(np.maximum(3.0 * J2, 0.0))
-
-    # Lode angle: cos(3θ) = (3√3/2) J3 / J2^(3/2)
+def invariants_from_diagonal(sx, sy, sz):
+    p = (sx + sy + sz) / 3.0
+    q = np.sqrt(0.5 * ((sx - sy)**2 + (sy - sz)**2 + (sz - sx)**2))
+    s1, s2, s3 = sx - p, sy - p, sz - p
+    J2 = (s1**2 + s2**2 + s3**2) / 2.0
+    J3 = s1 * s2 * s3
     theta = np.zeros_like(p)
     mask = J2 > 1e-12
     arg = np.zeros_like(p)
     arg[mask] = (3.0 * np.sqrt(3.0) / 2.0) * J3[mask] / (J2[mask] ** 1.5)
     arg = np.clip(arg, -1.0, 1.0)
     theta[mask] = (1.0 / 3.0) * np.arccos(arg[mask])
-    theta_deg = np.rad2deg(theta)
+    return p, q, np.rad2deg(theta), J2, J3
 
-    # Principal stresses, sorted descending
-    eigs = np.linalg.eigvalsh(stress_tensor)
-    eigs = np.sort(eigs, axis=1)[:, ::-1]
-
-    return p, q, theta_deg, J2, J3, eigs
-
-def rotation_angle(sigma_a, sigma_b, tau_ab):
-    """Principal-axis rotation in a coordinate plane, degrees."""
-    return 0.5 * np.rad2deg(np.arctan2(2.0 * tau_ab, sigma_a - sigma_b))
+def cumulative_trapezoid(y, t):
+    out = np.zeros_like(y)
+    out[1:] = np.cumsum(0.5 * (y[1:] + y[:-1]) * np.diff(t))
+    return out
 
 def fig_to_bytes(fig, fmt="png", dpi=300):
     buf = io.BytesIO()
@@ -100,387 +89,480 @@ st.sidebar.header("Material and specimen")
 E_GPa = st.sidebar.number_input("Young's modulus, E (GPa)", value=50.0, min_value=1.0, step=1.0)
 nu = st.sidebar.number_input("Poisson's ratio, ν", value=0.25, min_value=0.0, max_value=0.49, step=0.01)
 rho = st.sidebar.number_input("Density, ρ (kg/m³)", value=2650.0, min_value=1000.0, step=50.0)
-L_mm = st.sidebar.number_input("Specimen length, L (mm)", value=50.0, min_value=1.0, step=1.0)
+L_mm = st.sidebar.number_input("Specimen side length, L (mm)", value=50.0, min_value=1.0, step=1.0)
 
 E = E_GPa * 1e9
 G = E / (2.0 * (1.0 + nu))
-lam = E * nu / ((1.0 + nu) * (1.0 - 2.0 * nu))
-M = lam + 2.0 * G
-cp = np.sqrt(M / rho)
+M = E * (1.0 - nu) / ((1.0 + nu) * (1.0 - 2.0 * nu))
+cp0 = np.sqrt(M / rho)
 cs = np.sqrt(G / rho)
 L_m = L_mm / 1000.0
-t_travel = L_m / cp
+t_travel = L_m / cp0
 t_eq_low = 3.0 * t_travel
 t_eq_high = 5.0 * t_travel
 
-st.sidebar.header("Initial true triaxial stresses")
+st.sidebar.header("Initial stresses")
 sx0 = st.sidebar.number_input("σx0 (MPa)", value=30.0, min_value=0.0, step=1.0)
 sy0 = st.sidebar.number_input("σy0 (MPa)", value=20.0, min_value=0.0, step=1.0)
 sz0 = st.sidebar.number_input("σz0 (MPa)", value=15.0, min_value=0.0, step=1.0)
 
-st.sidebar.header("Finite-duration pulses")
+st.sidebar.header("Loading configuration")
+loading_path = st.sidebar.selectbox(
+    "Impact path dimensionality",
+    ["Single-sided X", "Symmetric X", "Symmetric XY", "Symmetric XYZ"],
+    index=1
+)
+
 pulse_type = st.sidebar.selectbox("Pulse envelope", ["Hann", "Half-sine", "Rectangular"], index=0)
-t_duration_us = st.sidebar.number_input("Pulse duration, td (μs)", value=60.0, min_value=1.0, step=5.0)
-tmax_us = st.sidebar.number_input("Simulation time (μs)", value=100.0, min_value=5.0, step=5.0)
-npts = st.sidebar.slider("Number of time points", 500, 20000, 3000, step=500)
+td_us = st.sidebar.number_input("Pulse duration, td (μs)", value=60.0, min_value=1.0, step=5.0)
+tmax_us = st.sidebar.number_input("Simulation time (μs)", value=250.0, min_value=20.0, step=10.0)
+npts = st.sidebar.slider("Number of time points", 1000, 30000, 5000, step=1000)
 
-st.sidebar.subheader("Amplitudes")
-Ax = st.sidebar.number_input("Ax (MPa)", value=6.0, min_value=0.0, step=0.5)
-Ay = st.sidebar.number_input("Ay (MPa)", value=5.0, min_value=0.0, step=0.5)
-Az = st.sidebar.number_input("Az (MPa)", value=4.0, min_value=0.0, step=0.5)
+st.sidebar.subheader("Pulse amplitudes")
+Ax = st.sidebar.number_input("Ax (MPa)", value=60.0, min_value=0.0, step=5.0)
+Ay = st.sidebar.number_input("Ay (MPa)", value=60.0, min_value=0.0, step=5.0)
+Az = st.sidebar.number_input("Az (MPa)", value=60.0, min_value=0.0, step=5.0)
 
-st.sidebar.subheader("Carrier frequencies")
-fx = st.sidebar.number_input("fx (kHz)", value=50.0, min_value=0.0, step=5.0)
-fy = st.sidebar.number_input("fy (kHz)", value=70.0, min_value=0.0, step=5.0)
-fz = st.sidebar.number_input("fz (kHz)", value=90.0, min_value=0.0, step=5.0)
+st.sidebar.subheader("Waveform matching")
+amplitude_ratio = st.sidebar.number_input("Right/left amplitude ratio in X", value=1.0, min_value=0.0, step=0.1)
+duration_ratio = st.sidebar.number_input("Right/left pulse-duration ratio in X", value=1.0, min_value=0.1, step=0.1)
+delay_us = st.sidebar.number_input("Time delay Δt for right/secondary pulse (μs)", value=100.0, min_value=0.0, step=5.0)
 
-st.sidebar.subheader("Phase angles")
-phix = st.sidebar.number_input("φx (degrees)", value=0.0, step=5.0)
-phiy = st.sidebar.number_input("φy (degrees)", value=45.0, step=5.0)
-phiz = st.sidebar.number_input("φz (degrees)", value=90.0, step=5.0)
+st.sidebar.header("Failure and damage")
+A_fail = st.sidebar.number_input("A in qf = (A+Bpⁿ)h(θ) (MPa)", value=15.0, min_value=0.0, step=1.0)
+B_fail = st.sidebar.number_input("B in qf = (A+Bpⁿ)h(θ)", value=1.3, min_value=0.0, step=0.1)
+n_fail = st.sidebar.number_input("n in qf = (A+Bpⁿ)h(θ)", value=0.75, min_value=0.1, step=0.05)
+lode_amp = st.sidebar.number_input("Lode-angle factor amplitude, aθ", value=0.10, min_value=0.0, step=0.02)
 
-st.sidebar.subheader("Pulse delays")
-delay_x_us = st.sidebar.number_input("Delay x (μs)", value=0.0, min_value=0.0, step=1.0)
-delay_y_us = st.sidebar.number_input("Delay y (μs)", value=0.0, min_value=0.0, step=1.0)
-delay_z_us = st.sidebar.number_input("Delay z (μs)", value=0.0, min_value=0.0, step=1.0)
-
-st.sidebar.header("Optional shear / principal-axis rotation")
-include_shear = st.sidebar.checkbox("Include small shear components", value=True)
-tau_amp = st.sidebar.number_input("Shear amplitude scale, τamp (MPa)", value=1.0, min_value=0.0, step=0.2)
-shear_phase = np.deg2rad(st.sidebar.number_input("Shear phase shift (degrees)", value=30.0, step=5.0))
-
-st.sidebar.header("Failure envelope")
-A_fail = st.sidebar.number_input("A in qf = (A + B pⁿ) h(θ) DIF (MPa)", value=3.0, step=0.5)
-B_fail = st.sidebar.number_input("B in qf = (A + B pⁿ) h(θ) DIF", value=0.80, step=0.05)
-n_fail = st.sidebar.number_input("n in qf = (A + B pⁿ) h(θ) DIF", value=0.80, step=0.05)
-lode_strength_factor = st.sidebar.number_input("Lode-angle factor amplitude, aθ", value=0.10, step=0.02)
-use_dif = st.sidebar.checkbox("Include strain-rate DIF", value=True)
-
-st.sidebar.subheader("DIF parameters")
+tau_D_us = st.sidebar.number_input("Damage time scale, τD (μs)", value=30.0, min_value=0.1, step=5.0)
+alpha_sat = st.sidebar.number_input("Damage saturation exponent, α", value=1.0, min_value=0.0, step=0.2)
+m_over = st.sidebar.number_input("Overstress exponent, m", value=2.0, min_value=0.1, step=0.2)
+beta_rate = st.sidebar.number_input("Rate exponent, β", value=0.15, min_value=0.0, step=0.05)
 epsdot0 = st.sidebar.number_input("Reference strain rate, ε̇0 (s⁻¹)", value=1.0, min_value=1e-6, step=1.0)
-epsdot_tr = st.sidebar.number_input("Transition strain rate, ε̇tr (s⁻¹)", value=50.0, min_value=1e-6, step=10.0)
-A1 = st.sidebar.number_input("Low-rate DIF coefficient, A1", value=0.02, min_value=0.0, step=0.01)
-B1 = st.sidebar.number_input("High-rate DIF coefficient, B1", value=1.0, min_value=0.0, step=0.05)
+F0 = st.sidebar.number_input("Failure-index normalisation, F0", value=1.0, min_value=0.1, step=0.1)
+
+st.sidebar.header("Descriptors")
+damage_threshold = st.sidebar.slider("Damage threshold for central damage fraction", 0.01, 0.9, 0.15, step=0.01)
+central_width = st.sidebar.slider("Central region fraction of specimen length", 0.1, 0.8, 0.30, step=0.05)
 
 # =============================================================================
-# Calculation
+# Time and loading histories
 # =============================================================================
 t_us = np.linspace(0.0, tmax_us, npts)
 t = t_us * 1e-6
-td = t_duration_us * 1e-6
+td = td_us * 1e-6
+delay = delay_us * 1e-6
+td_right = td * duration_ratio
 
-delays = np.array([delay_x_us, delay_y_us, delay_z_us]) * 1e-6
-amps = np.array([Ax, Ay, Az], dtype=float)
-freqs = np.array([fx, fy, fz], dtype=float) * 1e3
-phases = np.deg2rad(np.array([phix, phiy, phiz], dtype=float))
+# Impact pulses. Positive values are compressive dynamic stress increments.
+# x has left and right pulses; right may be delayed/mismatched.
+x_left = pulse(t, Ax, td, 0.0, pulse_type)
+x_right = pulse(t, Ax * amplitude_ratio, td_right, delay, pulse_type)
 
-def pulse_component(A, f, phi, delay):
-    tau = t - delay
-    g = get_window(tau, td, pulse_type)
-    if f == 0:
-        carrier = np.ones_like(t)
-    else:
-        carrier = np.sin(2.0 * np.pi * f * tau + phi)
-    return A * g * carrier, g
-
-sx_dyn, gx = pulse_component(Ax, fx * 1e3, np.deg2rad(phix), delays[0])
-sy_dyn, gy = pulse_component(Ay, fy * 1e3, np.deg2rad(phiy), delays[1])
-sz_dyn, gz = pulse_component(Az, fz * 1e3, np.deg2rad(phiz), delays[2])
-
-sx = sx0 + sx_dyn
-sy = sy0 + sy_dyn
-sz = sz0 + sz_dyn
-
-# Optional shear terms to demonstrate principal-axis rotation
-if include_shear and tau_amp > 0:
-    # bounded, finite-window shear tied to combined active envelopes
-    gxy = np.minimum(gx + gy, 1.0)
-    gyz = np.minimum(gy + gz, 1.0)
-    gzx = np.minimum(gz + gx, 1.0)
-    base_freq = max((fx + fy + fz) / 3.0, 1.0) * 1e3
-    tau_xy = tau_amp * gxy * np.sin(2.0 * np.pi * base_freq * t + shear_phase)
-    tau_yz = 0.7 * tau_amp * gyz * np.sin(2.0 * np.pi * 1.15 * base_freq * t + 1.2 * shear_phase)
-    tau_zx = 0.5 * tau_amp * gzx * np.sin(2.0 * np.pi * 0.85 * base_freq * t + 0.8 * shear_phase)
+# yz activation depends on loading dimensionality
+if loading_path in ["Symmetric XY", "Symmetric XYZ"]:
+    y_pair = pulse(t, Ay, td, 0.0, pulse_type) + pulse(t, Ay, td, 0.0, pulse_type)
 else:
-    tau_xy = np.zeros_like(t)
-    tau_yz = np.zeros_like(t)
-    tau_zx = np.zeros_like(t)
+    y_pair = np.zeros_like(t)
 
-stress = np.zeros((len(t), 3, 3), dtype=float)
-stress[:, 0, 0] = sx
-stress[:, 1, 1] = sy
-stress[:, 2, 2] = sz
-stress[:, 0, 1] = stress[:, 1, 0] = tau_xy
-stress[:, 1, 2] = stress[:, 2, 1] = tau_yz
-stress[:, 2, 0] = stress[:, 0, 2] = tau_zx
+if loading_path == "Symmetric XYZ":
+    z_pair = pulse(t, Az, td, 0.0, pulse_type) + pulse(t, Az, td, 0.0, pulse_type)
+else:
+    z_pair = np.zeros_like(t)
 
-p, q, theta_deg, J2, J3, eigs = compute_invariants(stress)
+if loading_path == "Single-sided X":
+    sx_dyn = x_left
+elif loading_path == "Symmetric X":
+    sx_dyn = x_left + x_right
+else:
+    sx_dyn = x_left + x_right
 
-# Equivalent strain rate estimate using elastic relation; useful for DIF demonstration
-# strain approx = stress / E (MPa converted to Pa)
-eps_x = sx * 1e6 / E
-eps_y = sy * 1e6 / E
-eps_z = sz * 1e6 / E
+# Simplified invariant stress representation:
+# symmetric pair loading increases normal compressive stress in active directions.
+sx = sx0 + sx_dyn
+sy = sy0 + y_pair
+sz = sz0 + z_pair
+
+p, q, theta_deg, J2, J3 = invariants_from_diagonal(sx, sy, sz)
+
+# Wave-superposition factor for X pair at specimen centre
+# centre stress proxy uses delayed envelopes only, as in the paper.
+g_left_centre = get_window(t - (L_m / (2.0 * cp0)), td, pulse_type)
+g_right_centre = get_window(t - delay - (L_m / (2.0 * cp0)), td_right, pulse_type)
+sigma_centre = sx0 + Ax * g_left_centre + Ax * amplitude_ratio * g_right_centre
+eta_sup = (np.max(sigma_centre) - sx0) / max(Ax, 1e-9)
+
+# Normalised delay and regime
+dt_star = delay / t_travel if t_travel > 0 else np.nan
+if dt_star < 1:
+    regime = "Synchronous wave superposition"
+elif dt_star <= 3:
+    regime = "Reverberation-coupled interaction"
+elif dt_star <= 10:
+    regime = "Transitional / decaying reverberations"
+else:
+    regime = "Sequential, damage-memory controlled"
+
+# Failure envelope and damage law
+theta_rad = np.deg2rad(theta_deg)
+h_theta = 1.0 + lode_amp * (1.0 - np.cos(3.0 * theta_rad))
+qf = (A_fail + B_fail * np.maximum(p, 0.0) ** n_fail) * h_theta
+F_index = q / np.maximum(qf, 1e-9)
+
+# equivalent strain-rate proxy from elastic normal strains
+E_MPa = E_GPa * 1000.0
+eps_x = sx / E_MPa
+eps_y = sy / E_MPa
+eps_z = sz / E_MPa
 epsdot_x = central_difference(eps_x, t)
 epsdot_y = central_difference(eps_y, t)
 epsdot_z = central_difference(eps_z, t)
 epsdot_eq = np.sqrt(2.0 / 3.0 * ((epsdot_x - epsdot_y)**2 + (epsdot_y - epsdot_z)**2 + (epsdot_z - epsdot_x)**2) / 2.0)
-epsdot_abs = np.maximum(np.abs(epsdot_eq), 1e-12)
+rate_factor = (np.maximum(np.abs(epsdot_eq), 1e-12) / epsdot0) ** beta_rate
 
-if use_dif:
-    DIF = np.ones_like(t)
-    low = epsdot_abs < epsdot_tr
-    DIF[low] = 1.0 + A1 * np.log10(np.maximum(epsdot_abs[low] / epsdot0, 1e-12))
-    DIF[~low] = B1 * (epsdot_abs[~low] / epsdot0) ** (1.0 / 3.0)
-    DIF = np.maximum(DIF, 0.2)
-else:
-    DIF = np.ones_like(t)
+tau_D = tau_D_us * 1e-6
+D = np.zeros_like(t)
+Ddot = np.zeros_like(t)
+for i in range(1, len(t)):
+    overstress = max((F_index[i-1] - 1.0) / F0, 0.0)
+    Ddot[i-1] = ((1.0 - D[i-1]) ** alpha_sat) / tau_D * (overstress ** m_over) * rate_factor[i-1]
+    D[i] = np.clip(D[i-1] + Ddot[i-1] * (t[i] - t[i-1]), 0.0, 1.0)
+Ddot[-1] = Ddot[-2] if len(t) > 1 else 0.0
 
-# h(theta), normalised h(0)=1. Simple bounded illustrative factor.
-theta_rad = np.deg2rad(theta_deg)
-h_theta = 1.0 + lode_strength_factor * (1.0 - np.cos(3.0 * theta_rad))
-qf = (A_fail + B_fail * np.maximum(p, 0.0) ** n_fail) * h_theta * DIF
-F_index = q / np.maximum(qf, 1e-9)
+E_D = E_GPa * (1.0 - D)
+cp_D = cp0 * np.sqrt(np.maximum(1.0 - D, 0.0))
 
-alpha_xy = rotation_angle(sx, sy, tau_xy)
-alpha_yz = rotation_angle(sy, sz, tau_yz)
-alpha_zx = rotation_angle(sz, sx, tau_zx)
-
-# Boundary particle velocities implied by acoustic impedance: A = rho cp vp
-vp_x = (Ax * 1e6) / (rho * cp) if rho * cp > 0 else 0.0
-vp_y = (Ay * 1e6) / (rho * cp) if rho * cp > 0 else 0.0
-vp_z = (Az * 1e6) / (rho * cp) if rho * cp > 0 else 0.0
-
-# Elastic energy density and work-like energy proxy
-# Use MPa strain -> MJ/m3 because MPa = MJ/m3 for stress * strain
-we_elastic = 0.5 / E_GPa / 1000.0 * 0  # placeholder not used
-# Rigorous isotropic elastic energy density in MPa (MJ/m3): 1/(2E) [sigma^2 - 2nu cross], with E in MPa
-E_MPa = E_GPa * 1000.0
+# Energy indicators
 W_el = (1.0 / (2.0 * E_MPa)) * (
-    sx**2 + sy**2 + sz**2
-    - 2.0 * nu * (sx * sy + sy * sz + sz * sx)
+    sx**2 + sy**2 + sz**2 - 2.0 * nu * (sx * sy + sy * sz + sz * sx)
 )
-
-# input energy density proxy: integrate sigma * epsdot in each direction
-power = sx * epsdot_x + sy * epsdot_y + sz * epsdot_z  # MPa/s = MJ/m3/s
-dt = np.gradient(t)
-W_input = np.cumsum(power * dt)
+power = sx * epsdot_x + sy * epsdot_y + sz * epsdot_z
+W_input = cumulative_trapezoid(power, t)
 W_diss_proxy = W_input - W_el + W_el[0]
 
+# Synthetic descriptors reflecting expected DEM/experimental observables
+# These are model indicators for planning and interpretation, not actual DEM outputs.
+x = np.linspace(0, 1, 400)
+centre = 0.5
+left_damage = np.exp(-((x - 0.20) / 0.12)**2) * np.max(D)
+right_damage = np.exp(-((x - 0.80) / 0.12)**2) * np.max(D) * amplitude_ratio
+central_damage = np.exp(-((x - 0.50) / 0.16)**2) * np.max(D) * min(eta_sup, 2.0) / 2.0
+delay_scatter = (1.0 / (1.0 + np.exp(-(dt_star - 5.0)))) * np.max(D) * 0.35
+damage_profile = np.clip(left_damage + right_damage + central_damage + delay_scatter, 0, 1)
+
+central_mask = np.abs(x - centre) < central_width / 2.0
+total_damage_area = np.trapz(damage_profile, x)
+central_damage_area = np.trapz(damage_profile[central_mask], x[central_mask]) if np.any(central_mask) else 0
+D_c = central_damage_area / max(total_damage_area, 1e-12)
+
+D_left = np.trapz(damage_profile[x < 0.5], x[x < 0.5])
+D_right = np.trapz(damage_profile[x >= 0.5], x[x >= 0.5])
+S_x = 1.0 - abs(D_left - D_right) / max(D_left + D_right + 1e-12, 1e-12)
+
+neutral_width_proxy = np.clip(1.0 / (1.0 + 0.5 * dt_star) * (1.0 / max(1.0, abs(amplitude_ratio - 1.0) + 1.0)), 0, 1)
+
 # =============================================================================
-# Summary
+# Summary metrics
 # =============================================================================
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("P-wave speed, cp", f"{cp:.0f} m/s")
-col2.metric("S-wave speed, cs", f"{cs:.0f} m/s")
-col3.metric("P-wave travel time", f"{t_travel*1e6:.2f} μs")
-col4.metric("Equilibration time", f"{t_eq_low*1e6:.1f}–{t_eq_high*1e6:.1f} μs")
+col1.metric("P-wave speed, cp", f"{cp0:.0f} m/s")
+col2.metric("Travel time", f"{t_travel*1e6:.2f} μs")
+col3.metric("Equilibrium time", f"{t_eq_low*1e6:.1f}–{t_eq_high*1e6:.1f} μs")
+col4.metric("Normalised delay, Δt*", f"{dt_star:.2f}")
 
 col5, col6, col7, col8 = st.columns(4)
-col5.metric("vp,x from Ax", f"{vp_x:.3f} m/s")
-col6.metric("vp,y from Ay", f"{vp_y:.3f} m/s")
-col7.metric("vp,z from Az", f"{vp_z:.3f} m/s")
-col8.metric("Peak failure index", f"{np.nanmax(F_index):.2f}")
+col5.metric("Regime", regime)
+col6.metric("Superposition factor, ηsup", f"{eta_sup:.2f}")
+col7.metric("Final damage, D", f"{D[-1]:.3f}")
+col8.metric("Central damage fraction, Dc", f"{D_c:.3f}")
 
 st.info(
-    "For Paper 1, keep the pulse delays in the synchronous/short-delay range "
-    r"0 ≤ Δt ≤ 2 ttravel. Long-delay sequential loading (Δt* > 10) belongs to the companion wave–damage paper."
+    "This app is intended as a theoretical/interpretive demo for Paper 2. "
+    "The stress paths and damage variables are analytical proxies; DEM outputs and experimental data should be imported later for validation."
 )
 
 # =============================================================================
 # Tabs
 # =============================================================================
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "Stress waves",
-    "p–q–θ invariants",
-    "3D stress path",
-    "Failure and energy",
-    "Principal-axis rotation",
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "Loading and regimes",
+    "Stress path",
+    "Damage evolution",
+    "Energy balance",
+    "DEM/experimental descriptors",
+    "Parametric study",
     "Export"
 ])
 
 with tab1:
-    st.subheader("Finite-duration stress waves")
-    fig1, ax1 = plt.subplots(figsize=(10, 5))
-    ax1.plot(t_us, sx, label=r"$\sigma_x(t)$")
-    ax1.plot(t_us, sy, label=r"$\sigma_y(t)$")
-    ax1.plot(t_us, sz, label=r"$\sigma_z(t)$")
+    st.subheader("Input pulses and normalised-delay regime")
+
+    fig1, ax1 = plt.subplots(figsize=(10, 4.8))
+    ax1.plot(t_us, x_left, label="X left pulse")
+    ax1.plot(t_us, x_right, label="X right/secondary pulse")
+    if np.any(y_pair):
+        ax1.plot(t_us, y_pair, label="Y pair")
+    if np.any(z_pair):
+        ax1.plot(t_us, z_pair, label="Z pair")
     ax1.axvline(t_travel * 1e6, linestyle="--", linewidth=1.0, label=r"$t_{\rm travel}$")
-    ax1.axvspan(t_eq_low * 1e6, t_eq_high * 1e6, alpha=0.15, label=r"$t_{\rm eq}\approx 3$--$5t_{\rm travel}$")
+    ax1.axvspan(t_eq_low * 1e6, t_eq_high * 1e6, alpha=0.15, label=r"$t_{\rm eq}\approx3$--$5t_{\rm travel}$")
+    ax1.axvline(delay_us, linestyle=":", linewidth=1.4, label=r"$\Delta t$")
     ax1.set_xlabel("Time (μs)")
-    ax1.set_ylabel("Stress (MPa)")
-    ax1.set_title("Windowed orthogonal stress pulses")
+    ax1.set_ylabel("Dynamic stress increment (MPa)")
+    ax1.set_title("Finite-duration input pulses")
     ax1.grid(True, alpha=0.35)
     ax1.legend(ncol=2)
     st.pyplot(fig1)
-    st.download_button("Download stress-wave figure", fig_to_bytes(fig1), "paper1_stress_waves.png", "image/png")
+    st.download_button("Download pulse figure", fig_to_bytes(fig1), "paper2_input_pulses.png", "image/png")
 
-    fig1b, ax1b = plt.subplots(figsize=(10, 3))
-    ax1b.plot(t_us, gx, label="gx")
-    ax1b.plot(t_us, gy, label="gy")
-    ax1b.plot(t_us, gz, label="gz")
-    ax1b.set_xlabel("Time (μs)")
-    ax1b.set_ylabel("Pulse envelope")
-    ax1b.set_title(f"{pulse_type} envelope")
-    ax1b.grid(True, alpha=0.35)
-    ax1b.legend()
-    st.pyplot(fig1b)
+    fig2, ax2 = plt.subplots(figsize=(10, 4.5))
+    dt_grid = np.linspace(0, 20, 400)
+    wave_control = np.exp(-(dt_grid / 1.2)**2)
+    damage_control = 1.0 / (1.0 + np.exp(-(dt_grid - 5.0) / 1.3))
+    ax2.plot(dt_grid, wave_control, label="Wave-interaction control")
+    ax2.plot(dt_grid, damage_control, label="Damage-memory control")
+    ax2.axvline(dt_star, linestyle="--", linewidth=1.5, label="Current case")
+    ax2.axvspan(0, 1, alpha=0.12)
+    ax2.axvspan(1, 3, alpha=0.10)
+    ax2.axvspan(3, 10, alpha=0.08)
+    ax2.axvspan(10, 20, alpha=0.08)
+    ax2.text(0.5, 1.03, "Superposition", ha="center", fontsize=9)
+    ax2.text(2.0, 1.03, "Reverberation", ha="center", fontsize=9)
+    ax2.text(6.5, 1.03, "Transitional", ha="center", fontsize=9)
+    ax2.text(15, 1.03, "Sequential", ha="center", fontsize=9)
+    ax2.set_xlim(0, 20)
+    ax2.set_ylim(0, 1.1)
+    ax2.set_xlabel(r"Normalised delay, $\Delta t^*=\Delta t/t_{\rm travel}$")
+    ax2.set_ylabel("Relative controlling mechanism")
+    ax2.set_title("Wave–damage transition map")
+    ax2.grid(True, alpha=0.35)
+    ax2.legend()
+    st.pyplot(fig2)
+    st.download_button("Download regime map", fig_to_bytes(fig2), "paper2_wave_damage_regime_map.png", "image/png")
+
+    fig3, ax3 = plt.subplots(figsize=(10, 3.8))
+    ax3.plot(t_us, sigma_centre, label="Central stress proxy")
+    ax3.set_xlabel("Time (μs)")
+    ax3.set_ylabel("Central stress proxy (MPa)")
+    ax3.set_title(r"Wave-superposition factor $\eta_{\rm sup}$")
+    ax3.grid(True, alpha=0.35)
+    ax3.legend()
+    st.pyplot(fig3)
 
 with tab2:
-    st.subheader("Invariant stress paths")
-    c1, c2 = st.columns([1.1, 1.0])
+    st.subheader("Stress-path interpretation")
 
+    c1, c2 = st.columns(2)
     with c1:
-        fig2, ax2 = plt.subplots(figsize=(7, 5.5))
-        sc = ax2.scatter(p, q, c=t_us, s=8)
-        pp = np.linspace(max(0.0, np.nanmin(p) * 0.95), max(np.nanmax(p) * 1.05, 1.0), 300)
-        # show static envelope without theta/rate, and dynamic-like median correction
-        q_env_static = A_fail + B_fail * pp ** n_fail
-        ax2.plot(pp, q_env_static, linestyle="--", linewidth=1.6, label=r"Base envelope $A+Bp^n$")
-        for idx in np.linspace(0, len(p) - 2, 12, dtype=int):
-            ax2.annotate("", xy=(p[idx + 1], q[idx + 1]), xytext=(p[idx], q[idx]),
-                         arrowprops=dict(arrowstyle="->", lw=0.7))
-        ax2.set_xlabel("Mean stress, p (MPa)")
-        ax2.set_ylabel("Deviatoric stress, q (MPa)")
-        ax2.set_title("p–q stress path")
-        ax2.grid(True, alpha=0.35)
-        ax2.legend()
-        cb = fig2.colorbar(sc, ax=ax2)
+        fig4, ax4 = plt.subplots(figsize=(7, 5.4))
+        sc = ax4.scatter(p, q, c=t_us, s=8)
+        ax4.set_xlabel("Mean stress, p (MPa)")
+        ax4.set_ylabel("Deviatoric stress, q (MPa)")
+        ax4.set_title("p–q stress path")
+        ax4.grid(True, alpha=0.35)
+        cb = fig4.colorbar(sc, ax=ax4)
         cb.set_label("Time (μs)")
-        st.pyplot(fig2)
-        st.download_button("Download p–q path", fig_to_bytes(fig2), "paper1_pq_path.png", "image/png")
+        st.pyplot(fig4)
+        st.download_button("Download p–q path", fig_to_bytes(fig4), "paper2_pq_path.png", "image/png")
 
     with c2:
-        fig3, ax3 = plt.subplots(figsize=(7, 5.5))
-        sc2 = ax3.scatter(q, theta_deg, c=t_us, s=8)
-        ax3.set_xlabel("q (MPa)")
-        ax3.set_ylabel("Lode angle, θ (degrees)")
-        ax3.set_title("q–θ projection")
-        ax3.grid(True, alpha=0.35)
-        cb2 = fig3.colorbar(sc2, ax=ax3)
+        fig5, ax5 = plt.subplots(figsize=(7, 5.4))
+        sc2 = ax5.scatter(q, theta_deg, c=t_us, s=8)
+        ax5.set_xlabel("q (MPa)")
+        ax5.set_ylabel("Lode angle, θ (degrees)")
+        ax5.set_title("q–θ projection")
+        ax5.grid(True, alpha=0.35)
+        cb2 = fig5.colorbar(sc2, ax=ax5)
         cb2.set_label("Time (μs)")
-        st.pyplot(fig3)
-        st.download_button("Download q–theta path", fig_to_bytes(fig3), "paper1_q_theta_path.png", "image/png")
+        st.pyplot(fig5)
 
-    fig4, ax4 = plt.subplots(figsize=(10, 4))
-    ax4.plot(t_us, p, label="p")
-    ax4.plot(t_us, q, label="q")
-    ax4.plot(t_us, theta_deg, label="θ (degrees)")
-    ax4.set_xlabel("Time (μs)")
-    ax4.set_ylabel("Value")
-    ax4.set_title("Invariant histories")
-    ax4.grid(True, alpha=0.35)
-    ax4.legend()
-    st.pyplot(fig4)
+    fig6, ax6 = plt.subplots(figsize=(10, 4.2))
+    ax6.plot(t_us, p, label="p")
+    ax6.plot(t_us, q, label="q")
+    ax6.plot(t_us, theta_deg, label="θ (degrees)")
+    ax6.set_xlabel("Time (μs)")
+    ax6.set_ylabel("Value")
+    ax6.set_title("Invariant histories")
+    ax6.grid(True, alpha=0.35)
+    ax6.legend()
+    st.pyplot(fig6)
 
 with tab3:
-    st.subheader("3D principal-stress trajectory")
-    fig5 = plt.figure(figsize=(7, 6))
-    ax5 = fig5.add_subplot(111, projection="3d")
-    ax5.plot(eigs[:, 0], eigs[:, 1], eigs[:, 2], linewidth=1.5)
-    ax5.scatter([eigs[0, 0]], [eigs[0, 1]], [eigs[0, 2]], s=40, label="Start")
-    ax5.scatter([eigs[-1, 0]], [eigs[-1, 1]], [eigs[-1, 2]], s=40, marker="^", label="End")
-    ax5.set_xlabel(r"$\sigma_1$ (MPa)")
-    ax5.set_ylabel(r"$\sigma_2$ (MPa)")
-    ax5.set_zlabel(r"$\sigma_3$ (MPa)")
-    ax5.set_title("Principal-stress path")
-    ax5.legend()
-    st.pyplot(fig5)
-    st.download_button("Download 3D stress path", fig_to_bytes(fig5), "paper1_3d_principal_stress_path.png", "image/png")
+    st.subheader("Rate-sensitive, saturating damage evolution")
 
-    fig5b = plt.figure(figsize=(7, 6))
-    ax5b = fig5b.add_subplot(111, projection="3d")
-    ax5b.plot(sx, sy, sz, linewidth=1.5)
-    ax5b.set_xlabel(r"$\sigma_x$ (MPa)")
-    ax5b.set_ylabel(r"$\sigma_y$ (MPa)")
-    ax5b.set_zlabel(r"$\sigma_z$ (MPa)")
-    ax5b.set_title("Coordinate stress path")
-    st.pyplot(fig5b)
-
-with tab4:
-    st.subheader("Failure-envelope interaction and energy")
     c1, c2 = st.columns(2)
-
     with c1:
-        fig6, ax6 = plt.subplots(figsize=(7, 4.5))
-        ax6.plot(t_us, F_index, label=r"$F(t)=q/q_f$")
-        ax6.axhline(1.0, linestyle="--", linewidth=1.2, label="Failure threshold")
-        ax6.set_xlabel("Time (μs)")
-        ax6.set_ylabel("Failure index")
-        ax6.set_title("Failure-envelope interaction")
-        ax6.grid(True, alpha=0.35)
-        ax6.legend()
-        st.pyplot(fig6)
-        st.download_button("Download failure-index figure", fig_to_bytes(fig6), "paper1_failure_index.png", "image/png")
-
-    with c2:
-        fig7, ax7 = plt.subplots(figsize=(7, 4.5))
-        ax7.plot(t_us, W_input, label=r"$w_{\rm input}$")
-        ax7.plot(t_us, W_el, label=r"$w_e$")
-        ax7.plot(t_us, W_diss_proxy, label=r"$w_{\rm diss}$ proxy")
+        fig7, ax7 = plt.subplots(figsize=(7, 4.8))
+        ax7.plot(t_us, F_index, label="Failure index F(t)")
+        ax7.axhline(1.0, linestyle="--", linewidth=1.2, label="Damage threshold")
         ax7.set_xlabel("Time (μs)")
-        ax7.set_ylabel("Energy density (MJ/m³)")
-        ax7.set_title("Energy-density indicators")
+        ax7.set_ylabel("F(t)")
+        ax7.set_title("Failure-envelope interaction")
         ax7.grid(True, alpha=0.35)
         ax7.legend()
         st.pyplot(fig7)
-        st.download_button("Download energy figure", fig_to_bytes(fig7), "paper1_energy_indicators.png", "image/png")
+
+    with c2:
+        fig8, ax8 = plt.subplots(figsize=(7, 4.8))
+        ax8.plot(t_us, D, label="D(t)")
+        ax8.plot(t_us, Ddot / max(np.max(Ddot), 1e-12), label="Normalised Ddot")
+        ax8.set_xlabel("Time (μs)")
+        ax8.set_ylabel("Damage variable")
+        ax8.set_title("Cumulative damage and damage rate")
+        ax8.grid(True, alpha=0.35)
+        ax8.legend()
+        st.pyplot(fig8)
+        st.download_button("Download damage figure", fig_to_bytes(fig8), "paper2_damage_evolution.png", "image/png")
+
+    fig9, ax9 = plt.subplots(figsize=(10, 4.2))
+    ax9.plot(t_us, E_D, label="E(D)")
+    ax9b = ax9.twinx()
+    ax9b.plot(t_us, cp_D, linestyle="--", label="cp(D)")
+    ax9.set_xlabel("Time (μs)")
+    ax9.set_ylabel("Damaged Young's modulus (GPa)")
+    ax9b.set_ylabel("Damaged P-wave speed (m/s)")
+    ax9.set_title("Stiffness and wave-speed degradation")
+    ax9.grid(True, alpha=0.35)
+    lines, labels = ax9.get_legend_handles_labels()
+    lines2, labels2 = ax9b.get_legend_handles_labels()
+    ax9.legend(lines + lines2, labels + labels2)
+    st.pyplot(fig9)
+
+with tab4:
+    st.subheader("Energy-balance indicators")
+
+    fig10, ax10 = plt.subplots(figsize=(10, 4.8))
+    ax10.plot(t_us, W_input, label="Input energy proxy")
+    ax10.plot(t_us, W_el, label="Recoverable elastic energy")
+    ax10.plot(t_us, W_diss_proxy, label="Dissipated-energy proxy")
+    ax10.set_xlabel("Time (μs)")
+    ax10.set_ylabel("Energy density (MJ/m³)")
+    ax10.set_title("Energy indicators")
+    ax10.grid(True, alpha=0.35)
+    ax10.legend()
+    st.pyplot(fig10)
+    st.download_button("Download energy figure", fig_to_bytes(fig10), "paper2_energy_balance.png", "image/png")
 
     st.markdown(
         """
-        **Interpretation:**  
-        The failure index follows the paper formulation  
-        \(F(t)=q(t)/q_f[p(t),\\theta(t),\\dot\\varepsilon(t)]\).  
-        The energy plot is an analytical proxy, not a DEM fracture-energy calculation. 
-        In DEM, use contact-bond breakage, frictional slip and damping work for rigorous energy partition.
+        In the actual DEM/experimental workflow, replace these analytical proxies with:
+        - bar-wave energy: \(E_{I,R,T}=A_bE_bc_b\\int\\varepsilon_{I,R,T}^2dt\);
+        - DEM absorbed energy from stress power and contact dissipation;
+        - kinetic-energy residual \(E_K\) to check energy closure.
         """
     )
 
 with tab5:
-    st.subheader("Principal-axis rotation")
-    fig8, ax8 = plt.subplots(figsize=(10, 4.8))
-    ax8.plot(t_us, alpha_xy, label=r"$\alpha_{xy}$")
-    ax8.plot(t_us, alpha_yz, label=r"$\alpha_{yz}$")
-    ax8.plot(t_us, alpha_zx, label=r"$\alpha_{zx}$")
-    ax8.set_xlabel("Time (μs)")
-    ax8.set_ylabel("Rotation angle (degrees)")
-    ax8.set_title("Principal-axis rotation induced by shear components")
-    ax8.grid(True, alpha=0.35)
-    ax8.legend()
-    st.pyplot(fig8)
-    st.download_button("Download rotation figure", fig_to_bytes(fig8), "paper1_principal_axis_rotation.png", "image/png")
+    st.subheader("DEM and experimental descriptors")
 
-    if not include_shear:
-        st.warning(
-            "Shear components are disabled. For purely diagonal stresses aligned with x, y and z, "
-            "the eigenvectors remain fixed; only the principal stress magnitudes and ordering change."
-        )
+    c1, c2 = st.columns(2)
+    with c1:
+        fig11, ax11 = plt.subplots(figsize=(7, 4.6))
+        ax11.plot(x, damage_profile, label="Synthetic damage profile")
+        ax11.axvspan(0.5 - central_width / 2.0, 0.5 + central_width / 2.0, alpha=0.15, label="Central region")
+        ax11.axhline(damage_threshold, linestyle="--", label="Damage threshold")
+        ax11.set_xlabel("Normalised specimen position, x/L")
+        ax11.set_ylabel("Damage intensity")
+        ax11.set_title("Damage-zone migration / central concentration")
+        ax11.grid(True, alpha=0.35)
+        ax11.legend()
+        st.pyplot(fig11)
+
+    with c2:
+        descriptors = pd.DataFrame({
+            "Descriptor": [
+                "Final damage D",
+                "Central damage fraction Dc",
+                "Symmetry index Sx",
+                "Neutral-zone proxy χn",
+                "Superposition factor ηsup",
+                "Normalised delay Δt*",
+            ],
+            "Value": [
+                D[-1],
+                D_c,
+                S_x,
+                neutral_width_proxy,
+                eta_sup,
+                dt_star,
+            ],
+            "Interpretation": [
+                "Cumulative material degradation",
+                "Degree of central damage concentration",
+                "Left-right damage symmetry",
+                "Low-velocity / low-strain-rate zone proxy",
+                "Constructive wave-overlap indicator",
+                "Regime classifier",
+            ],
+        })
+        st.dataframe(descriptors, use_container_width=True)
+
+    st.markdown(
+        """
+        **Suggested validation hierarchy:**  
+        1. Bar strain gauges: amplitude, duration, delay and energy.  
+        2. High-speed imaging / DIC: surface strain localisation and damage-zone migration.  
+        3. CT scanning: internal damage volume, damage band width and crack orientation.  
+        4. DEM: stress path, bond-breakage ratio, central damage fraction and energy dissipation.
+        """
+    )
 
 with tab6:
-    st.subheader("Export calculated data")
+    st.subheader("Quick parametric study of delay effect")
+
+    dt_star_grid = np.linspace(0, 20, 120)
+    eta_grid = []
+    Dfinal_grid = []
+    Dc_grid = []
+    for dts in dt_star_grid:
+        d = dts * t_travel
+        gr = get_window(t - d - (L_m / (2.0 * cp0)), td_right, pulse_type)
+        gl = get_window(t - (L_m / (2.0 * cp0)), td, pulse_type)
+        sig_c = sx0 + Ax * gl + Ax * amplitude_ratio * gr
+        eta = (np.max(sig_c) - sx0) / max(Ax, 1e-9)
+        eta_grid.append(eta)
+
+        # conceptual trends for final damage and central fraction
+        wave_control = np.exp(-(dts / 1.2)**2)
+        damage_memory = 1.0 / (1.0 + np.exp(-(dts - 5.0) / 1.3))
+        Dfinal_grid.append(np.clip(0.15 + 0.35 * wave_control + 0.25 * damage_memory, 0, 1))
+        Dc_grid.append(np.clip(0.75 * wave_control + 0.25 * (1 - damage_memory), 0, 1))
+
+    fig12, ax12 = plt.subplots(figsize=(10, 4.8))
+    ax12.plot(dt_star_grid, eta_grid, label=r"$\eta_{\rm sup}$")
+    ax12.plot(dt_star_grid, Dfinal_grid, label="Final damage trend")
+    ax12.plot(dt_star_grid, Dc_grid, label="Central damage fraction trend")
+    ax12.axvline(dt_star, linestyle="--", label="Current case")
+    ax12.set_xlabel(r"Normalised delay, $\Delta t^*$")
+    ax12.set_ylabel("Normalised indicator")
+    ax12.set_title("Delay-controlled transition from central superposition to sequential damage")
+    ax12.grid(True, alpha=0.35)
+    ax12.legend()
+    st.pyplot(fig12)
+    st.download_button("Download parametric delay figure", fig_to_bytes(fig12), "paper2_delay_parametric_study.png", "image/png")
+
+with tab7:
+    st.subheader("Export data")
+
     df = pd.DataFrame({
         "time_us": t_us,
+        "x_left_MPa": x_left,
+        "x_right_MPa": x_right,
+        "y_pair_MPa": y_pair,
+        "z_pair_MPa": z_pair,
         "sigma_x_MPa": sx,
         "sigma_y_MPa": sy,
         "sigma_z_MPa": sz,
-        "tau_xy_MPa": tau_xy,
-        "tau_yz_MPa": tau_yz,
-        "tau_zx_MPa": tau_zx,
         "p_MPa": p,
         "q_MPa": q,
         "theta_deg": theta_deg,
-        "J2_MPa2": J2,
-        "J3_MPa3": J3,
-        "sigma1_MPa": eigs[:, 0],
-        "sigma2_MPa": eigs[:, 1],
-        "sigma3_MPa": eigs[:, 2],
-        "alpha_xy_deg": alpha_xy,
-        "alpha_yz_deg": alpha_yz,
-        "alpha_zx_deg": alpha_zx,
-        "epsdot_eq_s-1": epsdot_eq,
-        "DIF": DIF,
         "qf_MPa": qf,
         "failure_index": F_index,
+        "epsdot_eq_s-1": epsdot_eq,
+        "D": D,
+        "Ddot_s-1": Ddot,
+        "E_D_GPa": E_D,
+        "cp_D_m_s": cp_D,
         "W_input_MJ_m3": W_input,
         "W_elastic_MJ_m3": W_el,
         "W_diss_proxy_MJ_m3": W_diss_proxy,
@@ -489,16 +571,16 @@ with tab6:
     st.download_button(
         "Download full results as CSV",
         data=df.to_csv(index=False).encode("utf-8"),
-        file_name="paper1_final_streamlit_results.csv",
+        file_name="paper2_wave_damage_transition_results.csv",
         mime="text/csv",
     )
 
     st.markdown("### Suggested manuscript wording")
     st.code(
-        """The analytical stress histories were generated using finite-duration windowed pulses. 
-The resulting stress tensor was transformed into the invariant quantities p(t), q(t) and θ(t), 
-and the transient failure index was evaluated using a pressure-, Lode-angle- and rate-dependent envelope. 
-Principal-axis rotation was quantified from the shear components of the stress tensor, while the DEM stress 
-calculation can be mapped to the same invariant framework using the symmetrised Weber--Love expression.""",
+        """The instability response was interpreted using the normalised delay Δt*=Δt/ttravel. 
+For Δt*<1, the response is governed by direct stress-wave superposition, quantified by ηsup. 
+For 1≤Δt*≤3, the response remains coupled through wave reverberations. 
+For 3<Δt*≤10, the system enters a transitional regime in which reverberations decay and damage begins to influence the subsequent response. 
+For Δt*>10, the second pulse acts primarily on a stiffness-degraded material state, and the instability mechanism becomes damage-memory controlled.""",
         language="text",
     )
