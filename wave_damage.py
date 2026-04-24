@@ -251,12 +251,12 @@ delay_scatter = (1.0 / (1.0 + np.exp(-(dt_star - 5.0)))) * np.max(D) * 0.35
 damage_profile = np.clip(left_damage + right_damage + central_damage + delay_scatter, 0, 1)
 
 central_mask = np.abs(x - centre) < central_width / 2.0
-total_damage_area = np.trapz(damage_profile, x)
-central_damage_area = np.trapz(damage_profile[central_mask], x[central_mask]) if np.any(central_mask) else 0
+total_damage_area = np.trapezoid(damage_profile, x)
+central_damage_area = np.trapezoid(damage_profile[central_mask], x[central_mask]) if np.any(central_mask) else 0
 D_c = central_damage_area / max(total_damage_area, 1e-12)
 
-D_left = np.trapz(damage_profile[x < 0.5], x[x < 0.5])
-D_right = np.trapz(damage_profile[x >= 0.5], x[x >= 0.5])
+D_left = np.trapezoid(damage_profile[x < 0.5], x[x < 0.5])
+D_right = np.trapezoid(damage_profile[x >= 0.5], x[x >= 0.5])
 S_x = 1.0 - abs(D_left - D_right) / max(D_left + D_right + 1e-12, 1e-12)
 
 neutral_width_proxy = np.clip(1.0 / (1.0 + 0.5 * dt_star) * (1.0 / max(1.0, abs(amplitude_ratio - 1.0) + 1.0)), 0, 1)
