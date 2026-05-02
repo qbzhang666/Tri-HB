@@ -699,9 +699,9 @@ def base_layout(xtitle: str, ytitle: str, height: int = 420) -> dict:
         height=height,
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#c0c8d8", family="JetBrains Mono, monospace", size=12),
-        xaxis=dict(gridcolor="rgba(80,90,110,0.3)"),
-        yaxis=dict(gridcolor="rgba(80,90,110,0.3)"),
+        font=dict(color="#222", family="JetBrains Mono, monospace", size=12),
+        xaxis=dict(gridcolor="rgba(0,0,0,0.1)"),
+        yaxis=dict(gridcolor="rgba(0,0,0,0.1)"),
         margin=dict(l=60, r=20, t=20, b=50),
         legend=dict(bgcolor="rgba(15,20,32,0.7)", bordercolor="#2a3348", borderwidth=1),
     )
