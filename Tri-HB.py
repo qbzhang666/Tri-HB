@@ -435,8 +435,8 @@ def build_summary_json(result: Dict) -> bytes:
     """Configuration + summary metrics + warning, all in one JSON."""
     payload = {
         "metadata": {
-            "tool": "Virtual Tri-HB Streamlit",
-            "version": "v3",
+            "tool": "Virtual Tri-HB Demo",
+            "version": "v1",
             "exported_at": datetime.utcnow().isoformat() + "Z",
         },
         "configuration": result["config"],
@@ -495,7 +495,7 @@ def build_combined_xlsx(result: Dict) -> bytes:
 # STREAMLIT UI
 # =============================================================================
 st.set_page_config(
-    page_title="Virtual Tri-HB",
+    page_title="Virtual Tri-HB System Modelling",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -532,7 +532,7 @@ st.markdown("""
 
 # ---- Header ----
 st.markdown('<div class="main-header">Virtual Tri-HB</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Triaxial Hopkinson Bar Simulator · Monash · v3 (Streamlit)</div>',
+st.markdown('<div class="subtitle">Triaxial Hopkinson Bar Modelling · v1</div>',
             unsafe_allow_html=True)
 st.markdown(
     "Four loading modes: gas-gun uniaxial, EM uniaxial, EM asynchronous triaxial, "
@@ -613,10 +613,10 @@ with st.sidebar:
     st.subheader("Static pre-stress")
     st.caption("Applied by hydraulic cylinders before the dynamic pulse arrives.")
 
-    max_conf = 300 if is_em else 100
-    conf_X = st.slider("σ₁ axial (X) — MPa", 0, max_conf, 20, step=5)
-    conf_Y = st.slider("σ₂ confining (Y) — MPa", 0, max_conf, 20, step=5)
-    conf_Z = st.slider("σ₃ confining (Z) — MPa", 0, max_conf, 20, step=5)
+    max_conf = 100 if is_em else 100
+    conf_X = st.slider("σ₁ axial (X) — MPa", 0, max_conf, 20, step=1)
+    conf_Y = st.slider("σ₂ confining (Y) — MPa", 0, max_conf, 15, step=1)
+    conf_Z = st.slider("σ₃ confining (Z) — MPa", 0, max_conf, 10, step=1)
 
     if is_async:
         st.divider()
