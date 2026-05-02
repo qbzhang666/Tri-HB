@@ -599,7 +599,7 @@ with st.sidebar:
     st.subheader("Static pre-stress")
     st.caption("Applied by hydraulic cylinders before the dynamic pulse arrives.")
 
-    max_conf = 100 if is_em else 200
+    max_conf = 100 if is_em else 20
     conf_X = st.slider("σ₁ axial (X) — MPa", 0, max_conf, 20, step=1)
     conf_Y = st.slider("σ₂ confining (Y) — MPa", 0, max_conf, 10, step=1)
     conf_Z = st.slider("σ₃ confining (Z) — MPa", 0, max_conf, 5, step=1)
