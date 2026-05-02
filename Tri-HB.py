@@ -531,7 +531,7 @@ st.markdown("""
 
 
 # ---- Header ----
-st.markdown('<div class="main-header">Virtual Tri-HB</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">Virtual Tri-HB Modelling</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Triaxial Hopkinson Bar Modelling · v1</div>',
             unsafe_allow_html=True)
 st.markdown(
