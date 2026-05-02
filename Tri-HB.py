@@ -697,7 +697,7 @@ def base_layout(xtitle: str, ytitle: str, height: int = 420) -> dict:
         xaxis_title=xtitle,
         yaxis_title=ytitle,
         height=height,
-        plot_bgcolor="rgba(15,20,32,0.4)",
+        plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
         font=dict(color="#c0c8d8", family="JetBrains Mono, monospace", size=12),
         xaxis=dict(gridcolor="rgba(80,90,110,0.3)"),
