@@ -435,8 +435,8 @@ def build_summary_json(result: Dict) -> bytes:
     """Configuration + summary metrics + warning, all in one JSON."""
     payload = {
         "metadata": {
-            "tool": "Virtual Tri-HB Demo",
-            "version": "v1",
+            "tool": "Virtual Tri-HB Streamlit",
+            "version": "v3",
             "exported_at": datetime.utcnow().isoformat() + "Z",
         },
         "configuration": result["config"],
@@ -495,7 +495,7 @@ def build_combined_xlsx(result: Dict) -> bytes:
 # STREAMLIT UI
 # =============================================================================
 st.set_page_config(
-    page_title="Virtual Tri-HB System Modelling",
+    page_title="Virtual Tri-HB",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -531,8 +531,8 @@ st.markdown("""
 
 
 # ---- Header ----
-st.markdown('<div class="main-header">Virtual Tri-HB Modelling</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Triaxial Hopkinson Bar Modelling · v1</div>',
+st.markdown('<div class="main-header">Virtual Tri-HB</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Triaxial Hopkinson Bar Simulator · Monash · v3 (Streamlit)</div>',
             unsafe_allow_html=True)
 st.markdown(
     "Four loading modes: gas-gun uniaxial, EM uniaxial, EM asynchronous triaxial, "
@@ -613,10 +613,10 @@ with st.sidebar:
     st.subheader("Static pre-stress")
     st.caption("Applied by hydraulic cylinders before the dynamic pulse arrives.")
 
-    max_conf = 100 if is_em else 100
-    conf_X = st.slider("σ₁ axial (X) — MPa", 0, max_conf, 20, step=1)
-    conf_Y = st.slider("σ₂ confining (Y) — MPa", 0, max_conf, 15, step=1)
-    conf_Z = st.slider("σ₃ confining (Z) — MPa", 0, max_conf, 10, step=1)
+    max_conf = 300 if is_em else 100
+    conf_X = st.slider("σ₁ axial (X) — MPa", 0, max_conf, 20, step=5)
+    conf_Y = st.slider("σ₂ confining (Y) — MPa", 0, max_conf, 20, step=5)
+    conf_Z = st.slider("σ₃ confining (Z) — MPa", 0, max_conf, 20, step=5)
 
     if is_async:
         st.divider()
@@ -697,13 +697,13 @@ def base_layout(xtitle: str, ytitle: str, height: int = 420) -> dict:
         xaxis_title=xtitle,
         yaxis_title=ytitle,
         height=height,
-        plot_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(15,20,32,0.4)",
         paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#222", family="JetBrains Mono, monospace", size=12),
-        xaxis=dict(gridcolor="rgba(0,0,0,0.1)"),
-        yaxis=dict(gridcolor="rgba(0,0,0,0.1)"),
+        font=dict(color="#c0c8d8", family="JetBrains Mono, monospace", size=12),
+        xaxis=dict(gridcolor="rgba(80,90,110,0.3)"),
+        yaxis=dict(gridcolor="rgba(80,90,110,0.3)"),
         margin=dict(l=60, r=20, t=20, b=50),
-        legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="#2a3348", borderwidth=1),
+        legend=dict(bgcolor="rgba(15,20,32,0.7)", bordercolor="#2a3348", borderwidth=1),
     )
 
 
