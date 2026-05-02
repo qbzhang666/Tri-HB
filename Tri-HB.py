@@ -2,8 +2,7 @@
 Virtual Tri-HB Simulator — Streamlit version
 ============================================
 
-Educational simulator for the Triaxial Hopkinson Bar facilities at Monash
-University. Four loading modes:
+Educational simulator for the Triaxial Hopkinson Bar facilities. Four loading modes:
 
   1. Gas-Gun uniaxial impact (classical SHPB)
   2. EM uniaxial impact (clean half-sine pulse)
