@@ -703,7 +703,7 @@ def base_layout(xtitle: str, ytitle: str, height: int = 420) -> dict:
         xaxis=dict(gridcolor="rgba(0,0,0,0.1)"),
         yaxis=dict(gridcolor="rgba(0,0,0,0.1)"),
         margin=dict(l=60, r=20, t=20, b=50),
-        legend=dict(bgcolor="rgba(15,20,32,0.7)", bordercolor="#2a3348", borderwidth=1),
+        legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="#2a3348", borderwidth=1),
     )
 
 
