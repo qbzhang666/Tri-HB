@@ -157,13 +157,23 @@ class SimConfig:
 
 
 @st.cache_data(show_spinner=False)
-def simulate(_config_dict: dict) -> Dict:
+def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
+             pulse_duration: float, confinement_X: float, confinement_Y: float,
+             confinement_Z: float, specimen_size: float, pulse_delay_Y: float,
+             pulse_delay_Z: float, symmetric_axes: str) -> Dict:
     """Run the time-domain wave simulation and return all signals.
 
-    The function takes a dict (so Streamlit can hash it) and returns a dict of
-    numpy arrays plus summary metrics and warnings.
+    All arguments are hashable primitives so Streamlit's @st.cache_data
+    correctly invalidates the cache whenever any input changes.
     """
-    cfg = SimConfig(**_config_dict)
+    cfg = SimConfig(
+        mode=mode, rock_type=rock_type, velocity=velocity,
+        peak_stress=peak_stress, pulse_duration=pulse_duration,
+        confinement_X=confinement_X, confinement_Y=confinement_Y,
+        confinement_Z=confinement_Z, specimen_size=specimen_size,
+        pulse_delay_Y=pulse_delay_Y, pulse_delay_Z=pulse_delay_Z,
+        symmetric_axes=symmetric_axes,
+    )
     is_gas_gun = cfg.mode == "gas-gun"
     is_symmetric = cfg.mode == "em-symmetric"
     is_async = cfg.mode == "em-async"
@@ -374,7 +384,15 @@ def simulate(_config_dict: dict) -> Dict:
         epsI_x_pos=epsI_x_pos, epsI_x_neg=epsI_x_neg,
         epsR_x_pos=epsR_x_pos, epsT_x=epsT_x,
         epsY_dyn=epsY_dyn, epsZ_dyn=epsZ_dyn,
-        warning=warning, summary=summary, config=_config_dict,
+        warning=warning, summary=summary,
+        config=dict(
+            mode=mode, rock_type=rock_type, velocity=velocity,
+            peak_stress=peak_stress, pulse_duration=pulse_duration,
+            confinement_X=confinement_X, confinement_Y=confinement_Y,
+            confinement_Z=confinement_Z, specimen_size=specimen_size,
+            pulse_delay_Y=pulse_delay_Y, pulse_delay_Z=pulse_delay_Z,
+            symmetric_axes=symmetric_axes,
+        ),
     )
 
 
@@ -644,7 +662,7 @@ config = {
     "symmetric_axes": symmetric_axes,
 }
 
-result = simulate(config)
+result = simulate(**config)
 
 
 # =============================================================================
