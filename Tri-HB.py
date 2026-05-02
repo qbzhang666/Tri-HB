@@ -2,7 +2,8 @@
 Virtual Tri-HB Simulator — Streamlit version
 ============================================
 
-Educational simulator for the Triaxial Hopkinson Bar facilities. Four loading modes:
+Educational simulator for the Triaxial Hopkinson Bar facilities at Monash
+University. Four loading modes:
 
   1. Gas-Gun uniaxial impact (classical SHPB)
   2. EM uniaxial impact (clean half-sine pulse)
@@ -308,19 +309,33 @@ def simulate(_config_dict: dict) -> Dict:
             sig_y[i] = sigY_static + lat_stiffness * (-eps_y[i])
             sig_z[i] = sigZ_static + lat_stiffness * (-eps_z[i])
 
-        # Dynamic component on lateral bar gauges (static pre-stress doesn't go through bar)
-        epsY_dyn[i] = (sig_y[i] - sigY_static) * As / (BAR.E * Ab)
-        epsZ_dyn[i] = (sig_z[i] - sigZ_static) * As / (BAR.E * Ab)
+        # Dynamic component on lateral bar gauges (static pre-stress doesn't go through bar).
+        # In symmetric mode, two opposing bars share the lateral load, so each
+        # individual bar carries half the dynamic stress.
+        Y_share = 2.0 if (is_symmetric and sym_Y) else 1.0
+        Z_share = 2.0 if (is_symmetric and sym_Z) else 1.0
+        epsY_dyn[i] = (sig_y[i] - sigY_static) * As / (Y_share * BAR.E * Ab)
+        epsZ_dyn[i] = (sig_z[i] - sigZ_static) * As / (Z_share * BAR.E * Ab)
 
     # ---- Bar plasticity check ----
-    bar_stress_envelope = np.maximum.reduce([
-        np.abs(epsI_x_pos * BAR.E) + np.abs(epsR_x_pos * BAR.E),
+    # A strain gauge on a bar records ONE signal at any instant — incident and
+    # reflected waves pass through the gauge at well-separated times. So the
+    # peak bar stress on each bar is just the max |signal| at that bar, not
+    # the sum of |incident| + |reflected|.
+    #
+    # In symmetric mode the +X and -X bars each carry their own incident plus
+    # reflected; the same gauge would see whichever is larger.
+    bar_signals = [
+        np.abs(epsI_x_pos * BAR.E),
+        np.abs(epsR_x_pos * BAR.E),
         np.abs(epsI_x_neg * BAR.E),
         np.abs(epsT_x * BAR.E),
-        np.abs(epsI_y_pos * BAR.E) + np.abs(epsY_dyn * BAR.E),
-        np.abs(epsI_z_pos * BAR.E) + np.abs(epsZ_dyn * BAR.E),
-    ])
-    max_bar_stress = float(np.max(bar_stress_envelope))
+        np.abs(epsI_y_pos * BAR.E),
+        np.abs(epsY_dyn * BAR.E),
+        np.abs(epsI_z_pos * BAR.E),
+        np.abs(epsZ_dyn * BAR.E),
+    ]
+    max_bar_stress = float(max(np.max(s) for s in bar_signals))
 
     warning = None
     if max_bar_stress > BAR.sigma_yield:
@@ -598,10 +613,10 @@ with st.sidebar:
     st.subheader("Static pre-stress")
     st.caption("Applied by hydraulic cylinders before the dynamic pulse arrives.")
 
-    max_conf = 100 if is_em else 100
-    conf_X = st.slider("σ₁ axial (X) — MPa", 0, max_conf, 20, step=1)
-    conf_Y = st.slider("σ₂ confining (Y) — MPa", 0, max_conf, 10, step=1)
-    conf_Z = st.slider("σ₃ confining (Z) — MPa", 0, max_conf, 5, step=1)
+    max_conf = 300 if is_em else 100
+    conf_X = st.slider("σ₁ axial (X) — MPa", 0, max_conf, 20, step=5)
+    conf_Y = st.slider("σ₂ confining (Y) — MPa", 0, max_conf, 20, step=5)
+    conf_Z = st.slider("σ₃ confining (Z) — MPa", 0, max_conf, 20, step=5)
 
     if is_async:
         st.divider()
