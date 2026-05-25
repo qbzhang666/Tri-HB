@@ -631,10 +631,10 @@ with st.sidebar:
     st.subheader("Static pre-stress")
     st.caption("Applied by hydraulic cylinders before the dynamic pulse arrives.")
 
-    max_conf = 300 if is_em else 100
-    conf_X = st.slider("σ₁ axial (X) — MPa", 0, max_conf, 20, step=5)
-    conf_Y = st.slider("σ₂ confining (Y) — MPa", 0, max_conf, 20, step=5)
-    conf_Z = st.slider("σ₃ confining (Z) — MPa", 0, max_conf, 20, step=5)
+    max_conf = 50
+    conf_X = st.slider("σ₁ axial (X) — MPa", 0, max_conf, 20, step=1)
+    conf_Y = st.slider("σ₂ confining (Y) — MPa", 0, max_conf, 15, step=1)
+    conf_Z = st.slider("σ₃ confining (Z) — MPa", 0, max_conf, 10, step=1)
 
     if is_async:
         st.divider()
@@ -663,6 +663,8 @@ config = {
 }
 
 result = simulate(**config)
+st.session_state["tri_hb_latest_result"] = result
+st.session_state["tri_hb_latest_config"] = config
 
 
 # =============================================================================

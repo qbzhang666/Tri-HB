@@ -99,10 +99,20 @@ def experimental_analysis_page() -> None:
         "or import already reduced stress-strain data for comparison."
     )
 
+    latest_result = st.session_state.get("tri_hb_latest_result")
+    use_simulator_result = False
+    if latest_result is not None:
+        use_simulator_result = st.checkbox(
+            "Use latest Test Design and Simulator result",
+            value=True,
+            help="Run Step 1 first, then return here to analyse/export the simulated stress-strain history directly.",
+        )
+
     uploaded = st.file_uploader(
         "Upload CSV or Excel data",
         type=["csv", "xlsx", "xls"],
         help="Expected columns include time and incident/reflected/transmitted strains, or direct stress and strain.",
+        disabled=use_simulator_result,
     )
 
     with st.sidebar:
@@ -116,13 +126,25 @@ def experimental_analysis_page() -> None:
         st.subheader("Specimen and bars")
         bar_E_GPa = st.number_input("Bar Young's modulus, Eb (GPa)", value=210.0, min_value=1.0, step=5.0)
         bar_C0 = st.number_input("Bar wave speed, C0 (m/s)", value=5172.0, min_value=1000.0, step=50.0)
-        bar_d_mm = st.number_input("Round bar diameter (mm)", value=40.0, min_value=1.0, step=1.0)
-        square_bar = st.checkbox("Use square 50 x 50 mm bar area", value=False)
+        bar_d_mm = st.number_input("Round bar diameter (mm)", value=50.0, min_value=1.0, step=1.0)
+        square_bar = st.checkbox("Use square 50 x 50 mm bar area", value=True)
         specimen_side_mm = st.number_input("Specimen side/diameter (mm)", value=50.0, min_value=1.0, step=1.0)
         specimen_length_mm = st.number_input("Specimen length (mm)", value=50.0, min_value=1.0, step=1.0)
         specimen_shape = st.radio("Specimen area", ["Square/cube", "Circular cylinder"], horizontal=True)
 
-    if uploaded is None:
+    if use_simulator_result and latest_result is not None:
+        out = pd.DataFrame(
+            {
+                "time_us": latest_result["time"] * 1e6,
+                "stress_MPa": latest_result["sig_x"] / 1e6,
+                "strain": latest_result["eps_x"],
+                "strain_rate_s-1": latest_result["rate_x"],
+            }
+        )
+        st.success("Using the latest result from Test Design and Simulator.")
+        df_raw = out.copy()
+        analysis_mode = "Simulator result"
+    elif uploaded is None:
         st.info("Upload an experimental CSV or Excel file to begin reduction.")
         example = pd.DataFrame(
             {
@@ -134,122 +156,130 @@ def experimental_analysis_page() -> None:
         )
         st.dataframe(example, use_container_width=True)
         return
+    else:
+        df_raw = read_uploaded_table(uploaded)
+        df_raw = df_raw.dropna(how="all")
+        st.dataframe(df_raw.head(20), use_container_width=True)
 
-    df_raw = read_uploaded_table(uploaded)
-    df_raw = df_raw.dropna(how="all")
-    st.dataframe(df_raw.head(20), use_container_width=True)
+        if df_raw.empty:
+            st.error("The uploaded file did not contain any readable rows.")
+            return
 
-    if df_raw.empty:
-        st.error("The uploaded file did not contain any readable rows.")
-        return
+    if analysis_mode == "Simulator result":
+        out = out.replace([np.inf, -np.inf], np.nan).dropna(subset=["time_us", "stress_MPa", "strain"])
+        columns = list(df_raw.columns)
+        col_map, col_plot = st.columns([0.9, 1.1])
+        with col_map:
+            st.subheader("Data source")
+            st.write("Latest simulated axial stress-strain response.")
+    else:
+        columns = list(df_raw.columns)
+        col_map, col_plot = st.columns([0.9, 1.1])
 
-    columns = list(df_raw.columns)
-    col_map, col_plot = st.columns([0.9, 1.1])
+        with col_map:
+            st.subheader("Column mapping")
+            time_col = choose_column("Time column", columns, "exp_time")
+            time_unit = st.selectbox("Time unit", ["microsecond", "second", "millisecond"], key="exp_time_unit")
+            compression_sign = st.radio(
+                "Compression convention",
+                ["Positive compression", "Negative compression"],
+                horizontal=True,
+                key="compression_sign",
+            )
 
-    with col_map:
-        st.subheader("Column mapping")
-        time_col = choose_column("Time column", columns, "exp_time")
-        time_unit = st.selectbox("Time unit", ["microsecond", "second", "millisecond"], key="exp_time_unit")
-        compression_sign = st.radio(
-            "Compression convention",
-            ["Positive compression", "Negative compression"],
-            horizontal=True,
-            key="compression_sign",
-        )
+            if analysis_mode == "Bar strain gauges":
+                eps_i_col = choose_column("Incident strain column", columns, "eps_i")
+                eps_r_col = choose_column("Reflected strain column", columns, "eps_r")
+                eps_t_col = choose_column("Transmitted strain column", columns, "eps_t")
+                strain_unit = st.selectbox("Gauge strain unit", ["microstrain", "strain"], key="strain_unit")
+                reduction = st.selectbox(
+                    "Stress reduction",
+                    ["Three-wave average", "Transmitted-wave only"],
+                    key="reduction_mode",
+                )
+            else:
+                strain_col = choose_column("Strain column", columns, "direct_strain")
+                stress_col = choose_column("Stress column", columns, "direct_stress")
+                stress_unit = st.selectbox("Stress unit", ["MPa", "Pa"], key="direct_stress_unit")
+                strain_unit = st.selectbox("Strain unit", ["strain", "percent", "microstrain"], key="direct_strain_unit")
+
+        time = pd.to_numeric(df_raw[time_col], errors="coerce").to_numpy(dtype=float)
+        if time_unit == "microsecond":
+            time_s = time * 1e-6
+            time_us = time
+        elif time_unit == "millisecond":
+            time_s = time * 1e-3
+            time_us = time * 1e3
+        else:
+            time_s = time
+            time_us = time * 1e6
+
+        order = np.argsort(time_s)
+        time_s = time_s[order]
+        time_us = time_us[order]
+
+        sign = 1.0 if compression_sign == "Positive compression" else -1.0
+        Eb = bar_E_GPa * 1e9
+        Ab = (0.050 * 0.050) if square_bar else np.pi * (bar_d_mm * 1e-3 / 2.0) ** 2
+        if specimen_shape == "Square/cube":
+            As = (specimen_side_mm * 1e-3) ** 2
+        else:
+            As = np.pi * (specimen_side_mm * 1e-3 / 2.0) ** 2
+        Ls = specimen_length_mm * 1e-3
 
         if analysis_mode == "Bar strain gauges":
-            eps_i_col = choose_column("Incident strain column", columns, "eps_i")
-            eps_r_col = choose_column("Reflected strain column", columns, "eps_r")
-            eps_t_col = choose_column("Transmitted strain column", columns, "eps_t")
-            strain_unit = st.selectbox("Gauge strain unit", ["microstrain", "strain"], key="strain_unit")
-            reduction = st.selectbox(
-                "Stress reduction",
-                ["Three-wave average", "Transmitted-wave only"],
-                key="reduction_mode",
+            scale = 1e-6 if strain_unit == "microstrain" else 1.0
+            eps_i = sign * pd.to_numeric(df_raw[eps_i_col], errors="coerce").to_numpy(dtype=float)[order] * scale
+            eps_r = sign * pd.to_numeric(df_raw[eps_r_col], errors="coerce").to_numpy(dtype=float)[order] * scale
+            eps_t = sign * pd.to_numeric(df_raw[eps_t_col], errors="coerce").to_numpy(dtype=float)[order] * scale
+
+            if reduction == "Three-wave average":
+                stress_pa = Eb * Ab / (2.0 * As) * (eps_i + eps_r + eps_t)
+            else:
+                stress_pa = Eb * Ab / As * eps_t
+
+            strain_rate = bar_C0 / Ls * (eps_i - eps_r - eps_t)
+            strain = cumulative_trapezoid(strain_rate, time_s)
+
+            energy_i = Ab * Eb * bar_C0 * cumulative_trapezoid(eps_i**2, time_s)
+            energy_r = Ab * Eb * bar_C0 * cumulative_trapezoid(eps_r**2, time_s)
+            energy_t = Ab * Eb * bar_C0 * cumulative_trapezoid(eps_t**2, time_s)
+            absorbed = energy_i - energy_r - energy_t
+
+            out = pd.DataFrame(
+                {
+                    "time_us": time_us,
+                    "eps_incident": eps_i,
+                    "eps_reflected": eps_r,
+                    "eps_transmitted": eps_t,
+                    "stress_MPa": stress_pa / 1e6,
+                    "strain": strain,
+                    "strain_rate_s-1": strain_rate,
+                    "energy_incident_J": energy_i,
+                    "energy_reflected_J": energy_r,
+                    "energy_transmitted_J": energy_t,
+                    "energy_absorbed_J": absorbed,
+                }
             )
         else:
-            strain_col = choose_column("Strain column", columns, "direct_strain")
-            stress_col = choose_column("Stress column", columns, "direct_stress")
-            stress_unit = st.selectbox("Stress unit", ["MPa", "Pa"], key="direct_stress_unit")
-            strain_unit = st.selectbox("Strain unit", ["strain", "percent", "microstrain"], key="direct_strain_unit")
-
-    time = pd.to_numeric(df_raw[time_col], errors="coerce").to_numpy(dtype=float)
-    if time_unit == "microsecond":
-        time_s = time * 1e-6
-        time_us = time
-    elif time_unit == "millisecond":
-        time_s = time * 1e-3
-        time_us = time * 1e3
-    else:
-        time_s = time
-        time_us = time * 1e6
-
-    order = np.argsort(time_s)
-    time_s = time_s[order]
-    time_us = time_us[order]
-
-    sign = 1.0 if compression_sign == "Positive compression" else -1.0
-    Eb = bar_E_GPa * 1e9
-    Ab = (0.050 * 0.050) if square_bar else np.pi * (bar_d_mm * 1e-3 / 2.0) ** 2
-    if specimen_shape == "Square/cube":
-        As = (specimen_side_mm * 1e-3) ** 2
-    else:
-        As = np.pi * (specimen_side_mm * 1e-3 / 2.0) ** 2
-    Ls = specimen_length_mm * 1e-3
-
-    if analysis_mode == "Bar strain gauges":
-        scale = 1e-6 if strain_unit == "microstrain" else 1.0
-        eps_i = sign * pd.to_numeric(df_raw[eps_i_col], errors="coerce").to_numpy(dtype=float)[order] * scale
-        eps_r = sign * pd.to_numeric(df_raw[eps_r_col], errors="coerce").to_numpy(dtype=float)[order] * scale
-        eps_t = sign * pd.to_numeric(df_raw[eps_t_col], errors="coerce").to_numpy(dtype=float)[order] * scale
-
-        if reduction == "Three-wave average":
-            stress_pa = Eb * Ab / (2.0 * As) * (eps_i + eps_r + eps_t)
-        else:
-            stress_pa = Eb * Ab / As * eps_t
-
-        strain_rate = bar_C0 / Ls * (eps_i - eps_r - eps_t)
-        strain = cumulative_trapezoid(strain_rate, time_s)
-
-        energy_i = Ab * Eb * bar_C0 * cumulative_trapezoid(eps_i**2, time_s)
-        energy_r = Ab * Eb * bar_C0 * cumulative_trapezoid(eps_r**2, time_s)
-        energy_t = Ab * Eb * bar_C0 * cumulative_trapezoid(eps_t**2, time_s)
-        absorbed = energy_i - energy_r - energy_t
-
-        out = pd.DataFrame(
-            {
-                "time_us": time_us,
-                "eps_incident": eps_i,
-                "eps_reflected": eps_r,
-                "eps_transmitted": eps_t,
-                "stress_MPa": stress_pa / 1e6,
-                "strain": strain,
-                "strain_rate_s-1": strain_rate,
-                "energy_incident_J": energy_i,
-                "energy_reflected_J": energy_r,
-                "energy_transmitted_J": energy_t,
-                "energy_absorbed_J": absorbed,
-            }
-        )
-    else:
-        raw_strain = sign * pd.to_numeric(df_raw[strain_col], errors="coerce").to_numpy(dtype=float)[order]
-        if strain_unit == "percent":
-            strain = raw_strain / 100.0
-        elif strain_unit == "microstrain":
-            strain = raw_strain * 1e-6
-        else:
-            strain = raw_strain
-        raw_stress = sign * pd.to_numeric(df_raw[stress_col], errors="coerce").to_numpy(dtype=float)[order]
-        stress_mpa = raw_stress if stress_unit == "MPa" else raw_stress / 1e6
-        strain_rate = np.gradient(strain, time_s)
-        out = pd.DataFrame(
-            {
-                "time_us": time_us,
-                "stress_MPa": stress_mpa,
-                "strain": strain,
-                "strain_rate_s-1": strain_rate,
-            }
-        )
+            raw_strain = sign * pd.to_numeric(df_raw[strain_col], errors="coerce").to_numpy(dtype=float)[order]
+            if strain_unit == "percent":
+                strain = raw_strain / 100.0
+            elif strain_unit == "microstrain":
+                strain = raw_strain * 1e-6
+            else:
+                strain = raw_strain
+            raw_stress = sign * pd.to_numeric(df_raw[stress_col], errors="coerce").to_numpy(dtype=float)[order]
+            stress_mpa = raw_stress if stress_unit == "MPa" else raw_stress / 1e6
+            strain_rate = np.gradient(strain, time_s)
+            out = pd.DataFrame(
+                {
+                    "time_us": time_us,
+                    "stress_MPa": stress_mpa,
+                    "strain": strain,
+                    "strain_rate_s-1": strain_rate,
+                }
+            )
 
     out = out.replace([np.inf, -np.inf], np.nan).dropna(subset=["time_us", "stress_MPa", "strain"])
 

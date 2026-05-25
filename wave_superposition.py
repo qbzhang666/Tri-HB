@@ -93,14 +93,15 @@ def fig_to_bytes(fig, fmt="png", dpi=300):
     return buf
 
 # =============================================================================
-# Sidebar inputs
+# Main-page inputs
 # =============================================================================
-st.sidebar.header("Material and specimen")
+settings = st.expander("Stress-wave, stress-path and energy setup", expanded=True)
+settings.header("Material and specimen")
 
-E_GPa = st.sidebar.number_input("Young's modulus, E (GPa)", value=50.0, min_value=1.0, step=1.0)
-nu = st.sidebar.number_input("Poisson's ratio, ν", value=0.25, min_value=0.0, max_value=0.49, step=0.01)
-rho = st.sidebar.number_input("Density, ρ (kg/m³)", value=2650.0, min_value=1000.0, step=50.0)
-L_mm = st.sidebar.number_input("Specimen length, L (mm)", value=50.0, min_value=1.0, step=1.0)
+E_GPa = settings.number_input("Young's modulus, E (GPa)", value=50.0, min_value=1.0, step=1.0)
+nu = settings.number_input("Poisson's ratio, ν", value=0.25, min_value=0.0, max_value=0.49, step=0.01)
+rho = settings.number_input("Density, ρ (kg/m³)", value=2650.0, min_value=1000.0, step=50.0)
+L_mm = settings.number_input("Specimen length, L (mm)", value=50.0, min_value=1.0, step=1.0)
 
 E = E_GPa * 1e9
 G = E / (2.0 * (1.0 + nu))
@@ -113,54 +114,54 @@ t_travel = L_m / cp
 t_eq_low = 3.0 * t_travel
 t_eq_high = 5.0 * t_travel
 
-st.sidebar.header("Initial true triaxial stresses")
-sx0 = st.sidebar.number_input("σx0 (MPa)", value=30.0, min_value=0.0, step=1.0)
-sy0 = st.sidebar.number_input("σy0 (MPa)", value=20.0, min_value=0.0, step=1.0)
-sz0 = st.sidebar.number_input("σz0 (MPa)", value=15.0, min_value=0.0, step=1.0)
+settings.header("Initial true triaxial stresses")
+sx0 = settings.number_input("σx0 (MPa)", value=20.0, min_value=0.0, step=1.0)
+sy0 = settings.number_input("σy0 (MPa)", value=15.0, min_value=0.0, step=1.0)
+sz0 = settings.number_input("σz0 (MPa)", value=10.0, min_value=0.0, step=1.0)
 
-st.sidebar.header("Finite-duration pulses")
-pulse_type = st.sidebar.selectbox("Pulse envelope", ["Hann", "Half-sine", "Rectangular"], index=0)
-t_duration_us = st.sidebar.number_input("Pulse duration, td (μs)", value=60.0, min_value=1.0, step=5.0)
-tmax_us = st.sidebar.number_input("Simulation time (μs)", value=100.0, min_value=5.0, step=5.0)
-npts = st.sidebar.slider("Number of time points", 500, 20000, 3000, step=500)
+settings.header("Finite-duration pulses")
+pulse_type = settings.selectbox("Pulse envelope", ["Hann", "Half-sine", "Rectangular"], index=0)
+t_duration_us = settings.number_input("Pulse duration, td (μs)", value=60.0, min_value=1.0, step=5.0)
+tmax_us = settings.number_input("Simulation time (μs)", value=100.0, min_value=5.0, step=5.0)
+npts = settings.slider("Number of time points", 500, 20000, 3000, step=500)
 
-st.sidebar.subheader("Amplitudes")
-Ax = st.sidebar.number_input("Ax (MPa)", value=6.0, min_value=0.0, step=0.5)
-Ay = st.sidebar.number_input("Ay (MPa)", value=5.0, min_value=0.0, step=0.5)
-Az = st.sidebar.number_input("Az (MPa)", value=4.0, min_value=0.0, step=0.5)
+settings.subheader("Amplitudes")
+Ax = settings.number_input("Ax (MPa)", value=6.0, min_value=0.0, step=0.5)
+Ay = settings.number_input("Ay (MPa)", value=5.0, min_value=0.0, step=0.5)
+Az = settings.number_input("Az (MPa)", value=4.0, min_value=0.0, step=0.5)
 
-st.sidebar.subheader("Carrier frequencies")
-fx = st.sidebar.number_input("fx (kHz)", value=50.0, min_value=0.0, step=5.0)
-fy = st.sidebar.number_input("fy (kHz)", value=70.0, min_value=0.0, step=5.0)
-fz = st.sidebar.number_input("fz (kHz)", value=90.0, min_value=0.0, step=5.0)
+settings.subheader("Carrier frequencies")
+fx = settings.number_input("fx (kHz)", value=50.0, min_value=0.0, step=5.0)
+fy = settings.number_input("fy (kHz)", value=70.0, min_value=0.0, step=5.0)
+fz = settings.number_input("fz (kHz)", value=90.0, min_value=0.0, step=5.0)
 
-st.sidebar.subheader("Phase angles")
-phix = st.sidebar.number_input("φx (degrees)", value=0.0, step=5.0)
-phiy = st.sidebar.number_input("φy (degrees)", value=45.0, step=5.0)
-phiz = st.sidebar.number_input("φz (degrees)", value=90.0, step=5.0)
+settings.subheader("Phase angles")
+phix = settings.number_input("φx (degrees)", value=0.0, step=5.0)
+phiy = settings.number_input("φy (degrees)", value=45.0, step=5.0)
+phiz = settings.number_input("φz (degrees)", value=90.0, step=5.0)
 
-st.sidebar.subheader("Pulse delays")
-delay_x_us = st.sidebar.number_input("Delay x (μs)", value=0.0, min_value=0.0, step=1.0)
-delay_y_us = st.sidebar.number_input("Delay y (μs)", value=0.0, min_value=0.0, step=1.0)
-delay_z_us = st.sidebar.number_input("Delay z (μs)", value=0.0, min_value=0.0, step=1.0)
+settings.subheader("Pulse delays")
+delay_x_us = settings.number_input("Delay x (μs)", value=0.0, min_value=0.0, step=1.0)
+delay_y_us = settings.number_input("Delay y (μs)", value=0.0, min_value=0.0, step=1.0)
+delay_z_us = settings.number_input("Delay z (μs)", value=0.0, min_value=0.0, step=1.0)
 
-st.sidebar.header("Optional shear / principal-axis rotation")
-include_shear = st.sidebar.checkbox("Include small shear components", value=True)
-tau_amp = st.sidebar.number_input("Shear amplitude scale, τamp (MPa)", value=1.0, min_value=0.0, step=0.2)
-shear_phase = np.deg2rad(st.sidebar.number_input("Shear phase shift (degrees)", value=30.0, step=5.0))
+settings.header("Optional shear / principal-axis rotation")
+include_shear = settings.checkbox("Include small shear components", value=True)
+tau_amp = settings.number_input("Shear amplitude scale, τamp (MPa)", value=1.0, min_value=0.0, step=0.2)
+shear_phase = np.deg2rad(settings.number_input("Shear phase shift (degrees)", value=30.0, step=5.0))
 
-st.sidebar.header("Failure envelope")
-A_fail = st.sidebar.number_input("A in qf = (A + B pⁿ) h(θ) DIF (MPa)", value=3.0, step=0.5)
-B_fail = st.sidebar.number_input("B in qf = (A + B pⁿ) h(θ) DIF", value=0.80, step=0.05)
-n_fail = st.sidebar.number_input("n in qf = (A + B pⁿ) h(θ) DIF", value=0.80, step=0.05)
-lode_strength_factor = st.sidebar.number_input("Lode-angle factor amplitude, aθ", value=0.10, step=0.02)
-use_dif = st.sidebar.checkbox("Include strain-rate DIF", value=True)
+settings.header("Failure envelope")
+A_fail = settings.number_input("A in qf = (A + B pⁿ) h(θ) DIF (MPa)", value=3.0, step=0.5)
+B_fail = settings.number_input("B in qf = (A + B pⁿ) h(θ) DIF", value=0.80, step=0.05)
+n_fail = settings.number_input("n in qf = (A + B pⁿ) h(θ) DIF", value=0.80, step=0.05)
+lode_strength_factor = settings.number_input("Lode-angle factor amplitude, aθ", value=0.10, step=0.02)
+use_dif = settings.checkbox("Include strain-rate DIF", value=True)
 
-st.sidebar.subheader("DIF parameters")
-epsdot0 = st.sidebar.number_input("Reference strain rate, ε̇0 (s⁻¹)", value=1.0, min_value=1e-6, step=1.0)
-epsdot_tr = st.sidebar.number_input("Transition strain rate, ε̇tr (s⁻¹)", value=50.0, min_value=1e-6, step=10.0)
-A1 = st.sidebar.number_input("Low-rate DIF coefficient, A1", value=0.02, min_value=0.0, step=0.01)
-B1 = st.sidebar.number_input("High-rate DIF coefficient, B1", value=1.0, min_value=0.0, step=0.05)
+settings.subheader("DIF parameters")
+epsdot0 = settings.number_input("Reference strain rate, ε̇0 (s⁻¹)", value=1.0, min_value=1e-6, step=1.0)
+epsdot_tr = settings.number_input("Transition strain rate, ε̇tr (s⁻¹)", value=50.0, min_value=1e-6, step=10.0)
+A1 = settings.number_input("Low-rate DIF coefficient, A1", value=0.02, min_value=0.0, step=0.01)
+B1 = settings.number_input("High-rate DIF coefficient, B1", value=1.0, min_value=0.0, step=0.05)
 
 # =============================================================================
 # Calculation

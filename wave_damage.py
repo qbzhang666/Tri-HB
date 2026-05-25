@@ -102,9 +102,9 @@ t_eq_low = 3.0 * t_travel
 t_eq_high = 5.0 * t_travel
 
 st.sidebar.header("Initial stresses")
-sx0 = st.sidebar.number_input("σx0 (MPa)", value=30.0, min_value=0.0, step=1.0)
-sy0 = st.sidebar.number_input("σy0 (MPa)", value=20.0, min_value=0.0, step=1.0)
-sz0 = st.sidebar.number_input("σz0 (MPa)", value=15.0, min_value=0.0, step=1.0)
+sx0 = st.sidebar.number_input("σx0 (MPa)", value=20.0, min_value=0.0, step=1.0)
+sy0 = st.sidebar.number_input("σy0 (MPa)", value=15.0, min_value=0.0, step=1.0)
+sz0 = st.sidebar.number_input("σz0 (MPa)", value=10.0, min_value=0.0, step=1.0)
 
 st.sidebar.header("Loading configuration")
 loading_path = st.sidebar.selectbox(
@@ -284,9 +284,8 @@ st.info(
 # =============================================================================
 # Tabs
 # =============================================================================
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "Loading and regimes",
-    "Stress path",
     "Damage evolution",
     "Energy balance",
     "DEM/experimental descriptors",
@@ -349,8 +348,9 @@ with tab1:
     ax3.legend()
     st.pyplot(fig3)
 
-with tab2:
+with st.expander("Stress-path diagnostics moved to Step 3", expanded=False):
     st.subheader("Stress-path interpretation")
+    st.caption("Use Step 3 for the primary stress-wave and stress-path workflow. This reference view remains here to show the damage-driving p-q-theta histories for the current damage case.")
 
     c1, c2 = st.columns(2)
     with c1:
