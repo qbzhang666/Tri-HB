@@ -133,12 +133,31 @@ def experimental_analysis_page() -> None:
         specimen_shape = st.radio("Specimen area", ["Square/cube", "Circular cylinder"], horizontal=True)
 
     if use_simulator_result and latest_result is not None:
+        time_s = latest_result["time"]
+        eps_i_pos = latest_result["epsI_x_pos"]
+        eps_i_neg = latest_result["epsI_x_neg"]
+        eps_r_pos = latest_result["epsR_x_pos"]
+        eps_t = latest_result["epsT_x"]
+        symmetric_factor = 2.0 if np.any(np.abs(eps_i_neg) > 0.0) else 1.0
+        Ab = (0.050 * 0.050) if square_bar else np.pi * (bar_d_mm * 1e-3 / 2.0) ** 2
+        Eb = bar_E_GPa * 1e9
+        energy_i = Ab * Eb * bar_C0 * cumulative_trapezoid(eps_i_pos**2 + eps_i_neg**2, time_s)
+        energy_r = Ab * Eb * bar_C0 * cumulative_trapezoid(symmetric_factor * eps_r_pos**2, time_s)
+        energy_t = Ab * Eb * bar_C0 * cumulative_trapezoid(eps_t**2, time_s)
+        sim_cfg = st.session_state.get("tri_hb_latest_config", {})
+        sim_size = float(sim_cfg.get("specimen_size", specimen_length_mm * 1e-3))
+        sim_volume = sim_size**3
+        absorbed = cumulative_trapezoid(latest_result["sig_x"] * latest_result["rate_x"] * sim_volume, time_s)
         out = pd.DataFrame(
             {
-                "time_us": latest_result["time"] * 1e6,
+                "time_us": time_s * 1e6,
                 "stress_MPa": latest_result["sig_x"] / 1e6,
                 "strain": latest_result["eps_x"],
                 "strain_rate_s-1": latest_result["rate_x"],
+                "energy_incident_J": energy_i,
+                "energy_reflected_J": energy_r,
+                "energy_transmitted_J": energy_t,
+                "energy_absorbed_J": absorbed,
             }
         )
         st.success("Using the latest result from Test Design and Simulator.")
