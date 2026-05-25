@@ -278,7 +278,12 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
 
         # === STRAIN RATE (clamped to non-negative to prevent rewind) ===
         if sym_X:
-            raw_rate = (2 * BAR.C0 / Ls) * (epsI_x_pos[i] - epsR_x_pos[i])
+            # Opposing incident pulses compact the specimen even before the
+            # constitutive stress has built up enough to reduce the reflected
+            # wave. Using epsI - epsR here creates a numerical deadlock at
+            # zero strain because the first reflected wave equals the incident
+            # wave when sigma_dyn is still zero.
+            raw_rate = (2 * BAR.C0 / Ls) * epsI_x_pos[i]
         else:
             raw_rate = (BAR.C0 / Ls) * (epsI_x_pos[i] - epsR_x_pos[i] - epsT_x[i])
 
