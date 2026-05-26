@@ -127,12 +127,16 @@ if linked_reduced is not None:
         f"peak strain {100.0 * linked_reduced['strain'].max():.3f}%."
     )
 
-st.sidebar.header("Material and specimen")
+setup_tab, model_tab = st.sidebar.tabs(["Experimental setup", "Damage model"])
+setup = setup_tab
+damage_setup = model_tab
 
-E_GPa = st.sidebar.number_input("Young's modulus, E (GPa)", value=50.0, min_value=1.0, step=1.0)
-nu = st.sidebar.number_input("Poisson's ratio, ν", value=0.25, min_value=0.0, max_value=0.49, step=0.01)
-rho = st.sidebar.number_input("Density, ρ (kg/m³)", value=2650.0, min_value=1000.0, step=50.0)
-L_mm = st.sidebar.number_input("Specimen side length, L (mm)", value=default_L_mm, min_value=1.0, step=1.0)
+setup.header("Material and specimen")
+
+E_GPa = setup.number_input("Young's modulus, E (GPa)", value=50.0, min_value=1.0, step=1.0)
+nu = setup.number_input("Poisson's ratio, ν", value=0.25, min_value=0.0, max_value=0.49, step=0.01)
+rho = setup.number_input("Density, ρ (kg/m³)", value=2650.0, min_value=1000.0, step=50.0)
+L_mm = setup.number_input("Specimen side length, L (mm)", value=default_L_mm, min_value=1.0, step=1.0)
 
 E = E_GPa * 1e9
 G = E / (2.0 * (1.0 + nu))
@@ -144,49 +148,49 @@ t_travel = L_m / cp0
 t_eq_low = 3.0 * t_travel
 t_eq_high = 5.0 * t_travel
 
-st.sidebar.header("Initial stresses")
-sx0 = st.sidebar.number_input("σx0 (MPa)", value=default_sx0, min_value=0.0, step=1.0)
-sy0 = st.sidebar.number_input("σy0 (MPa)", value=default_sy0, min_value=0.0, step=1.0)
-sz0 = st.sidebar.number_input("σz0 (MPa)", value=default_sz0, min_value=0.0, step=1.0)
+setup.header("Initial stresses")
+sx0 = setup.number_input("σx0 (MPa)", value=default_sx0, min_value=0.0, step=1.0)
+sy0 = setup.number_input("σy0 (MPa)", value=default_sy0, min_value=0.0, step=1.0)
+sz0 = setup.number_input("σz0 (MPa)", value=default_sz0, min_value=0.0, step=1.0)
 
-st.sidebar.header("Loading configuration")
-loading_path = st.sidebar.selectbox(
+setup.header("Loading configuration")
+loading_path = setup.selectbox(
     "Impact path dimensionality",
     ["Single-sided X", "Symmetric X", "Symmetric XY", "Symmetric XYZ"],
     index=default_path_index
 )
 
-pulse_type = st.sidebar.selectbox("Pulse envelope", ["Hann", "Half-sine", "Rectangular"], index=0)
-td_us = st.sidebar.number_input("Pulse duration, td (μs)", value=default_td_us, min_value=1.0, step=5.0)
-tmax_us = st.sidebar.number_input("Simulation time (μs)", value=default_tmax_us, min_value=20.0, step=10.0)
-npts = st.sidebar.slider("Number of time points", 1000, 30000, 5000, step=1000)
+pulse_type = setup.selectbox("Pulse envelope", ["Hann", "Half-sine", "Rectangular"], index=0)
+td_us = setup.number_input("Pulse duration, td (μs)", value=default_td_us, min_value=1.0, step=5.0)
+tmax_us = setup.number_input("Simulation time (μs)", value=default_tmax_us, min_value=20.0, step=10.0)
+npts = setup.slider("Number of time points", 1000, 30000, 5000, step=1000)
 
-st.sidebar.subheader("Pulse amplitudes")
-Ax = st.sidebar.number_input("Ax (MPa)", value=default_A, min_value=0.0, step=5.0)
-Ay = st.sidebar.number_input("Ay (MPa)", value=default_A, min_value=0.0, step=5.0)
-Az = st.sidebar.number_input("Az (MPa)", value=default_A, min_value=0.0, step=5.0)
+setup.subheader("Pulse amplitudes")
+Ax = setup.number_input("Ax (MPa)", value=default_A, min_value=0.0, step=5.0)
+Ay = setup.number_input("Ay (MPa)", value=default_A, min_value=0.0, step=5.0)
+Az = setup.number_input("Az (MPa)", value=default_A, min_value=0.0, step=5.0)
 
-st.sidebar.subheader("Waveform matching")
-amplitude_ratio = st.sidebar.number_input("Right/left amplitude ratio in X", value=1.0, min_value=0.0, step=0.1)
-duration_ratio = st.sidebar.number_input("Right/left pulse-duration ratio in X", value=1.0, min_value=0.1, step=0.1)
-delay_us = st.sidebar.number_input("Time delay Δt for right/secondary pulse (μs)", value=default_delay_us, min_value=0.0, step=5.0)
+setup.subheader("Waveform matching")
+amplitude_ratio = setup.number_input("Right/left amplitude ratio in X", value=1.0, min_value=0.0, step=0.1)
+duration_ratio = setup.number_input("Right/left pulse-duration ratio in X", value=1.0, min_value=0.1, step=0.1)
+delay_us = setup.number_input("Time delay Δt for right/secondary pulse (μs)", value=default_delay_us, min_value=0.0, step=5.0)
 
-st.sidebar.header("Failure and damage")
-A_fail = st.sidebar.number_input("A in qf = (A+Bpⁿ)h(θ) (MPa)", value=15.0, min_value=0.0, step=1.0)
-B_fail = st.sidebar.number_input("B in qf = (A+Bpⁿ)h(θ)", value=1.3, min_value=0.0, step=0.1)
-n_fail = st.sidebar.number_input("n in qf = (A+Bpⁿ)h(θ)", value=0.75, min_value=0.1, step=0.05)
-lode_amp = st.sidebar.number_input("Lode-angle factor amplitude, aθ", value=0.10, min_value=0.0, step=0.02)
+damage_setup.header("Failure and damage")
+A_fail = damage_setup.number_input("A in qf = (A+Bpⁿ)h(θ) (MPa)", value=15.0, min_value=0.0, step=1.0)
+B_fail = damage_setup.number_input("B in qf = (A+Bpⁿ)h(θ)", value=1.3, min_value=0.0, step=0.1)
+n_fail = damage_setup.number_input("n in qf = (A+Bpⁿ)h(θ)", value=0.75, min_value=0.1, step=0.05)
+lode_amp = damage_setup.number_input("Lode-angle factor amplitude, aθ", value=0.10, min_value=0.0, step=0.02)
 
-tau_D_us = st.sidebar.number_input("Damage time scale, τD (μs)", value=30.0, min_value=0.1, step=5.0)
-alpha_sat = st.sidebar.number_input("Damage saturation exponent, α", value=1.0, min_value=0.0, step=0.2)
-m_over = st.sidebar.number_input("Overstress exponent, m", value=2.0, min_value=0.1, step=0.2)
-beta_rate = st.sidebar.number_input("Rate exponent, β", value=0.15, min_value=0.0, step=0.05)
-epsdot0 = st.sidebar.number_input("Reference strain rate, ε̇0 (s⁻¹)", value=1.0, min_value=1e-6, step=1.0)
-F0 = st.sidebar.number_input("Failure-index normalisation, F0", value=1.0, min_value=0.1, step=0.1)
+tau_D_us = damage_setup.number_input("Damage time scale, τD (μs)", value=30.0, min_value=0.1, step=5.0)
+alpha_sat = damage_setup.number_input("Damage saturation exponent, α", value=1.0, min_value=0.0, step=0.2)
+m_over = damage_setup.number_input("Overstress exponent, m", value=2.0, min_value=0.1, step=0.2)
+beta_rate = damage_setup.number_input("Rate exponent, β", value=0.15, min_value=0.0, step=0.05)
+epsdot0 = damage_setup.number_input("Reference strain rate, ε̇0 (s⁻¹)", value=1.0, min_value=1e-6, step=1.0)
+F0 = damage_setup.number_input("Failure-index normalisation, F0", value=1.0, min_value=0.1, step=0.1)
 
-st.sidebar.header("Descriptors")
-damage_threshold = st.sidebar.slider("Damage threshold for central damage fraction", 0.01, 0.9, 0.15, step=0.01)
-central_width = st.sidebar.slider("Central region fraction of specimen length", 0.1, 0.8, 0.30, step=0.05)
+damage_setup.header("Descriptors")
+damage_threshold = damage_setup.slider("Damage threshold for central damage fraction", 0.01, 0.9, 0.15, step=0.01)
+central_width = damage_setup.slider("Central region fraction of specimen length", 0.1, 0.8, 0.30, step=0.05)
 
 # =============================================================================
 # Time and loading histories

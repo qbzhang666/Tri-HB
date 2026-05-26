@@ -132,7 +132,9 @@ if has_linked_design:
         f"pulse {default_Ax:.0f} MPa for {default_duration_us:.0f} us."
     )
 
-settings = st.expander("Stress-wave, stress-path and energy setup", expanded=True)
+setup_tab, model_tab = st.sidebar.tabs(["Experimental setup", "Wave model"])
+settings = setup_tab
+model_settings = model_tab
 settings.header("Material and specimen")
 
 E_GPa = settings.number_input("Young's modulus, E (GPa)", value=50.0, min_value=1.0, step=1.0)
@@ -182,23 +184,23 @@ delay_x_us = settings.number_input("Delay x (μs)", value=0.0, min_value=0.0, st
 delay_y_us = settings.number_input("Delay y (μs)", value=default_delay_y_us, min_value=0.0, step=1.0)
 delay_z_us = settings.number_input("Delay z (μs)", value=default_delay_z_us, min_value=0.0, step=1.0)
 
-settings.header("Optional shear / principal-axis rotation")
-include_shear = settings.checkbox("Include small shear components", value=True)
-tau_amp = settings.number_input("Shear amplitude scale, τamp (MPa)", value=1.0, min_value=0.0, step=0.2)
-shear_phase = np.deg2rad(settings.number_input("Shear phase shift (degrees)", value=30.0, step=5.0))
+model_settings.header("Optional shear / principal-axis rotation")
+include_shear = model_settings.checkbox("Include small shear components", value=True)
+tau_amp = model_settings.number_input("Shear amplitude scale, τamp (MPa)", value=1.0, min_value=0.0, step=0.2)
+shear_phase = np.deg2rad(model_settings.number_input("Shear phase shift (degrees)", value=30.0, step=5.0))
 
-settings.header("Failure envelope")
-A_fail = settings.number_input("A in qf = (A + B pⁿ) h(θ) DIF (MPa)", value=3.0, step=0.5)
-B_fail = settings.number_input("B in qf = (A + B pⁿ) h(θ) DIF", value=0.80, step=0.05)
-n_fail = settings.number_input("n in qf = (A + B pⁿ) h(θ) DIF", value=0.80, step=0.05)
-lode_strength_factor = settings.number_input("Lode-angle factor amplitude, aθ", value=0.10, step=0.02)
-use_dif = settings.checkbox("Include strain-rate DIF", value=True)
+model_settings.header("Failure envelope")
+A_fail = model_settings.number_input("A in qf = (A + B pⁿ) h(θ) DIF (MPa)", value=3.0, step=0.5)
+B_fail = model_settings.number_input("B in qf = (A + B pⁿ) h(θ) DIF", value=0.80, step=0.05)
+n_fail = model_settings.number_input("n in qf = (A + B pⁿ) h(θ) DIF", value=0.80, step=0.05)
+lode_strength_factor = model_settings.number_input("Lode-angle factor amplitude, aθ", value=0.10, step=0.02)
+use_dif = model_settings.checkbox("Include strain-rate DIF", value=True)
 
-settings.subheader("DIF parameters")
-epsdot0 = settings.number_input("Reference strain rate, ε̇0 (s⁻¹)", value=1.0, min_value=1e-6, step=1.0)
-epsdot_tr = settings.number_input("Transition strain rate, ε̇tr (s⁻¹)", value=50.0, min_value=1e-6, step=10.0)
-A1 = settings.number_input("Low-rate DIF coefficient, A1", value=0.02, min_value=0.0, step=0.01)
-B1 = settings.number_input("High-rate DIF coefficient, B1", value=1.0, min_value=0.0, step=0.05)
+model_settings.subheader("DIF parameters")
+epsdot0 = model_settings.number_input("Reference strain rate, ε̇0 (s⁻¹)", value=1.0, min_value=1e-6, step=1.0)
+epsdot_tr = model_settings.number_input("Transition strain rate, ε̇tr (s⁻¹)", value=50.0, min_value=1e-6, step=10.0)
+A1 = model_settings.number_input("Low-rate DIF coefficient, A1", value=0.02, min_value=0.0, step=0.01)
+B1 = model_settings.number_input("High-rate DIF coefficient, B1", value=1.0, min_value=0.0, step=0.05)
 
 # =============================================================================
 # Calculation
