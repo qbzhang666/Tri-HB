@@ -114,7 +114,7 @@ default_delay_us = float(linked_cfg.get("pulse_delay_Y", 100e-6 if not has_linke
 
 if has_linked_design:
     st.success(
-        "Linked to latest Test Design and Simulator settings for damage interpretation: "
+        "Linked to latest Test Design and Simulator settings for wave, stress-path, and damage analysis: "
         f"prestress {default_sx0:.0f}/{default_sy0:.0f}/{default_sz0:.0f} MPa, "
         f"pulse {default_A:.0f} MPa for {default_td_us:.0f} us."
     )
@@ -126,9 +126,15 @@ if linked_reduced is not None:
         f"peak strain {100.0 * linked_reduced['strain'].max():.3f}%."
     )
 
-setup_tab, wave_tab, model_tab = st.sidebar.tabs(["Experimental setup", "Wave model", "Damage model"])
+setup_tab, wave_tab, stress_tab, model_tab = st.sidebar.tabs([
+    "Experimental setup",
+    "Wave model",
+    "Stress path analysis",
+    "Damage model",
+])
 setup = setup_tab
 wave_setup = wave_tab
+stress_setup = stress_tab
 damage_setup = model_tab
 
 setup.header("Material and specimen")
@@ -177,11 +183,13 @@ amplitude_ratio = wave_setup.number_input("Right/left amplitude ratio in X", val
 duration_ratio = wave_setup.number_input("Right/left pulse-duration ratio in X", value=1.0, min_value=0.1, step=0.1)
 delay_us = wave_setup.number_input("Time delay Δt for right/secondary pulse (μs)", value=default_delay_us, min_value=0.0, step=5.0)
 
-damage_setup.header("Failure and damage")
-A_fail = damage_setup.number_input("A in qf = (A+Bpⁿ)h(θ) (MPa)", value=15.0, min_value=0.0, step=1.0)
-B_fail = damage_setup.number_input("B in qf = (A+Bpⁿ)h(θ)", value=1.3, min_value=0.0, step=0.1)
-n_fail = damage_setup.number_input("n in qf = (A+Bpⁿ)h(θ)", value=0.75, min_value=0.1, step=0.05)
-lode_amp = damage_setup.number_input("Lode-angle factor amplitude, aθ", value=0.10, min_value=0.0, step=0.02)
+stress_setup.header("Stress path analysis")
+A_fail = stress_setup.number_input("A in qf = (A+Bpⁿ)h(θ) (MPa)", value=15.0, min_value=0.0, step=1.0)
+B_fail = stress_setup.number_input("B in qf = (A+Bpⁿ)h(θ)", value=1.3, min_value=0.0, step=0.1)
+n_fail = stress_setup.number_input("n in qf = (A+Bpⁿ)h(θ)", value=0.75, min_value=0.1, step=0.05)
+lode_amp = stress_setup.number_input("Lode-angle factor amplitude, aθ", value=0.10, min_value=0.0, step=0.02)
+
+damage_setup.header("Damage model")
 
 tau_D_us = damage_setup.number_input("Damage time scale, τD (μs)", value=30.0, min_value=0.1, step=5.0)
 alpha_sat = damage_setup.number_input("Damage saturation exponent, α", value=1.0, min_value=0.0, step=0.2)
