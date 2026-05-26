@@ -100,27 +100,17 @@ def experimental_analysis_page() -> None:
     )
 
     latest_result = st.session_state.get("tri_hb_latest_result")
-    use_simulator_result = False
-    if latest_result is not None:
-        use_simulator_result = st.checkbox(
-            "Use latest Test Design and Simulator result",
-            value=True,
-            help="Run Step 1 first, then return here to analyse/export the simulated stress-strain history directly.",
-        )
-
-    uploaded = st.file_uploader(
-        "Upload CSV or Excel data",
-        type=["csv", "xlsx", "xls"],
-        help="Expected columns include time and incident/reflected/transmitted strains, or direct stress and strain.",
-        disabled=use_simulator_result,
-    )
 
     with st.sidebar:
         st.header("Experimental analysis")
-        analysis_mode = st.radio(
-            "Input data type",
-            ["Bar strain gauges", "Direct stress-strain"],
-            help="Use bar strain gauges for SHPB/Tri-HB reduction; use direct stress-strain for cleaned data.",
+        source_options = []
+        if latest_result is not None:
+            source_options.append("Latest simulator result")
+        source_options.extend(["Upload bar strain gauges", "Upload direct stress-strain"])
+        data_source = st.radio(
+            "Data source",
+            source_options,
+            help="Choose the source first; the column mapping and energy workflow update to match it.",
         )
         st.divider()
         st.subheader("Specimen and bars")
@@ -131,6 +121,21 @@ def experimental_analysis_page() -> None:
         specimen_side_mm = st.number_input("Specimen side/diameter (mm)", value=50.0, min_value=1.0, step=1.0)
         specimen_length_mm = st.number_input("Specimen length (mm)", value=50.0, min_value=1.0, step=1.0)
         specimen_shape = st.radio("Specimen area", ["Square/cube", "Circular cylinder"], horizontal=True)
+
+    use_simulator_result = data_source == "Latest simulator result"
+    if data_source == "Upload bar strain gauges":
+        analysis_mode = "Bar strain gauges"
+    elif data_source == "Upload direct stress-strain":
+        analysis_mode = "Direct stress-strain"
+    else:
+        analysis_mode = "Simulator result"
+
+    uploaded = st.file_uploader(
+        "Upload CSV or Excel data",
+        type=["csv", "xlsx", "xls"],
+        help="Expected columns include time and incident/reflected/transmitted strains, or direct stress and strain.",
+        disabled=use_simulator_result,
+    )
 
     if use_simulator_result and latest_result is not None:
         time_s = latest_result["time"]
@@ -162,17 +167,26 @@ def experimental_analysis_page() -> None:
         )
         st.success("Using the latest result from Test Design and Simulator.")
         df_raw = out.copy()
-        analysis_mode = "Simulator result"
     elif uploaded is None:
-        st.info("Upload an experimental CSV or Excel file to begin reduction.")
-        example = pd.DataFrame(
-            {
-                "time_us": np.linspace(0, 250, 6),
-                "eps_I_ue": [0, 50, 250, 120, 20, 0],
-                "eps_R_ue": [0, -10, -80, -40, -5, 0],
-                "eps_T_ue": [0, 20, 160, 90, 10, 0],
-            }
-        )
+        if analysis_mode == "Bar strain gauges":
+            st.info("Upload bar-gauge data with time, incident strain, reflected strain, and transmitted strain columns.")
+            example = pd.DataFrame(
+                {
+                    "time_us": np.linspace(0, 250, 6),
+                    "eps_I_ue": [0, 50, 250, 120, 20, 0],
+                    "eps_R_ue": [0, -10, -80, -40, -5, 0],
+                    "eps_T_ue": [0, 20, 160, 90, 10, 0],
+                }
+            )
+        else:
+            st.info("Upload reduced stress-strain data with time, stress, and strain columns.")
+            example = pd.DataFrame(
+                {
+                    "time_us": np.linspace(0, 250, 6),
+                    "stress_MPa": [0, 35, 120, 165, 130, 80],
+                    "strain_percent": [0, 0.08, 0.28, 0.52, 0.78, 0.95],
+                }
+            )
         st.dataframe(example, use_container_width=True)
         return
     else:
