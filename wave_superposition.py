@@ -95,13 +95,50 @@ def fig_to_bytes(fig, fmt="png", dpi=300):
 # =============================================================================
 # Main-page inputs
 # =============================================================================
+linked_cfg = st.session_state.get("tri_hb_latest_config", {})
+linked_result = st.session_state.get("tri_hb_latest_result", {})
+has_linked_design = bool(linked_cfg)
+
+default_L_mm = float(linked_cfg.get("specimen_size", 0.050)) * 1000.0
+default_sx0 = float(linked_cfg.get("confinement_X", 20e6)) / 1e6
+default_sy0 = float(linked_cfg.get("confinement_Y", 15e6)) / 1e6
+default_sz0 = float(linked_cfg.get("confinement_Z", 10e6)) / 1e6
+default_duration_us = float(linked_cfg.get("pulse_duration", 60e-6)) * 1e6
+default_tmax_us = max(100.0, default_duration_us * 1.25)
+linked_peak_mpa = float(linked_cfg.get("peak_stress", 0.0)) / 1e6
+if linked_peak_mpa <= 0.0 and linked_result:
+    linked_peak_mpa = float(linked_result.get("summary", {}).get("peak_incident_MPa", 0.0))
+
+linked_mode = linked_cfg.get("mode", "")
+linked_axes = linked_cfg.get("symmetric_axes", "")
+default_Ax = linked_peak_mpa if has_linked_design and linked_peak_mpa > 0 else 6.0
+default_Ay = (
+    linked_peak_mpa
+    if has_linked_design and (linked_mode == "em-async" or linked_axes in ("XY", "XYZ"))
+    else (0.0 if has_linked_design else 5.0)
+)
+default_Az = (
+    linked_peak_mpa
+    if has_linked_design and (linked_mode == "em-async" or linked_axes == "XYZ")
+    else (0.0 if has_linked_design else 4.0)
+)
+default_delay_y_us = float(linked_cfg.get("pulse_delay_Y", 0.0)) * 1e6
+default_delay_z_us = float(linked_cfg.get("pulse_delay_Z", 0.0)) * 1e6
+
+if has_linked_design:
+    st.success(
+        "Linked to latest Test Design and Simulator settings: "
+        f"prestress {default_sx0:.0f}/{default_sy0:.0f}/{default_sz0:.0f} MPa, "
+        f"pulse {default_Ax:.0f} MPa for {default_duration_us:.0f} us."
+    )
+
 settings = st.expander("Stress-wave, stress-path and energy setup", expanded=True)
 settings.header("Material and specimen")
 
 E_GPa = settings.number_input("Young's modulus, E (GPa)", value=50.0, min_value=1.0, step=1.0)
 nu = settings.number_input("Poisson's ratio, ν", value=0.25, min_value=0.0, max_value=0.49, step=0.01)
 rho = settings.number_input("Density, ρ (kg/m³)", value=2650.0, min_value=1000.0, step=50.0)
-L_mm = settings.number_input("Specimen length, L (mm)", value=50.0, min_value=1.0, step=1.0)
+L_mm = settings.number_input("Specimen length, L (mm)", value=default_L_mm, min_value=1.0, step=1.0)
 
 E = E_GPa * 1e9
 G = E / (2.0 * (1.0 + nu))
@@ -115,20 +152,20 @@ t_eq_low = 3.0 * t_travel
 t_eq_high = 5.0 * t_travel
 
 settings.header("Initial true triaxial stresses")
-sx0 = settings.number_input("σx0 (MPa)", value=20.0, min_value=0.0, step=1.0)
-sy0 = settings.number_input("σy0 (MPa)", value=15.0, min_value=0.0, step=1.0)
-sz0 = settings.number_input("σz0 (MPa)", value=10.0, min_value=0.0, step=1.0)
+sx0 = settings.number_input("σx0 (MPa)", value=default_sx0, min_value=0.0, step=1.0)
+sy0 = settings.number_input("σy0 (MPa)", value=default_sy0, min_value=0.0, step=1.0)
+sz0 = settings.number_input("σz0 (MPa)", value=default_sz0, min_value=0.0, step=1.0)
 
 settings.header("Finite-duration pulses")
 pulse_type = settings.selectbox("Pulse envelope", ["Hann", "Half-sine", "Rectangular"], index=0)
-t_duration_us = settings.number_input("Pulse duration, td (μs)", value=60.0, min_value=1.0, step=5.0)
-tmax_us = settings.number_input("Simulation time (μs)", value=100.0, min_value=5.0, step=5.0)
+t_duration_us = settings.number_input("Pulse duration, td (μs)", value=default_duration_us, min_value=1.0, step=5.0)
+tmax_us = settings.number_input("Simulation time (μs)", value=default_tmax_us, min_value=5.0, step=5.0)
 npts = settings.slider("Number of time points", 500, 20000, 3000, step=500)
 
 settings.subheader("Amplitudes")
-Ax = settings.number_input("Ax (MPa)", value=6.0, min_value=0.0, step=0.5)
-Ay = settings.number_input("Ay (MPa)", value=5.0, min_value=0.0, step=0.5)
-Az = settings.number_input("Az (MPa)", value=4.0, min_value=0.0, step=0.5)
+Ax = settings.number_input("Ax (MPa)", value=default_Ax, min_value=0.0, step=0.5)
+Ay = settings.number_input("Ay (MPa)", value=default_Ay, min_value=0.0, step=0.5)
+Az = settings.number_input("Az (MPa)", value=default_Az, min_value=0.0, step=0.5)
 
 settings.subheader("Carrier frequencies")
 fx = settings.number_input("fx (kHz)", value=50.0, min_value=0.0, step=5.0)
@@ -142,8 +179,8 @@ phiz = settings.number_input("φz (degrees)", value=90.0, step=5.0)
 
 settings.subheader("Pulse delays")
 delay_x_us = settings.number_input("Delay x (μs)", value=0.0, min_value=0.0, step=1.0)
-delay_y_us = settings.number_input("Delay y (μs)", value=0.0, min_value=0.0, step=1.0)
-delay_z_us = settings.number_input("Delay z (μs)", value=0.0, min_value=0.0, step=1.0)
+delay_y_us = settings.number_input("Delay y (μs)", value=default_delay_y_us, min_value=0.0, step=1.0)
+delay_z_us = settings.number_input("Delay z (μs)", value=default_delay_z_us, min_value=0.0, step=1.0)
 
 settings.header("Optional shear / principal-axis rotation")
 include_shear = settings.checkbox("Include small shear components", value=True)

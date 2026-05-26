@@ -301,6 +301,8 @@ def experimental_analysis_page() -> None:
             )
 
     out = out.replace([np.inf, -np.inf], np.nan).dropna(subset=["time_us", "stress_MPa", "strain"])
+    st.session_state["tri_hb_reduced_data"] = out
+    st.session_state["tri_hb_reduced_source"] = analysis_mode
 
     if out.empty:
         st.error("No valid reduced rows were produced. Check the selected columns and units.")
@@ -398,9 +400,9 @@ def overview_page() -> None:
         Use the sidebar to move through the unified workflow:
 
         1. **Test design and simulator** keeps the developed Virtual Tri-HB app for loading-mode design and synthetic stress-strain curves.
-        2. **Experimental data analysis** reduces bar-gauge or direct stress-strain files into stress, strain, strain-rate and energy outputs.
-        3. **Stress waves, stress path and energy** embeds the `hb-waves` analytical wave-superposition app.
-        4. **Damage evolution and DEM validation** embeds the `tri-hb-damage` wave-damage transition app.
+        2. **Experimental data analysis** reduces bar-gauge or direct stress-strain files, or uses the latest Step 1 result directly.
+        3. **Stress waves, stress path and energy** starts from the latest Step 1 geometry, prestress, pulse amplitude, duration and delays.
+        4. **Damage evolution and DEM validation** starts from Step 1 and shows Step 2 reduced-data validation metrics when available.
         """
     )
 

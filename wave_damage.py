@@ -84,12 +84,55 @@ def fig_to_bytes(fig, fmt="png", dpi=300):
 # =============================================================================
 # Sidebar inputs
 # =============================================================================
+linked_cfg = st.session_state.get("tri_hb_latest_config", {})
+linked_result = st.session_state.get("tri_hb_latest_result", {})
+linked_reduced = st.session_state.get("tri_hb_reduced_data")
+has_linked_design = bool(linked_cfg)
+
+default_L_mm = float(linked_cfg.get("specimen_size", 0.050)) * 1000.0
+default_sx0 = float(linked_cfg.get("confinement_X", 20e6)) / 1e6
+default_sy0 = float(linked_cfg.get("confinement_Y", 15e6)) / 1e6
+default_sz0 = float(linked_cfg.get("confinement_Z", 10e6)) / 1e6
+default_td_us = float(linked_cfg.get("pulse_duration", 60e-6)) * 1e6
+default_tmax_us = max(250.0, default_td_us * 1.25)
+linked_peak_mpa = float(linked_cfg.get("peak_stress", 0.0)) / 1e6
+if linked_peak_mpa <= 0.0 and linked_result:
+    linked_peak_mpa = float(linked_result.get("summary", {}).get("peak_incident_MPa", 0.0))
+
+linked_mode = linked_cfg.get("mode", "")
+linked_axes = linked_cfg.get("symmetric_axes", "")
+if linked_mode == "em-symmetric" and linked_axes == "XYZ":
+    default_path_index = 3
+elif linked_mode == "em-symmetric" and linked_axes == "XY":
+    default_path_index = 2
+elif linked_mode == "em-symmetric":
+    default_path_index = 1
+else:
+    default_path_index = 0
+
+default_A = linked_peak_mpa if has_linked_design and linked_peak_mpa > 0 else 60.0
+default_delay_us = float(linked_cfg.get("pulse_delay_Y", 100e-6 if not has_linked_design else 0.0)) * 1e6
+
+if has_linked_design:
+    st.success(
+        "Linked to latest Test Design and Simulator settings for damage interpretation: "
+        f"prestress {default_sx0:.0f}/{default_sy0:.0f}/{default_sz0:.0f} MPa, "
+        f"pulse {default_A:.0f} MPa for {default_td_us:.0f} us."
+    )
+
+if linked_reduced is not None:
+    st.info(
+        "Step 2 reduced data is available for validation: "
+        f"peak stress {linked_reduced['stress_MPa'].max():.1f} MPa, "
+        f"peak strain {100.0 * linked_reduced['strain'].max():.3f}%."
+    )
+
 st.sidebar.header("Material and specimen")
 
 E_GPa = st.sidebar.number_input("Young's modulus, E (GPa)", value=50.0, min_value=1.0, step=1.0)
 nu = st.sidebar.number_input("Poisson's ratio, ν", value=0.25, min_value=0.0, max_value=0.49, step=0.01)
 rho = st.sidebar.number_input("Density, ρ (kg/m³)", value=2650.0, min_value=1000.0, step=50.0)
-L_mm = st.sidebar.number_input("Specimen side length, L (mm)", value=50.0, min_value=1.0, step=1.0)
+L_mm = st.sidebar.number_input("Specimen side length, L (mm)", value=default_L_mm, min_value=1.0, step=1.0)
 
 E = E_GPa * 1e9
 G = E / (2.0 * (1.0 + nu))
@@ -102,31 +145,31 @@ t_eq_low = 3.0 * t_travel
 t_eq_high = 5.0 * t_travel
 
 st.sidebar.header("Initial stresses")
-sx0 = st.sidebar.number_input("σx0 (MPa)", value=20.0, min_value=0.0, step=1.0)
-sy0 = st.sidebar.number_input("σy0 (MPa)", value=15.0, min_value=0.0, step=1.0)
-sz0 = st.sidebar.number_input("σz0 (MPa)", value=10.0, min_value=0.0, step=1.0)
+sx0 = st.sidebar.number_input("σx0 (MPa)", value=default_sx0, min_value=0.0, step=1.0)
+sy0 = st.sidebar.number_input("σy0 (MPa)", value=default_sy0, min_value=0.0, step=1.0)
+sz0 = st.sidebar.number_input("σz0 (MPa)", value=default_sz0, min_value=0.0, step=1.0)
 
 st.sidebar.header("Loading configuration")
 loading_path = st.sidebar.selectbox(
     "Impact path dimensionality",
     ["Single-sided X", "Symmetric X", "Symmetric XY", "Symmetric XYZ"],
-    index=1
+    index=default_path_index
 )
 
 pulse_type = st.sidebar.selectbox("Pulse envelope", ["Hann", "Half-sine", "Rectangular"], index=0)
-td_us = st.sidebar.number_input("Pulse duration, td (μs)", value=60.0, min_value=1.0, step=5.0)
-tmax_us = st.sidebar.number_input("Simulation time (μs)", value=250.0, min_value=20.0, step=10.0)
+td_us = st.sidebar.number_input("Pulse duration, td (μs)", value=default_td_us, min_value=1.0, step=5.0)
+tmax_us = st.sidebar.number_input("Simulation time (μs)", value=default_tmax_us, min_value=20.0, step=10.0)
 npts = st.sidebar.slider("Number of time points", 1000, 30000, 5000, step=1000)
 
 st.sidebar.subheader("Pulse amplitudes")
-Ax = st.sidebar.number_input("Ax (MPa)", value=60.0, min_value=0.0, step=5.0)
-Ay = st.sidebar.number_input("Ay (MPa)", value=60.0, min_value=0.0, step=5.0)
-Az = st.sidebar.number_input("Az (MPa)", value=60.0, min_value=0.0, step=5.0)
+Ax = st.sidebar.number_input("Ax (MPa)", value=default_A, min_value=0.0, step=5.0)
+Ay = st.sidebar.number_input("Ay (MPa)", value=default_A, min_value=0.0, step=5.0)
+Az = st.sidebar.number_input("Az (MPa)", value=default_A, min_value=0.0, step=5.0)
 
 st.sidebar.subheader("Waveform matching")
 amplitude_ratio = st.sidebar.number_input("Right/left amplitude ratio in X", value=1.0, min_value=0.0, step=0.1)
 duration_ratio = st.sidebar.number_input("Right/left pulse-duration ratio in X", value=1.0, min_value=0.1, step=0.1)
-delay_us = st.sidebar.number_input("Time delay Δt for right/secondary pulse (μs)", value=100.0, min_value=0.0, step=5.0)
+delay_us = st.sidebar.number_input("Time delay Δt for right/secondary pulse (μs)", value=default_delay_us, min_value=0.0, step=5.0)
 
 st.sidebar.header("Failure and damage")
 A_fail = st.sidebar.number_input("A in qf = (A+Bpⁿ)h(θ) (MPa)", value=15.0, min_value=0.0, step=1.0)
