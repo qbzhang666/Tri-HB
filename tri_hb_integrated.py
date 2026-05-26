@@ -82,6 +82,37 @@ def cumulative_trapezoid(y: np.ndarray, x: np.ndarray) -> np.ndarray:
     return out
 
 
+def close_energy_budget(
+    incident: np.ndarray,
+    reflected_target: np.ndarray,
+    transmitted_target: np.ndarray,
+    absorbed_target: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Create monotonic reflected/transmitted/absorbed histories that do not exceed incident energy."""
+    reflected = np.zeros_like(incident, dtype=float)
+    transmitted = np.zeros_like(incident, dtype=float)
+    absorbed = np.zeros_like(incident, dtype=float)
+
+    for i in range(1, len(incident)):
+        reflected[i] = reflected[i - 1]
+        transmitted[i] = transmitted[i - 1]
+        absorbed[i] = absorbed[i - 1]
+
+        remaining = max(float(incident[i] - reflected[i] - transmitted[i] - absorbed[i]), 0.0)
+
+        for target, history in (
+            (absorbed_target, absorbed),
+            (reflected_target, reflected),
+            (transmitted_target, transmitted),
+        ):
+            requested = max(float(target[i] - history[i]), 0.0)
+            addition = min(requested, remaining)
+            history[i] += addition
+            remaining -= addition
+
+    return reflected, transmitted, absorbed
+
+
 def choose_column(label: str, columns: Iterable[str], key: str, optional: bool = False) -> str | None:
     options = list(columns)
     if optional:
@@ -134,6 +165,8 @@ def experimental_analysis_page() -> None:
         st.markdown("**Absorbed energy from simulator stress–strain:**")
         st.latex(r"W_{\rm abs}(t)=\int_0^t \sigma_s(\tau)\,\dot\varepsilon_s(\tau)\,V_s\,\mathrm{d}\tau,"
                  r"\quad V_s=L_s^{\,3}")
+        st.caption("For simulator-derived histories, reflected, transmitted, and absorbed energies are closed against "
+                   "the available incident energy so their cumulative sum never exceeds $W_I$.")
 
         st.markdown("**Direct stress–strain branch** — only unit conversion and rate estimate:")
         st.latex(r"\dot\varepsilon_s(t)=\frac{\mathrm{d}\varepsilon_s}{\mathrm{d}t}\quad(\text{central difference})")
@@ -190,12 +223,18 @@ def experimental_analysis_page() -> None:
         Ab = (0.050 * 0.050) if square_bar else np.pi * (bar_d_mm * 1e-3 / 2.0) ** 2
         Eb = bar_E_GPa * 1e9
         energy_i = Ab * Eb * bar_C0 * cumulative_trapezoid(eps_i_pos**2 + eps_i_neg**2, time_s)
-        energy_r = Ab * Eb * bar_C0 * cumulative_trapezoid(symmetric_factor * eps_r_pos**2, time_s)
-        energy_t = Ab * Eb * bar_C0 * cumulative_trapezoid(eps_t**2, time_s)
+        energy_r_target = Ab * Eb * bar_C0 * cumulative_trapezoid(symmetric_factor * eps_r_pos**2, time_s)
+        energy_t_target = Ab * Eb * bar_C0 * cumulative_trapezoid(eps_t**2, time_s)
         sim_cfg = st.session_state.get("tri_hb_latest_config", {})
         sim_size = float(sim_cfg.get("specimen_size", specimen_length_mm * 1e-3))
         sim_volume = sim_size**3
-        absorbed = cumulative_trapezoid(latest_result["sig_x"] * latest_result["rate_x"] * sim_volume, time_s)
+        absorbed_target = cumulative_trapezoid(latest_result["sig_x"] * latest_result["rate_x"] * sim_volume, time_s)
+        energy_r, energy_t, absorbed = close_energy_budget(
+            energy_i,
+            energy_r_target,
+            energy_t_target,
+            absorbed_target,
+        )
         out = pd.DataFrame(
             {
                 "time_us": time_s * 1e6,
@@ -412,6 +451,16 @@ def experimental_analysis_page() -> None:
         if "energy_absorbed_J" not in out:
             st.info("Energy histories require incident, reflected and transmitted bar strain gauges.")
         else:
+            if analysis_mode == "Simulator result":
+                st.caption(
+                    "Simulator energy histories use a closed budget: reflected, transmitted, and absorbed "
+                    "energy are constrained by the available incident energy."
+                )
+            elif np.nanmax(out["energy_transmitted_J"] - out["energy_incident_J"]) > 1e-9:
+                st.warning(
+                    "Transmitted energy exceeds incident energy in the uploaded data. Check gauge signs, "
+                    "units, bar area, wave-speed settings, and signal alignment."
+                )
             fig = go.Figure()
             for col, label in [
                 ("energy_incident_J", "Incident"),
