@@ -99,6 +99,49 @@ def experimental_analysis_page() -> None:
         "or import already reduced stress-strain data for comparison."
     )
 
+    with st.expander("Equations used by the reducer", expanded=False):
+        st.markdown("**Symbols.** "
+                    r"$E_b$ bar Young's modulus, $C_0=\sqrt{E_b/\rho_b}$ bar wave speed, "
+                    r"$A_b$ bar cross-section, $A_s$, $L_s$ specimen area and length, "
+                    r"$\varepsilon_I,\varepsilon_R,\varepsilon_T$ incident / reflected / transmitted bar strains.")
+
+        st.markdown("**Specimen stress (three-wave average):**")
+        st.latex(r"\sigma_s(t)=\frac{E_b A_b}{2 A_s}\,\bigl[\varepsilon_I(t)+\varepsilon_R(t)+\varepsilon_T(t)\bigr]")
+
+        st.markdown("**Specimen stress (transmitted-wave only, assumes force equilibrium):**")
+        st.latex(r"\sigma_s(t)=\frac{E_b A_b}{A_s}\,\varepsilon_T(t)")
+
+        st.markdown("**Specimen strain rate and strain:**")
+        st.latex(r"\dot\varepsilon_s(t)=\frac{C_0}{L_s}\,\bigl[\varepsilon_I(t)-\varepsilon_R(t)-\varepsilon_T(t)\bigr]")
+        st.latex(r"\varepsilon_s(t)=\int_0^t \dot\varepsilon_s(\tau)\,\mathrm{d}\tau\quad\text{(trapezoidal)}")
+        st.caption("Under perfect equilibrium $\\varepsilon_I+\\varepsilon_R=\\varepsilon_T$ the rate "
+                   "simplifies to $\\dot\\varepsilon_s=-2C_0\\varepsilon_R/L_s$; this app uses the "
+                   "general 3-wave form so pre-equilibrium data are still handled.")
+
+        st.markdown("**Energies (per bar wave):**")
+        st.latex(r"W_I(t)=E_b A_b C_0\!\int_0^t\!\varepsilon_I^2\,\mathrm{d}\tau,\quad "
+                 r"W_R(t)=E_b A_b C_0\!\int_0^t\!\varepsilon_R^2\,\mathrm{d}\tau,\quad "
+                 r"W_T(t)=E_b A_b C_0\!\int_0^t\!\varepsilon_T^2\,\mathrm{d}\tau")
+        st.latex(r"W_{\rm abs}(t)=W_I(t)-W_R(t)-W_T(t)")
+        st.caption("Units: $A_b\\,[\\mathrm{m}^2]\\cdot E_b\\,[\\mathrm{Pa}]\\cdot C_0\\,[\\mathrm{m/s}]"
+                   "\\cdot\\int\\varepsilon^2\\,\\mathrm{d}t\\,[\\mathrm{s}]\\;=\\;\\mathrm{J}$.")
+
+        st.markdown("**Symmetric-mode (Mode 4) energy folding** — opposing bar pair contributes both incident pulses; "
+                    "the reflected energy is doubled to account for both ±X bars:")
+        st.latex(r"W_I=E_b A_b C_0\!\int(\varepsilon_{I,+}^2+\varepsilon_{I,-}^2)\,\mathrm{d}t,\qquad "
+                 r"W_R=E_b A_b C_0\!\int 2\,\varepsilon_{R,+}^2\,\mathrm{d}t")
+
+        st.markdown("**Absorbed energy from simulator stress–strain:**")
+        st.latex(r"W_{\rm abs}(t)=\int_0^t \sigma_s(\tau)\,\dot\varepsilon_s(\tau)\,V_s\,\mathrm{d}\tau,"
+                 r"\quad V_s=L_s^{\,3}")
+
+        st.markdown("**Direct stress–strain branch** — only unit conversion and rate estimate:")
+        st.latex(r"\dot\varepsilon_s(t)=\frac{\mathrm{d}\varepsilon_s}{\mathrm{d}t}\quad(\text{central difference})")
+        st.caption("Strain unit options: strain (1), percent ($\\div100$), microstrain ($\\times10^{-6}$). "
+                   "Stress unit options: MPa (passthrough), Pa ($\\div10^6$). The compression-convention "
+                   "selector applies a single global sign so the formulas above use the textbook "
+                   "convention $\\varepsilon_I>0,\\;\\varepsilon_R<0,\\;\\varepsilon_T>0$ for a compression test.")
+
     latest_result = st.session_state.get("tri_hb_latest_result")
 
     with st.sidebar:

@@ -332,6 +332,54 @@ st.info(
 # =============================================================================
 # Tabs
 # =============================================================================
+with st.expander("Equations used on this page", expanded=False):
+    st.markdown("**Elastic wave speeds.** Constrained (P-wave) modulus, P- and S-wave speeds:")
+    st.latex(r"M=\frac{E(1-\nu)}{(1+\nu)(1-2\nu)},\quad c_p=\sqrt{M/\rho},\quad c_s=\sqrt{G/\rho}")
+    st.latex(r"t_{\rm travel}=L/c_p,\qquad t_{\rm eq}\in[3,5]\,t_{\rm travel}")
+
+    st.markdown("**Normalised delay and regime classifier:**")
+    st.latex(r"\Delta t^\ast=\Delta t/t_{\rm travel}")
+    st.caption("$\\Delta t^\\ast<1$ superposition · $1\\!-\\!3$ reverberation · "
+               "$3\\!-\\!10$ transitional · $>\\!10$ sequential.")
+
+    st.markdown("**Stress invariants** (diagonal Cauchy tensor, principal axes aligned with bar axes):")
+    st.latex(r"p=\tfrac{1}{3}(\sigma_x+\sigma_y+\sigma_z)")
+    st.latex(r"q=\sqrt{\tfrac{1}{2}\bigl[(\sigma_x-\sigma_y)^2+(\sigma_y-\sigma_z)^2+(\sigma_z-\sigma_x)^2\bigr]}")
+    st.latex(r"J_2=\tfrac{1}{2}(s_1^2+s_2^2+s_3^2),\quad J_3=s_1 s_2 s_3,\quad s_i=\sigma_i-p")
+    st.latex(r"\cos(3\theta)=\frac{3\sqrt{3}}{2}\,\frac{J_3}{J_2^{3/2}}")
+
+    st.markdown("**Failure surface and failure index** (Lode-modified pressure-sensitive cap):")
+    st.latex(r"h(\theta)=1+a_\theta\bigl(1-\cos 3\theta\bigr)")
+    st.latex(r"q_f(p,\theta)=\bigl(A+B\,p^{n}\bigr)\,h(\theta),\qquad F(t)=q(t)/q_f(t)")
+
+    st.markdown("**Equivalent strain rate** (elastic estimate from diagonal stresses):")
+    st.latex(r"\varepsilon_i=\sigma_i/E,\quad\dot\varepsilon_i=\mathrm{d}\varepsilon_i/\mathrm{d}t")
+    st.latex(r"\dot\varepsilon_{\rm eq}=\sqrt{\tfrac{2}{3}\cdot\tfrac{1}{2}\bigl[(\dot\varepsilon_x-\dot\varepsilon_y)^2"
+             r"+(\dot\varepsilon_y-\dot\varepsilon_z)^2+(\dot\varepsilon_z-\dot\varepsilon_x)^2\bigr]}")
+    st.caption("This is a planning-grade indicator built from elastic strains only — it ignores plastic strain "
+               "and lateral coupling and should not be used as a constitutive strain rate.")
+
+    st.markdown("**Damage evolution** (saturating, rate-sensitive overstress law):")
+    st.latex(r"\dot D=\frac{(1-D)^{\alpha}}{\tau_D}\,\Bigl\langle\frac{F-1}{F_0}\Bigr\rangle^{m}"
+             r"\,\Bigl(\frac{|\dot\varepsilon_{\rm eq}|}{\dot\varepsilon_0}\Bigr)^{\beta},\qquad D\in[0,1]")
+    st.latex(r"E(D)=E_0(1-D),\qquad c_p(D)=c_{p0}\sqrt{\max(1-D,0)}")
+    st.caption("$\\langle\\cdot\\rangle$ are Macaulay brackets — damage only grows when $F>1$.")
+
+    st.markdown("**Energy indicators** (per unit volume):")
+    st.latex(r"W_{\rm el}=\frac{1}{2E}\bigl[\sigma_x^2+\sigma_y^2+\sigma_z^2"
+             r"-2\nu(\sigma_x\sigma_y+\sigma_y\sigma_z+\sigma_z\sigma_x)\bigr]")
+    st.latex(r"W_{\rm input}(t)=\int_0^t\!\bigl(\sigma_x\dot\varepsilon_x+\sigma_y\dot\varepsilon_y+\sigma_z\dot\varepsilon_z\bigr)\,\mathrm{d}\tau")
+    st.latex(r"W_{\rm diss}\approx W_{\rm input}-W_{\rm el}+W_{\rm el}(0)")
+    st.caption("Units: stresses in MPa with strains dimensionless give $W$ in MJ/m³.")
+
+    st.markdown("**Wave-superposition factor** at the specimen centre:")
+    st.latex(r"\eta_{\rm sup}=\frac{\max_t \sigma_{\rm centre}(t)-\sigma_{x0}}{A_x},"
+             r"\quad\sigma_{\rm centre}(t)=\sigma_{x0}+A_x g(t-L/2c_p)+A_x r g(t-\Delta t-L/2c_p)")
+
+    st.markdown("**Damage-profile descriptors** (synthetic indicators, not DEM output):")
+    st.latex(r"D_c=\frac{\int_{\text{centre}} D(x)\,\mathrm{d}x}{\int_0^L D(x)\,\mathrm{d}x},"
+             r"\qquad S_x=1-\frac{|D_{\rm left}-D_{\rm right}|}{D_{\rm left}+D_{\rm right}}")
+
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "Loading and regimes",
     "Stress path",
