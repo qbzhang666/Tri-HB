@@ -399,7 +399,7 @@ def overview_page() -> None:
         """
         Use the sidebar to move through the unified workflow:
 
-        1. **Test design and simulator** keeps the developed Virtual Tri-HB app for loading-mode design and synthetic stress-strain curves.
+        1. **Test design and simulator** supports loading-mode design and stress-strain prediction.
         2. **Experimental data analysis** reduces bar-gauge or direct stress-strain files, or uses the latest Step 1 result directly.
         3. **Stress waves, damage and DEM validation** uses one shared experimental setup for stress waves, stress path, energy, damage evolution, and validation descriptors.
         """
@@ -410,9 +410,7 @@ def overview_page() -> None:
     c2.metric("Workflow pages", "3")
     c3.metric("Experimental reducer", "CSV/XLSX")
 
-    st.info(
-        "The original files are retained for traceability. This integrated entry point is the recommended one to run."
-    )
+    st.info("Start with test design, then reduce experimental data and review wave, damage, energy, and validation outputs in the combined workspace.")
 
 
 page = st.sidebar.radio(

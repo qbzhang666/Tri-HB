@@ -12,8 +12,8 @@ st.set_page_config(
 
 st.title("Multidirectional stress-wave superposition and stress-path evolution")
 st.caption(
-    "Updated according to the final Paper 1 formulation: finite-duration windowed pulses, "
-    "P-wave travel time, p–q–θ invariants, failure index with Lode-angle/rate effects, "
+    "Finite-duration windowed pulses, P-wave travel time, p–q–θ invariants, "
+    "failure index with Lode-angle/rate effects, "
     "principal-axis rotation, and energy input."
 )
 
@@ -231,7 +231,7 @@ sx = sx0 + sx_dyn
 sy = sy0 + sy_dyn
 sz = sz0 + sz_dyn
 
-# Optional shear terms to demonstrate principal-axis rotation
+# Optional shear terms for principal-axis rotation.
 if include_shear and tau_amp > 0:
     # bounded, finite-window shear tied to combined active envelopes
     gxy = np.minimum(gx + gy, 1.0)
@@ -256,7 +256,7 @@ stress[:, 2, 0] = stress[:, 0, 2] = tau_zx
 
 p, q, theta_deg, J2, J3, eigs = compute_invariants(stress)
 
-# Equivalent strain rate estimate using elastic relation; useful for DIF demonstration
+# Equivalent strain rate estimate using elastic relation.
 # strain approx = stress / E (MPa converted to Pa)
 eps_x = sx * 1e6 / E
 eps_y = sy * 1e6 / E
@@ -291,7 +291,7 @@ vp_x = (Ax * 1e6) / (rho * cp) if rho * cp > 0 else 0.0
 vp_y = (Ay * 1e6) / (rho * cp) if rho * cp > 0 else 0.0
 vp_z = (Az * 1e6) / (rho * cp) if rho * cp > 0 else 0.0
 
-# Elastic energy density and work-like energy proxy
+# Elastic energy density and work-like energy estimate.
 # Use MPa strain -> MJ/m3 because MPa = MJ/m3 for stress * strain
 we_elastic = 0.5 / E_GPa / 1000.0 * 0  # placeholder not used
 # Rigorous isotropic elastic energy density in MPa (MJ/m3): 1/(2E) [sigma^2 - 2nu cross], with E in MPa
@@ -301,11 +301,11 @@ W_el = (1.0 / (2.0 * E_MPa)) * (
     - 2.0 * nu * (sx * sy + sy * sz + sz * sx)
 )
 
-# input energy density proxy: integrate sigma * epsdot in each direction
+# Input energy density estimate: integrate sigma * epsdot in each direction.
 power = sx * epsdot_x + sy * epsdot_y + sz * epsdot_z  # MPa/s = MJ/m3/s
 dt = np.gradient(t)
 W_input = np.cumsum(power * dt)
-W_diss_proxy = W_input - W_el + W_el[0]
+W_diss_estimate = W_input - W_el + W_el[0]
 
 # =============================================================================
 # Summary
@@ -323,8 +323,8 @@ col7.metric("vp,z from Az", f"{vp_z:.3f} m/s")
 col8.metric("Peak failure index", f"{np.nanmax(F_index):.2f}")
 
 st.info(
-    "For Paper 1, keep the pulse delays in the synchronous/short-delay range "
-    r"0 ≤ Δt ≤ 2 ttravel. Long-delay sequential loading (Δt* > 10) belongs to the companion wave–damage paper."
+    r"Use small delays (0 ≤ Δt ≤ 2 ttravel) for synchronous stress-wave superposition. "
+    r"Larger normalised delays (Δt* > 10) represent sequential loading with damage-memory effects."
 )
 
 # =============================================================================
@@ -353,7 +353,7 @@ with tab1:
     ax1.grid(True, alpha=0.35)
     ax1.legend(ncol=2)
     st.pyplot(fig1)
-    st.download_button("Download stress-wave figure", fig_to_bytes(fig1), "paper1_stress_waves.png", "image/png")
+    st.download_button("Download stress-wave figure", fig_to_bytes(fig1), "tri_hb_stress_waves.png", "image/png")
 
     fig1b, ax1b = plt.subplots(figsize=(10, 3))
     ax1b.plot(t_us, gx, label="gx")
@@ -388,7 +388,7 @@ with tab2:
         cb = fig2.colorbar(sc, ax=ax2)
         cb.set_label("Time (μs)")
         st.pyplot(fig2)
-        st.download_button("Download p–q path", fig_to_bytes(fig2), "paper1_pq_path.png", "image/png")
+        st.download_button("Download p–q path", fig_to_bytes(fig2), "tri_hb_pq_path.png", "image/png")
 
     with c2:
         fig3, ax3 = plt.subplots(figsize=(7, 5.5))
@@ -400,7 +400,7 @@ with tab2:
         cb2 = fig3.colorbar(sc2, ax=ax3)
         cb2.set_label("Time (μs)")
         st.pyplot(fig3)
-        st.download_button("Download q–theta path", fig_to_bytes(fig3), "paper1_q_theta_path.png", "image/png")
+        st.download_button("Download q–theta path", fig_to_bytes(fig3), "tri_hb_q_theta_path.png", "image/png")
 
     fig4, ax4 = plt.subplots(figsize=(10, 4))
     ax4.plot(t_us, p, label="p")
@@ -426,7 +426,7 @@ with tab3:
     ax5.set_title("Principal-stress path")
     ax5.legend()
     st.pyplot(fig5)
-    st.download_button("Download 3D stress path", fig_to_bytes(fig5), "paper1_3d_principal_stress_path.png", "image/png")
+    st.download_button("Download 3D stress path", fig_to_bytes(fig5), "tri_hb_3d_principal_stress_path.png", "image/png")
 
     fig5b = plt.figure(figsize=(7, 6))
     ax5b = fig5b.add_subplot(111, projection="3d")
@@ -451,28 +451,27 @@ with tab4:
         ax6.grid(True, alpha=0.35)
         ax6.legend()
         st.pyplot(fig6)
-        st.download_button("Download failure-index figure", fig_to_bytes(fig6), "paper1_failure_index.png", "image/png")
+        st.download_button("Download failure-index figure", fig_to_bytes(fig6), "tri_hb_failure_index.png", "image/png")
 
     with c2:
         fig7, ax7 = plt.subplots(figsize=(7, 4.5))
         ax7.plot(t_us, W_input, label=r"$w_{\rm input}$")
         ax7.plot(t_us, W_el, label=r"$w_e$")
-        ax7.plot(t_us, W_diss_proxy, label=r"$w_{\rm diss}$ proxy")
+        ax7.plot(t_us, W_diss_estimate, label=r"$w_{\rm diss}$ estimate")
         ax7.set_xlabel("Time (μs)")
         ax7.set_ylabel("Energy density (MJ/m³)")
         ax7.set_title("Energy-density indicators")
         ax7.grid(True, alpha=0.35)
         ax7.legend()
         st.pyplot(fig7)
-        st.download_button("Download energy figure", fig_to_bytes(fig7), "paper1_energy_indicators.png", "image/png")
+        st.download_button("Download energy figure", fig_to_bytes(fig7), "tri_hb_energy_indicators.png", "image/png")
 
     st.markdown(
-        """
+        r"""
         **Interpretation:**  
-        The failure index follows the paper formulation  
+        The failure index is calculated as
         \(F(t)=q(t)/q_f[p(t),\\theta(t),\\dot\\varepsilon(t)]\).  
-        The energy plot is an analytical proxy, not a DEM fracture-energy calculation. 
-        In DEM, use contact-bond breakage, frictional slip and damping work for rigorous energy partition.
+        Energy indicators can be compared with DEM contact-bond breakage, frictional slip, and damping work.
         """
     )
 
@@ -488,7 +487,7 @@ with tab5:
     ax8.grid(True, alpha=0.35)
     ax8.legend()
     st.pyplot(fig8)
-    st.download_button("Download rotation figure", fig_to_bytes(fig8), "paper1_principal_axis_rotation.png", "image/png")
+    st.download_button("Download rotation figure", fig_to_bytes(fig8), "tri_hb_principal_axis_rotation.png", "image/png")
 
     if not include_shear:
         st.warning(
@@ -523,22 +522,12 @@ with tab6:
         "failure_index": F_index,
         "W_input_MJ_m3": W_input,
         "W_elastic_MJ_m3": W_el,
-        "W_diss_proxy_MJ_m3": W_diss_proxy,
+        "W_diss_estimate_MJ_m3": W_diss_estimate,
     })
     st.dataframe(df.head(30), use_container_width=True)
     st.download_button(
         "Download full results as CSV",
         data=df.to_csv(index=False).encode("utf-8"),
-        file_name="paper1_final_streamlit_results.csv",
+        file_name="tri_hb_stress_wave_results.csv",
         mime="text/csv",
-    )
-
-    st.markdown("### Suggested manuscript wording")
-    st.code(
-        """The analytical stress histories were generated using finite-duration windowed pulses. 
-The resulting stress tensor was transformed into the invariant quantities p(t), q(t) and θ(t), 
-and the transient failure index was evaluated using a pressure-, Lode-angle- and rate-dependent envelope. 
-Principal-axis rotation was quantified from the shear components of the stress tensor, while the DEM stress 
-calculation can be mapped to the same invariant framework using the symmetrised Weber--Love expression.""",
-        language="text",
     )

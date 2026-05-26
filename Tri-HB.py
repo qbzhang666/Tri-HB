@@ -2,8 +2,8 @@
 Virtual Tri-HB Simulator — Streamlit version
 ============================================
 
-Educational simulator for the Triaxial Hopkinson Bar facilities at Monash
-University. Four loading modes:
+Streamlit workspace for Triaxial Hopkinson Bar test design and analysis.
+Four loading modes:
 
   1. Gas-Gun uniaxial impact (classical SHPB)
   2. EM uniaxial impact (clean half-sine pulse)
@@ -968,7 +968,6 @@ with st.expander("📋 Preview export contents"):
 # =============================================================================
 st.divider()
 st.caption(
-    "Virtual Tri-HB Streamlit · v3 · Educational simulator with idealised 1-D wave analysis. "
-    "Real experiments require dispersion correction, equilibrium verification, and pulse shaping. "
-    "Bar plasticity bound is enforced as a safety check."
+    "Virtual Tri-HB Streamlit · v3 · 1-D wave-analysis workspace. "
+    "Check dispersion correction, equilibrium verification, pulse shaping, and bar plasticity bounds before interpreting experimental results."
 )

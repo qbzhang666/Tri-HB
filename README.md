@@ -19,5 +19,4 @@ The integrated app includes:
 - Stress waves, stress path, failure index and energy from `wave_superposition.py`
 - Damage evolution, transition regimes and DEM/experimental descriptors from `wave_damage.py`
 
-The original specialist apps are retained for traceability and can still be run
-directly if needed.
+The integrated app is the recommended entry point for public use.

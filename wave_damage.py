@@ -235,7 +235,7 @@ sz = sz0 + z_pair
 p, q, theta_deg, J2, J3 = invariants_from_diagonal(sx, sy, sz)
 
 # Wave-superposition factor for X pair at specimen centre
-# centre stress proxy uses delayed envelopes only, as in the paper.
+# Centre stress estimate uses delayed envelopes.
 g_left_centre = get_window(t - (L_m / (2.0 * cp0)), td, pulse_type)
 g_right_centre = get_window(t - delay - (L_m / (2.0 * cp0)), td_right, pulse_type)
 sigma_centre = sx0 + Ax * g_left_centre + Ax * amplitude_ratio * g_right_centre
@@ -258,7 +258,7 @@ h_theta = 1.0 + lode_amp * (1.0 - np.cos(3.0 * theta_rad))
 qf = (A_fail + B_fail * np.maximum(p, 0.0) ** n_fail) * h_theta
 F_index = q / np.maximum(qf, 1e-9)
 
-# equivalent strain-rate proxy from elastic normal strains
+# Equivalent strain-rate estimate from elastic normal strains.
 E_MPa = E_GPa * 1000.0
 eps_x = sx / E_MPa
 eps_y = sy / E_MPa
@@ -287,7 +287,7 @@ W_el = (1.0 / (2.0 * E_MPa)) * (
 )
 power = sx * epsdot_x + sy * epsdot_y + sz * epsdot_z
 W_input = cumulative_trapezoid(power, t)
-W_diss_proxy = W_input - W_el + W_el[0]
+W_diss_estimate = W_input - W_el + W_el[0]
 
 # Synthetic descriptors reflecting expected DEM/experimental observables
 # These are model indicators for planning and interpretation, not actual DEM outputs.
@@ -308,7 +308,7 @@ D_left = np.trapezoid(damage_profile[x < 0.5], x[x < 0.5])
 D_right = np.trapezoid(damage_profile[x >= 0.5], x[x >= 0.5])
 S_x = 1.0 - abs(D_left - D_right) / max(D_left + D_right + 1e-12, 1e-12)
 
-neutral_width_proxy = np.clip(1.0 / (1.0 + 0.5 * dt_star) * (1.0 / max(1.0, abs(amplitude_ratio - 1.0) + 1.0)), 0, 1)
+neutral_width_estimate = np.clip(1.0 / (1.0 + 0.5 * dt_star) * (1.0 / max(1.0, abs(amplitude_ratio - 1.0) + 1.0)), 0, 1)
 
 # =============================================================================
 # Summary metrics
@@ -326,8 +326,7 @@ col7.metric("Final damage, D", f"{D[-1]:.3f}")
 col8.metric("Central damage fraction, Dc", f"{D_c:.3f}")
 
 st.info(
-    "This app is intended as a theoretical/interpretive demo for Paper 2. "
-    "The stress paths and damage variables are analytical proxies; DEM outputs and experimental data should be imported later for validation."
+    "Use the shared setup to review stress-wave timing, stress path, damage evolution, energy balance, and validation indicators together."
 )
 
 # =============================================================================
@@ -362,7 +361,7 @@ with tab1:
     ax1.grid(True, alpha=0.35)
     ax1.legend(ncol=2)
     st.pyplot(fig1)
-    st.download_button("Download pulse figure", fig_to_bytes(fig1), "paper2_input_pulses.png", "image/png")
+    st.download_button("Download pulse figure", fig_to_bytes(fig1), "tri_hb_input_pulses.png", "image/png")
 
     fig2, ax2 = plt.subplots(figsize=(10, 4.5))
     dt_grid = np.linspace(0, 20, 400)
@@ -387,12 +386,12 @@ with tab1:
     ax2.grid(True, alpha=0.35)
     ax2.legend()
     st.pyplot(fig2)
-    st.download_button("Download regime map", fig_to_bytes(fig2), "paper2_wave_damage_regime_map.png", "image/png")
+    st.download_button("Download regime map", fig_to_bytes(fig2), "tri_hb_wave_damage_regime_map.png", "image/png")
 
     fig3, ax3 = plt.subplots(figsize=(10, 3.8))
-    ax3.plot(t_us, sigma_centre, label="Central stress proxy")
+    ax3.plot(t_us, sigma_centre, label="Central stress estimate")
     ax3.set_xlabel("Time (μs)")
-    ax3.set_ylabel("Central stress proxy (MPa)")
+    ax3.set_ylabel("Central stress estimate (MPa)")
     ax3.set_title(r"Wave-superposition factor $\eta_{\rm sup}$")
     ax3.grid(True, alpha=0.35)
     ax3.legend()
@@ -412,7 +411,7 @@ with tab2:
         cb = fig4.colorbar(sc, ax=ax4)
         cb.set_label("Time (μs)")
         st.pyplot(fig4)
-        st.download_button("Download p–q path", fig_to_bytes(fig4), "paper2_pq_path.png", "image/png")
+        st.download_button("Download p–q path", fig_to_bytes(fig4), "tri_hb_pq_path.png", "image/png")
 
     with c2:
         fig5, ax5 = plt.subplots(figsize=(7, 5.4))
@@ -461,7 +460,7 @@ with tab3:
         ax8.grid(True, alpha=0.35)
         ax8.legend()
         st.pyplot(fig8)
-        st.download_button("Download damage figure", fig_to_bytes(fig8), "paper2_damage_evolution.png", "image/png")
+        st.download_button("Download damage figure", fig_to_bytes(fig8), "tri_hb_damage_evolution.png", "image/png")
 
     fig9, ax9 = plt.subplots(figsize=(10, 4.2))
     ax9.plot(t_us, E_D, label="E(D)")
@@ -481,23 +480,23 @@ with tab4:
     st.subheader("Energy-balance indicators")
 
     fig10, ax10 = plt.subplots(figsize=(10, 4.8))
-    ax10.plot(t_us, W_input, label="Input energy proxy")
+    ax10.plot(t_us, W_input, label="Input energy estimate")
     ax10.plot(t_us, W_el, label="Recoverable elastic energy")
-    ax10.plot(t_us, W_diss_proxy, label="Dissipated-energy proxy")
+    ax10.plot(t_us, W_diss_estimate, label="Dissipated-energy estimate")
     ax10.set_xlabel("Time (μs)")
     ax10.set_ylabel("Energy density (MJ/m³)")
     ax10.set_title("Energy indicators")
     ax10.grid(True, alpha=0.35)
     ax10.legend()
     st.pyplot(fig10)
-    st.download_button("Download energy figure", fig_to_bytes(fig10), "paper2_energy_balance.png", "image/png")
+    st.download_button("Download energy figure", fig_to_bytes(fig10), "tri_hb_energy_balance.png", "image/png")
 
     st.markdown(
         """
-        In the actual DEM/experimental workflow, replace these analytical proxies with:
-        - bar-wave energy: \(E_{I,R,T}=A_bE_bc_b\\int\\varepsilon_{I,R,T}^2dt\);
+        Energy indicators can be compared against:
+        - bar-wave energy from incident, reflected, and transmitted strain histories;
         - DEM absorbed energy from stress power and contact dissipation;
-        - kinetic-energy residual \(E_K\) to check energy closure.
+        - kinetic-energy residual checks for energy closure.
         """
     )
 
@@ -507,7 +506,7 @@ with tab5:
     c1, c2 = st.columns(2)
     with c1:
         fig11, ax11 = plt.subplots(figsize=(7, 4.6))
-        ax11.plot(x, damage_profile, label="Synthetic damage profile")
+        ax11.plot(x, damage_profile, label="Estimated damage profile")
         ax11.axvspan(0.5 - central_width / 2.0, 0.5 + central_width / 2.0, alpha=0.15, label="Central region")
         ax11.axhline(damage_threshold, linestyle="--", label="Damage threshold")
         ax11.set_xlabel("Normalised specimen position, x/L")
@@ -523,7 +522,7 @@ with tab5:
                 "Final damage D",
                 "Central damage fraction Dc",
                 "Symmetry index Sx",
-                "Neutral-zone proxy χn",
+                "Neutral-zone estimate χn",
                 "Superposition factor ηsup",
                 "Normalised delay Δt*",
             ],
@@ -531,7 +530,7 @@ with tab5:
                 D[-1],
                 D_c,
                 S_x,
-                neutral_width_proxy,
+                neutral_width_estimate,
                 eta_sup,
                 dt_star,
             ],
@@ -539,7 +538,7 @@ with tab5:
                 "Cumulative material degradation",
                 "Degree of central damage concentration",
                 "Left-right damage symmetry",
-                "Low-velocity / low-strain-rate zone proxy",
+                "Low-velocity / low-strain-rate zone estimate",
                 "Constructive wave-overlap indicator",
                 "Regime classifier",
             ],
@@ -548,7 +547,7 @@ with tab5:
 
     st.markdown(
         """
-        **Suggested validation hierarchy:**  
+        **Validation workflow:**  
         1. Bar strain gauges: amplitude, duration, delay and energy.  
         2. High-speed imaging / DIC: surface strain localisation and damage-zone migration.  
         3. CT scanning: internal damage volume, damage band width and crack orientation.  
@@ -588,7 +587,7 @@ with tab6:
     ax12.grid(True, alpha=0.35)
     ax12.legend()
     st.pyplot(fig12)
-    st.download_button("Download parametric delay figure", fig_to_bytes(fig12), "paper2_delay_parametric_study.png", "image/png")
+    st.download_button("Download parametric delay figure", fig_to_bytes(fig12), "tri_hb_delay_parametric_study.png", "image/png")
 
 with tab7:
     st.subheader("Export data")
@@ -614,22 +613,12 @@ with tab7:
         "cp_D_m_s": cp_D,
         "W_input_MJ_m3": W_input,
         "W_elastic_MJ_m3": W_el,
-        "W_diss_proxy_MJ_m3": W_diss_proxy,
+        "W_diss_estimate_MJ_m3": W_diss_estimate,
     })
     st.dataframe(df.head(30), use_container_width=True)
     st.download_button(
         "Download full results as CSV",
         data=df.to_csv(index=False).encode("utf-8"),
-        file_name="paper2_wave_damage_transition_results.csv",
+        file_name="tri_hb_wave_damage_results.csv",
         mime="text/csv",
-    )
-
-    st.markdown("### Suggested manuscript wording")
-    st.code(
-        """The instability response was interpreted using the normalised delay Δt*=Δt/ttravel. 
-For Δt*<1, the response is governed by direct stress-wave superposition, quantified by ηsup. 
-For 1≤Δt*≤3, the response remains coupled through wave reverberations. 
-For 3<Δt*≤10, the system enters a transitional regime in which reverberations decay and damage begins to influence the subsequent response. 
-For Δt*>10, the second pulse acts primarily on a stiffness-degraded material state, and the instability mechanism becomes damage-memory controlled.""",
-        language="text",
     )

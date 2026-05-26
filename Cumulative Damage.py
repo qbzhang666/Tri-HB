@@ -12,7 +12,7 @@ st.set_page_config(
 
 st.title("Anisotropic cumulative damage under multidirectional harmonic wave superposition")
 st.caption(
-    "Concise Streamlit demo for the cumulative damage model: stress-path invariants, "
+    "Cumulative damage analysis for stress-path invariants, "
     "tensorial damage evolution, damage anisotropy, CT crack-density mapping and wave-speed degradation."
 )
 
@@ -159,8 +159,8 @@ DIF = np.maximum(1.0 + 0.02 * np.log10(np.maximum(epsdot_eq, 1e-12) / epsdot0), 
 qf = (A_fail + B_fail * np.maximum(p, 0)**n_fail) * h_theta * DIF
 F = q / np.maximum(qf, 1e-9)
 
-# Directional thermodynamic-force proxy and tensorial damage evolution
-# Use positive overstress and directional stress work proxy.
+# Directional thermodynamic-force estimate and tensorial damage evolution.
+# Use positive overstress and directional stress work estimate.
 Yx = sx**2 / (2 * E_MPa)
 Yy = sy**2 / (2 * E_MPa)
 Yz = sz**2 / (2 * E_MPa)
@@ -201,7 +201,7 @@ alphax = Dx / k_ct
 alphay = Dy / k_ct
 alphaz = Dz / k_ct
 
-# Energy proxy
+# Energy estimate
 power = sx * edotx + sy * edoty + sz * edotz  # MPa/s = MJ/m3/s
 W_input = trapezoid_cumulative(power, t)
 W_el = (1/(2*E_MPa)) * (sx**2 + sy**2 + sz**2 - 2*nu*(sx*sy + sy*sz + sz*sx))
@@ -222,8 +222,7 @@ c6.metric("Final Dyy", f"{Dy[-1]:.3f}")
 c7.metric("Final Dzz", f"{Dz[-1]:.3f}")
 
 st.info(
-    "Use this app as a model-demonstration and figure generator. "
-    "For the final paper, replace the synthetic damage histories with calibrated T-HPB, DEM and CT-derived values."
+    "Use calibrated Tri-HB, DEM, and CT-derived values where available to support quantitative validation."
 )
 
 # -----------------------------
@@ -338,7 +337,7 @@ with tab3:
     st.latex(r"D_{ii}\approx k\alpha_{ii},\qquad c_{p,i}=c_{p,0}\sqrt{1-D_{ii}}")
 
 with tab4:
-    st.subheader("Failure index, energy and thermodynamic force proxy")
+    st.subheader("Failure index, energy and thermodynamic force estimate")
     colA, colB = st.columns(2)
     with colA:
         fig, ax = plt.subplots(figsize=(7,4.6))
@@ -354,7 +353,7 @@ with tab4:
         fig, ax = plt.subplots(figsize=(7,4.6))
         ax.plot(t_us, W_input, label=r"$w_{\rm input}$")
         ax.plot(t_us, W_el, label=r"$w_e$")
-        ax.plot(t_us, W_diss, label=r"$w_{\rm diss}$ proxy")
+        ax.plot(t_us, W_diss, label=r"$w_{\rm diss}$ estimate")
         ax.set_xlabel("Time (μs)")
         ax.set_ylabel("Energy density (MJ/m³)")
         ax.set_title("Energy indicators")
@@ -368,7 +367,7 @@ with tab5:
     cases = ["Uniaxial X", "Biaxial XY", "Triaxial XYZ"]
     summary = []
     for cc in cases:
-        # indicative patterns from the paper; can be replaced by batch simulations
+        # Indicative patterns; can be replaced by batch simulations.
         if cc == "Uniaxial X":
             vals = (0.15, 0.03, 0.03)
         elif cc == "Biaxial XY":
@@ -429,7 +428,7 @@ with tab6:
         "cp_z_over_cp0": cpz/cp0,
         "W_input_MJ_m3": W_input,
         "W_elastic_MJ_m3": W_el,
-        "W_diss_proxy_MJ_m3": W_diss
+        "W_diss_estimate_MJ_m3": W_diss
     })
     st.dataframe(df.head(30), use_container_width=True)
     st.download_button(
