@@ -401,14 +401,13 @@ def overview_page() -> None:
 
         1. **Test design and simulator** keeps the developed Virtual Tri-HB app for loading-mode design and synthetic stress-strain curves.
         2. **Experimental data analysis** reduces bar-gauge or direct stress-strain files, or uses the latest Step 1 result directly.
-        3. **Stress waves, stress path and energy** starts from the latest Step 1 geometry, prestress, pulse amplitude, duration and delays.
-        4. **Damage evolution and DEM validation** starts from Step 1 and shows Step 2 reduced-data validation metrics when available.
+        3. **Stress waves, damage and DEM validation** uses one shared experimental setup for stress waves, stress path, energy, damage evolution, and validation descriptors.
         """
     )
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Design modes", "4")
-    c2.metric("Integrated apps", "3")
+    c2.metric("Workflow pages", "3")
     c3.metric("Experimental reducer", "CSV/XLSX")
 
     st.info(
@@ -422,8 +421,7 @@ page = st.sidebar.radio(
         "Overview",
         "Test design and simulator",
         "Experimental data analysis",
-        "Stress waves, stress path and energy",
-        "Damage evolution and DEM validation",
+        "Stress waves, damage and DEM validation",
     ],
 )
 
@@ -433,7 +431,5 @@ elif page == "Test design and simulator":
     run_legacy_app("Tri-HB.py")
 elif page == "Experimental data analysis":
     experimental_analysis_page()
-elif page == "Stress waves, stress path and energy":
-    run_legacy_app("wave_superposition.py")
-else:
+elif page == "Stress waves, damage and DEM validation":
     run_legacy_app("wave_damage.py")

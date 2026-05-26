@@ -10,11 +10,10 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("Instability evolution under multidirectional and sequential impact loading")
+st.title("Stress waves, damage evolution and DEM validation")
 st.caption(
-    "Updated for Paper 2: DEM–experimental interpretation of wave–damage transition, "
-    "normalised delay, loading-path dimensionality, wave-superposition factor, "
-    "damage evolution, stiffness degradation, energy balance and experimental observables."
+    "Integrated workflow for stress waves, stress path, energy balance, damage evolution, "
+    "and DEM/experimental validation using one shared experimental setup."
 )
 
 # =============================================================================
@@ -127,8 +126,9 @@ if linked_reduced is not None:
         f"peak strain {100.0 * linked_reduced['strain'].max():.3f}%."
     )
 
-setup_tab, model_tab = st.sidebar.tabs(["Experimental setup", "Damage model"])
+setup_tab, wave_tab, model_tab = st.sidebar.tabs(["Experimental setup", "Wave model", "Damage model"])
 setup = setup_tab
+wave_setup = wave_tab
 damage_setup = model_tab
 
 setup.header("Material and specimen")
@@ -160,20 +160,22 @@ loading_path = setup.selectbox(
     index=default_path_index
 )
 
-pulse_type = setup.selectbox("Pulse envelope", ["Hann", "Half-sine", "Rectangular"], index=0)
 td_us = setup.number_input("Pulse duration, td (μs)", value=default_td_us, min_value=1.0, step=5.0)
-tmax_us = setup.number_input("Simulation time (μs)", value=default_tmax_us, min_value=20.0, step=10.0)
-npts = setup.slider("Number of time points", 1000, 30000, 5000, step=1000)
 
 setup.subheader("Pulse amplitudes")
 Ax = setup.number_input("Ax (MPa)", value=default_A, min_value=0.0, step=5.0)
 Ay = setup.number_input("Ay (MPa)", value=default_A, min_value=0.0, step=5.0)
 Az = setup.number_input("Az (MPa)", value=default_A, min_value=0.0, step=5.0)
 
-setup.subheader("Waveform matching")
-amplitude_ratio = setup.number_input("Right/left amplitude ratio in X", value=1.0, min_value=0.0, step=0.1)
-duration_ratio = setup.number_input("Right/left pulse-duration ratio in X", value=1.0, min_value=0.1, step=0.1)
-delay_us = setup.number_input("Time delay Δt for right/secondary pulse (μs)", value=default_delay_us, min_value=0.0, step=5.0)
+wave_setup.header("Wave calculation")
+pulse_type = wave_setup.selectbox("Pulse envelope", ["Hann", "Half-sine", "Rectangular"], index=0)
+tmax_us = wave_setup.number_input("Simulation time (μs)", value=default_tmax_us, min_value=20.0, step=10.0)
+npts = wave_setup.slider("Number of time points", 1000, 30000, 5000, step=1000)
+
+wave_setup.subheader("Waveform matching")
+amplitude_ratio = wave_setup.number_input("Right/left amplitude ratio in X", value=1.0, min_value=0.0, step=0.1)
+duration_ratio = wave_setup.number_input("Right/left pulse-duration ratio in X", value=1.0, min_value=0.1, step=0.1)
+delay_us = wave_setup.number_input("Time delay Δt for right/secondary pulse (μs)", value=default_delay_us, min_value=0.0, step=5.0)
 
 damage_setup.header("Failure and damage")
 A_fail = damage_setup.number_input("A in qf = (A+Bpⁿ)h(θ) (MPa)", value=15.0, min_value=0.0, step=1.0)
@@ -331,8 +333,9 @@ st.info(
 # =============================================================================
 # Tabs
 # =============================================================================
-tab1, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "Loading and regimes",
+    "Stress path",
     "Damage evolution",
     "Energy balance",
     "DEM/experimental descriptors",
@@ -395,9 +398,8 @@ with tab1:
     ax3.legend()
     st.pyplot(fig3)
 
-with st.expander("Stress-path diagnostics moved to Step 3", expanded=False):
+with tab2:
     st.subheader("Stress-path interpretation")
-    st.caption("Use Step 3 for the primary stress-wave and stress-path workflow. This reference view remains here to show the damage-driving p-q-theta histories for the current damage case.")
 
     c1, c2 = st.columns(2)
     with c1:
