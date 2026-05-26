@@ -176,6 +176,11 @@ def experimental_analysis_page() -> None:
                    "convention $\\varepsilon_I>0,\\;\\varepsilon_R<0,\\;\\varepsilon_T>0$ for a compression test.")
 
     latest_result = st.session_state.get("tri_hb_latest_result")
+    latest_config = st.session_state.get("tri_hb_latest_config", {})
+    default_bar_E_GPa = float(latest_config.get("bar_E", 210e9)) / 1e9
+    default_bar_C0 = float(latest_config.get("bar_C0", 5172.0))
+    default_specimen_size_mm = float(latest_config.get("specimen_size", 0.050)) * 1000.0
+    default_specimen_length_mm = float(latest_config.get("specimen_length", latest_config.get("specimen_size", 0.050))) * 1000.0
 
     with st.sidebar:
         st.header("Experimental analysis")
@@ -190,12 +195,12 @@ def experimental_analysis_page() -> None:
         )
         st.divider()
         st.subheader("Specimen and bars")
-        bar_E_GPa = st.number_input("Bar Young's modulus, Eb (GPa)", value=210.0, min_value=1.0, step=5.0)
-        bar_C0 = st.number_input("Bar wave speed, C0 (m/s)", value=5172.0, min_value=1000.0, step=50.0)
+        bar_E_GPa = st.number_input("Bar Young's modulus, Eb (GPa)", value=default_bar_E_GPa, min_value=1.0, step=5.0)
+        bar_C0 = st.number_input("Bar wave speed, C0 (m/s)", value=default_bar_C0, min_value=1000.0, step=50.0)
         bar_d_mm = st.number_input("Round bar diameter (mm)", value=50.0, min_value=1.0, step=1.0)
         square_bar = st.checkbox("Use square 50 x 50 mm bar area", value=True)
-        specimen_side_mm = st.number_input("Specimen side/diameter (mm)", value=50.0, min_value=1.0, step=1.0)
-        specimen_length_mm = st.number_input("Specimen length (mm)", value=50.0, min_value=1.0, step=1.0)
+        specimen_side_mm = st.number_input("Specimen side/diameter (mm)", value=default_specimen_size_mm, min_value=1.0, step=1.0)
+        specimen_length_mm = st.number_input("Specimen length (mm)", value=default_specimen_length_mm, min_value=1.0, step=1.0)
         specimen_shape = st.radio("Specimen area", ["Square/cube", "Circular cylinder"], horizontal=True)
 
     use_simulator_result = data_source == "Latest simulator result"

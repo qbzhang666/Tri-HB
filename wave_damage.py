@@ -88,7 +88,10 @@ linked_result = st.session_state.get("tri_hb_latest_result", {})
 linked_reduced = st.session_state.get("tri_hb_reduced_data")
 has_linked_design = bool(linked_cfg)
 
-default_L_mm = float(linked_cfg.get("specimen_size", 0.050)) * 1000.0
+default_E_GPa = float(linked_cfg.get("material_E", 50e9)) / 1e9
+default_nu = float(linked_cfg.get("material_nu", 0.25))
+default_density = float(linked_cfg.get("material_density", 2650.0))
+default_L_mm = float(linked_cfg.get("specimen_length", linked_cfg.get("specimen_size", 0.050))) * 1000.0
 default_sx0 = float(linked_cfg.get("confinement_X", 20e6)) / 1e6
 default_sy0 = float(linked_cfg.get("confinement_Y", 15e6)) / 1e6
 default_sz0 = float(linked_cfg.get("confinement_Z", 10e6)) / 1e6
@@ -139,9 +142,9 @@ damage_setup = model_tab
 
 setup.header("Material and specimen")
 
-E_GPa = setup.number_input("Young's modulus, E (GPa)", value=50.0, min_value=1.0, step=1.0)
-nu = setup.number_input("Poisson's ratio, ν", value=0.25, min_value=0.0, max_value=0.49, step=0.01)
-rho = setup.number_input("Density, ρ (kg/m³)", value=2650.0, min_value=1000.0, step=50.0)
+E_GPa = setup.number_input("Young's modulus, E (GPa)", value=default_E_GPa, min_value=1.0, step=1.0)
+nu = setup.number_input("Poisson's ratio, ν", value=default_nu, min_value=0.0, max_value=0.49, step=0.01)
+rho = setup.number_input("Density, ρ (kg/m³)", value=default_density, min_value=1000.0, step=50.0)
 L_mm = setup.number_input("Specimen side length, L (mm)", value=default_L_mm, min_value=1.0, step=1.0)
 
 E = E_GPa * 1e9

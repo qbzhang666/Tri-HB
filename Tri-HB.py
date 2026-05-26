@@ -112,10 +112,11 @@ def rock_response_hydrostatic(strain_vol: float, strain_rate: float,
 # =============================================================================
 # PULSE GENERATORS
 # =============================================================================
-def gas_gun_pulse(t: float, velocity: float, striker_length: float = 0.5) -> float:
+def gas_gun_pulse(t: float, velocity: float, striker_length: float = 0.5,
+                  bar_E: float = BAR.E, bar_C0: float = BAR.C0) -> float:
     """Trapezoidal gas-gun pulse with 20 μs rise/fall (pulse-shaper effect)."""
-    tau = 2.0 * striker_length / BAR.C0
-    peak = 0.5 * BAR.rho * BAR.C0 * velocity
+    tau = 2.0 * striker_length / bar_C0
+    peak = 0.5 * (bar_E / bar_C0) * velocity
     rise = 20e-6
     if t < 0:
         return 0.0
@@ -151,6 +152,15 @@ class SimConfig:
     confinement_Y: float       # Pa, σ_2 confining
     confinement_Z: float       # Pa, σ_3 confining
     specimen_size: float       # m, cube edge
+    specimen_length: float     # m, loading length
+    specimen_area: float       # m^2, loaded cross-section
+    material_E: float          # Pa
+    material_UCS: float        # Pa
+    material_nu: float
+    material_density: float    # kg/m^3
+    bar_E: float               # Pa
+    bar_C0: float              # m/s
+    bar_area: float            # m^2
     pulse_delay_Y: float       # s, async mode
     pulse_delay_Z: float       # s, async mode
     symmetric_axes: str        # 'X' | 'XY' | 'XYZ'
@@ -159,8 +169,11 @@ class SimConfig:
 @st.cache_data(show_spinner=False)
 def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
              pulse_duration: float, confinement_X: float, confinement_Y: float,
-             confinement_Z: float, specimen_size: float, pulse_delay_Y: float,
-             pulse_delay_Z: float, symmetric_axes: str) -> Dict:
+             confinement_Z: float, specimen_size: float, specimen_length: float,
+             specimen_area: float, material_E: float, material_UCS: float,
+             material_nu: float, material_density: float,
+             bar_E: float, bar_C0: float, bar_area: float,
+             pulse_delay_Y: float, pulse_delay_Z: float, symmetric_axes: str) -> Dict:
     """Run the time-domain wave simulation and return all signals.
 
     All arguments are hashable primitives so Streamlit's @st.cache_data
@@ -171,6 +184,10 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
         peak_stress=peak_stress, pulse_duration=pulse_duration,
         confinement_X=confinement_X, confinement_Y=confinement_Y,
         confinement_Z=confinement_Z, specimen_size=specimen_size,
+        specimen_length=specimen_length, specimen_area=specimen_area,
+        material_E=material_E, material_UCS=material_UCS, material_nu=material_nu,
+        material_density=material_density,
+        bar_E=bar_E, bar_C0=bar_C0, bar_area=bar_area,
         pulse_delay_Y=pulse_delay_Y, pulse_delay_Z=pulse_delay_Z,
         symmetric_axes=symmetric_axes,
     )
@@ -178,11 +195,12 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
     is_symmetric = cfg.mode == "em-symmetric"
     is_async = cfg.mode == "em-async"
 
-    Ab = BAR.Ab_round if is_gas_gun else BAR.Ab_square
-    As = cfg.specimen_size ** 2
-    Ls = cfg.specimen_size
+    Ab = cfg.bar_area
+    As = cfg.specimen_area
+    Ls = cfg.specimen_length
 
-    rock_params = ROCK_PARAMS[cfg.rock_type]
+    rock_params = dict(ROCK_PARAMS[cfg.rock_type])
+    rock_params.update(E_s=cfg.material_E, sigma_c0=cfg.material_UCS, nu=cfg.material_nu)
 
     # Time grid
     dt = 1e-6
@@ -226,7 +244,7 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
         inc_z_pos = inc_z_neg = 0.0
 
         if cfg.mode == "gas-gun":
-            inc_x_pos = gas_gun_pulse(t, cfg.velocity)
+            inc_x_pos = gas_gun_pulse(t, cfg.velocity, bar_E=cfg.bar_E, bar_C0=cfg.bar_C0)
         elif cfg.mode == "em-uniaxial":
             inc_x_pos = em_half_sine(t, cfg.peak_stress, cfg.pulse_duration)
         elif cfg.mode == "em-async":
@@ -241,10 +259,10 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
             if sym_Z:
                 inc_z_pos = inc_z_neg = em_half_sine(t, cfg.peak_stress, cfg.pulse_duration)
 
-        epsI_x_pos[i] = inc_x_pos / BAR.E
-        epsI_x_neg[i] = inc_x_neg / BAR.E
-        epsI_y_pos[i] = inc_y_pos / BAR.E
-        epsI_z_pos[i] = inc_z_pos / BAR.E
+        epsI_x_pos[i] = inc_x_pos / cfg.bar_E
+        epsI_x_neg[i] = inc_x_neg / cfg.bar_E
+        epsI_y_pos[i] = inc_y_pos / cfg.bar_E
+        epsI_z_pos[i] = inc_z_pos / cfg.bar_E
 
         # === SPECIMEN AXIAL (X) RESPONSE ===
         # Lateral confinement strengthens the rock (Mohr-Coulomb).
@@ -268,10 +286,10 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
         if sym_X:
             # Symmetric: forces from BOTH bars sum; momenta cancel
             refl_stress = max(0.0, inc_x_pos - sigma_dyn * As / (2 * Ab))
-            epsR_x_pos[i] = refl_stress / BAR.E
+            epsR_x_pos[i] = refl_stress / cfg.bar_E
             epsT_x[i] = 0.0  # no transmission bar in symmetric mode
         else:
-            epsT_x[i] = sigma_dyn * As / (BAR.E * Ab)
+            epsT_x[i] = sigma_dyn * As / (cfg.bar_E * Ab)
             epsR_x_pos[i] = epsT_x[i] - epsI_x_pos[i]
 
         sig_x[i] = sigma_total
@@ -283,9 +301,9 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
             # wave. Using epsI - epsR here creates a numerical deadlock at
             # zero strain because the first reflected wave equals the incident
             # wave when sigma_dyn is still zero.
-            raw_rate = (2 * BAR.C0 / Ls) * epsI_x_pos[i]
+            raw_rate = (2 * cfg.bar_C0 / Ls) * epsI_x_pos[i]
         else:
-            raw_rate = (BAR.C0 / Ls) * (epsI_x_pos[i] - epsR_x_pos[i] - epsT_x[i])
+            raw_rate = (cfg.bar_C0 / Ls) * (epsI_x_pos[i] - epsR_x_pos[i] - epsT_x[i])
 
         rate_x[i] = max(0.0, raw_rate)
         eps_x[i] = eps_x[i-1] + rate_x[i] * dt
@@ -301,14 +319,14 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
         if is_symmetric:
             if sym_Y:
                 drive_Y = inc_y_pos + inc_y_neg
-                eps_y[i] = eps_y[i-1] + (2 * BAR.C0 / Ls) * (epsI_y_pos[i] - 0.3 * epsI_y_pos[i]) * dt + passive_lat * 0.3
+                eps_y[i] = eps_y[i-1] + (2 * cfg.bar_C0 / Ls) * (epsI_y_pos[i] - 0.3 * epsI_y_pos[i]) * dt + passive_lat * 0.3
                 sig_y[i] = sigma_total if is_full_hydro else sigY_static + drive_Y * 0.85
             else:
                 eps_y[i] = eps_y[i-1] + passive_lat
                 sig_y[i] = sigY_static + lat_stiffness * (-eps_y[i])
             if sym_Z:
                 drive_Z = inc_z_pos + inc_z_neg
-                eps_z[i] = eps_z[i-1] + (2 * BAR.C0 / Ls) * (epsI_z_pos[i] - 0.3 * epsI_z_pos[i]) * dt + passive_lat * 0.3
+                eps_z[i] = eps_z[i-1] + (2 * cfg.bar_C0 / Ls) * (epsI_z_pos[i] - 0.3 * epsI_z_pos[i]) * dt + passive_lat * 0.3
                 sig_z[i] = sigma_total if is_full_hydro else sigZ_static + drive_Z * 0.85
             else:
                 eps_z[i] = eps_z[i-1] + passive_lat
@@ -329,8 +347,8 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
         # individual bar carries half the dynamic stress.
         Y_share = 2.0 if (is_symmetric and sym_Y) else 1.0
         Z_share = 2.0 if (is_symmetric and sym_Z) else 1.0
-        epsY_dyn[i] = (sig_y[i] - sigY_static) * As / (Y_share * BAR.E * Ab)
-        epsZ_dyn[i] = (sig_z[i] - sigZ_static) * As / (Z_share * BAR.E * Ab)
+        epsY_dyn[i] = (sig_y[i] - sigY_static) * As / (Y_share * cfg.bar_E * Ab)
+        epsZ_dyn[i] = (sig_z[i] - sigZ_static) * As / (Z_share * cfg.bar_E * Ab)
 
     # ---- Bar plasticity check ----
     # A strain gauge on a bar records ONE signal at any instant — incident and
@@ -341,14 +359,14 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
     # In symmetric mode the +X and -X bars each carry their own incident plus
     # reflected; the same gauge would see whichever is larger.
     bar_signals = [
-        np.abs(epsI_x_pos * BAR.E),
-        np.abs(epsR_x_pos * BAR.E),
-        np.abs(epsI_x_neg * BAR.E),
-        np.abs(epsT_x * BAR.E),
-        np.abs(epsI_y_pos * BAR.E),
-        np.abs(epsY_dyn * BAR.E),
-        np.abs(epsI_z_pos * BAR.E),
-        np.abs(epsZ_dyn * BAR.E),
+        np.abs(epsI_x_pos * cfg.bar_E),
+        np.abs(epsR_x_pos * cfg.bar_E),
+        np.abs(epsI_x_neg * cfg.bar_E),
+        np.abs(epsT_x * cfg.bar_E),
+        np.abs(epsI_y_pos * cfg.bar_E),
+        np.abs(epsY_dyn * cfg.bar_E),
+        np.abs(epsI_z_pos * cfg.bar_E),
+        np.abs(epsZ_dyn * cfg.bar_E),
     ]
     max_bar_stress = float(max(np.max(s) for s in bar_signals))
 
@@ -372,7 +390,7 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
     avg_rate = float(np.mean(rate_x[loading_mask])) if loading_mask.any() else 0.0
 
     summary = dict(
-        peak_incident_MPa=float(np.max(epsI_x_pos * BAR.E)) / 1e6,
+        peak_incident_MPa=float(np.max(epsI_x_pos * cfg.bar_E)) / 1e6,
         peak_specimen_stress_MPa=float(np.max(sig_x)) / 1e6,
         peak_bar_stress_MPa=max_bar_stress / 1e6,
         peak_strain_pct=float(np.max(eps_x)) * 100,
@@ -395,6 +413,10 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
             peak_stress=peak_stress, pulse_duration=pulse_duration,
             confinement_X=confinement_X, confinement_Y=confinement_Y,
             confinement_Z=confinement_Z, specimen_size=specimen_size,
+            specimen_length=specimen_length, specimen_area=specimen_area,
+            material_E=material_E, material_UCS=material_UCS, material_nu=material_nu,
+            material_density=material_density,
+            bar_E=bar_E, bar_C0=bar_C0, bar_area=bar_area,
             pulse_delay_Y=pulse_delay_Y, pulse_delay_Z=pulse_delay_Z,
             symmetric_axes=symmetric_axes,
         ),
@@ -566,7 +588,68 @@ st.markdown(
 
 # ---- Sidebar controls ----
 with st.sidebar:
-    st.header("Test Configuration")
+    exp_tab, test_tab = st.tabs(["Experimental setup", "Test loading"])
+
+    exp_tab.header("Specimen material")
+    rock_type = exp_tab.selectbox(
+        "Material preset",
+        ["sandstone", "granite", "concrete"],
+        format_func=lambda r: {
+            "sandstone": "Sandstone",
+            "granite":   "Granite",
+            "concrete":  "Concrete",
+        }[r],
+    )
+    preset = ROCK_PARAMS[rock_type]
+    material_E_GPa = exp_tab.number_input(
+        "Young's modulus, E (GPa)",
+        value=float(preset["E_s"] / 1e9),
+        min_value=1.0,
+        step=1.0,
+    )
+    material_UCS_MPa = exp_tab.number_input(
+        "Uniaxial compressive strength, UCS (MPa)",
+        value=float(preset["sigma_c0"] / 1e6),
+        min_value=1.0,
+        step=5.0,
+    )
+    material_nu = exp_tab.number_input(
+        "Poisson's ratio, ν",
+        value=float(preset["nu"]),
+        min_value=0.0,
+        max_value=0.49,
+        step=0.01,
+    )
+    material_density = exp_tab.number_input(
+        "Density, ρ (kg/m³)",
+        value=2650.0,
+        min_value=1000.0,
+        step=50.0,
+    )
+
+    exp_tab.header("Specimen geometry")
+    specimen_shape = exp_tab.radio("Cross-section", ["Square/cube", "Circular cylinder"], horizontal=True)
+    specimen_side_mm = exp_tab.number_input("Side length / diameter (mm)", value=50.0, min_value=1.0, step=1.0)
+    specimen_length_mm = exp_tab.number_input("Loading length, Ls (mm)", value=50.0, min_value=1.0, step=1.0)
+    if specimen_shape == "Square/cube":
+        specimen_area_m2 = (specimen_side_mm * 1e-3) ** 2
+    else:
+        specimen_area_m2 = np.pi * (specimen_side_mm * 1e-3 / 2.0) ** 2
+    exp_tab.caption(f"Specimen area: {specimen_area_m2 * 1e6:.1f} mm²")
+
+    exp_tab.header("Bar properties")
+    bar_E_GPa = exp_tab.number_input("Bar Young's modulus, Eb (GPa)", value=210.0, min_value=1.0, step=5.0)
+    bar_C0 = exp_tab.number_input("Bar wave speed, C0 (m/s)", value=5172.0, min_value=1000.0, step=50.0)
+    bar_section = exp_tab.radio("Bar cross-section", ["Square 50 x 50 mm", "Round"], horizontal=True)
+    if bar_section == "Square 50 x 50 mm":
+        bar_area_m2 = 0.050 * 0.050
+        exp_tab.caption("Bar area: 2500.0 mm²")
+    else:
+        bar_diameter_mm = exp_tab.number_input("Round bar diameter (mm)", value=50.0, min_value=1.0, step=1.0)
+        bar_area_m2 = np.pi * (bar_diameter_mm * 1e-3 / 2.0) ** 2
+        exp_tab.caption(f"Bar area: {bar_area_m2 * 1e6:.1f} mm²")
+
+    test_tab.header("Test Configuration")
 
     mode_label_map = {
         "Gas-Gun Uniaxial": "gas-gun",
@@ -574,7 +657,7 @@ with st.sidebar:
         "EM Async Triaxial": "em-async",
         "EM Symmetric Multi-axis": "em-symmetric",
     }
-    mode_label = st.selectbox("Loading mode", list(mode_label_map.keys()))
+    mode_label = test_tab.selectbox("Loading mode", list(mode_label_map.keys()))
     mode = mode_label_map[mode_label]
     is_em = mode != "gas-gun"
     is_symmetric = mode == "em-symmetric"
@@ -586,10 +669,10 @@ with st.sidebar:
         "em-async": "3 EM pulses (+X, +Y, +Z) with adjustable time delays. Stress-path-dependent.",
         "em-symmetric": "6 EM pulses fire SIMULTANEOUSLY on opposing bars. Constructive superposition at specimen → 2× stress per axis.",
     }
-    st.caption(mode_descriptions[mode])
+    test_tab.caption(mode_descriptions[mode])
 
     if is_symmetric:
-        sym_axes_label = st.radio(
+        sym_axes_label = test_tab.radio(
             "Active symmetric axes",
             ["±X only", "±X ±Y", "Full hydrostatic (±X ±Y ±Z)"],
             help="Number of opposing pulse pairs that fire simultaneously.",
@@ -599,53 +682,40 @@ with st.sidebar:
     else:
         symmetric_axes = "XYZ"  # placeholder, unused
 
-    st.divider()
-
-    rock_type = st.selectbox(
-        "Rock type",
-        ["sandstone", "granite", "concrete"],
-        format_func=lambda r: {
-            "sandstone": "Sandstone (UCS ≈ 80 MPa)",
-            "granite":   "Granite (UCS ≈ 180 MPa)",
-            "concrete":  "Concrete (UCS ≈ 40 MPa)",
-        }[r],
-    )
-
-    specimen_size_mm = st.slider("Specimen edge (mm)", 20, 80, 50, step=5)
-
-    st.divider()
-    st.subheader("Pulse settings")
+    test_tab.divider()
+    test_tab.subheader("Pulse settings")
 
     if mode == "gas-gun":
-        velocity = st.slider("Striker velocity (m/s)", 5, 50, 20, step=1)
+        velocity = test_tab.slider("Striker velocity (m/s)", 5, 50, 20, step=1)
         peak_stress_MPa = 0
-        pulse_duration_us = 193  # fixed by striker length
-        st.caption(f"Peak incident stress: {0.5 * BAR.rho * BAR.C0 * velocity / 1e6:.0f} MPa "
-                   f"(set by 0.5·ρ·C₀·V)")
+        pulse_duration_us = 2.0 * 0.5 / bar_C0 * 1e6
+        gas_peak = 0.5 * ((bar_E_GPa * 1e9) / bar_C0) * velocity / 1e6
+        test_tab.caption(f"Peak incident stress: {gas_peak:.0f} MPa "
+                         f"(set by 0.5·Eb/C₀·V)")
     else:
         velocity = 0
-        peak_stress_MPa = st.slider("Single-pulse peak amplitude (MPa)",
-                                     50, 900, 400, step=25)
-        pulse_duration_us = st.slider("Pulse duration τ (μs)",
-                                       50, 400, 200, step=10)
+        peak_stress_MPa = test_tab.slider("Single-pulse peak amplitude (MPa)",
+                                           50, 900, 400, step=25)
+        pulse_duration_us = test_tab.slider("Pulse duration τ (μs)",
+                                            50, 400, 200, step=10)
         if is_symmetric:
-            st.caption(f"Effective specimen drive (with superposition): "
-                       f"{2 * peak_stress_MPa} MPa per active axis.")
+            test_tab.caption(f"Effective specimen drive (with superposition): "
+                             f"{2 * peak_stress_MPa} MPa per active axis.")
 
-    st.divider()
-    st.subheader("Static pre-stress")
-    st.caption("Applied by hydraulic cylinders before the dynamic pulse arrives.")
+    test_tab.divider()
+    test_tab.subheader("Static pre-stress")
+    test_tab.caption("Applied by hydraulic cylinders before the dynamic pulse arrives.")
 
     max_conf = 50
-    conf_X = st.slider("σ₁ axial (X) — MPa", 0, max_conf, 20, step=1)
-    conf_Y = st.slider("σ₂ confining (Y) — MPa", 0, max_conf, 15, step=1)
-    conf_Z = st.slider("σ₃ confining (Z) — MPa", 0, max_conf, 10, step=1)
+    conf_X = test_tab.slider("σ₁ axial (X) — MPa", 0, max_conf, 20, step=1)
+    conf_Y = test_tab.slider("σ₂ confining (Y) — MPa", 0, max_conf, 15, step=1)
+    conf_Z = test_tab.slider("σ₃ confining (Z) — MPa", 0, max_conf, 10, step=1)
 
     if is_async:
-        st.divider()
-        st.subheader("Asynchronous timing")
-        delay_Y_us = st.slider("Y-pulse delay (μs)", 0, 200, 0, step=5)
-        delay_Z_us = st.slider("Z-pulse delay (μs)", 0, 200, 0, step=5)
+        test_tab.divider()
+        test_tab.subheader("Asynchronous timing")
+        delay_Y_us = test_tab.slider("Y-pulse delay (μs)", 0, 200, 0, step=5)
+        delay_Z_us = test_tab.slider("Z-pulse delay (μs)", 0, 200, 0, step=5)
     else:
         delay_Y_us = 0
         delay_Z_us = 0
@@ -661,7 +731,16 @@ config = {
     "confinement_X": float(conf_X) * 1e6,
     "confinement_Y": float(conf_Y) * 1e6,
     "confinement_Z": float(conf_Z) * 1e6,
-    "specimen_size": float(specimen_size_mm) * 1e-3,
+    "specimen_size": float(specimen_side_mm) * 1e-3,
+    "specimen_length": float(specimen_length_mm) * 1e-3,
+    "specimen_area": float(specimen_area_m2),
+    "material_E": float(material_E_GPa) * 1e9,
+    "material_UCS": float(material_UCS_MPa) * 1e6,
+    "material_nu": float(material_nu),
+    "material_density": float(material_density),
+    "bar_E": float(bar_E_GPa) * 1e9,
+    "bar_C0": float(bar_C0),
+    "bar_area": float(bar_area_m2),
     "pulse_delay_Y": float(delay_Y_us) * 1e-6,
     "pulse_delay_Z": float(delay_Z_us) * 1e-6,
     "symmetric_axes": symmetric_axes,
