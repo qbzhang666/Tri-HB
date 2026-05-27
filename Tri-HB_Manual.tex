@@ -1616,6 +1616,34 @@ statistics are derived:
 These are model indicators for planning and interpretation, not actual DEM
 outputs -- compare against a real DEM simulation or CT scan to validate.
 
+\paragraph{Delay-sensitivity indicators.}
+The delay-sensitivity plot uses the normalised delay
+$\Delta t^\ast=\Delta t/t_{\text{travel}}$ and recomputes the centre-stress
+superposition factor for each candidate delay:
+\begin{equation}
+  \eta_{\text{sup}}(\Delta t^\ast) =
+    \frac{\max_t \sig_{\text{centre}}(t;\Delta t^\ast)-\sig_{x0}}{A_x}.
+\end{equation}
+The two smooth control functions used by the sensitivity indicators are
+\begin{align}
+  C_{\text{wave}} &= \exp\!\left[-(\Delta t^\ast/1.2)^2\right], \\
+  C_{\text{damage}} &=
+    \frac{1}{1+\exp\!\left[-(\Delta t^\ast-5.0)/1.3\right]}.
+\end{align}
+The plotted final-damage and central-damage curves are normalised heuristic
+indicators,
+\begin{align}
+  I_{\text{final}} &=
+    \operatorname{clip}\!\left(0.15 + 0.35C_{\text{wave}}
+    + 0.25C_{\text{damage}},\,0,\,1\right), \\
+  I_{\text{central}} &=
+    \operatorname{clip}\!\left(0.75C_{\text{wave}}
+    + 0.25(1-C_{\text{damage}}),\,0,\,1\right).
+\end{align}
+$\eta_{\text{sup}}$ is a superposition ratio and can exceed one; it is not a
+damage variable. $I_{\text{final}}$ and $I_{\text{central}}$ are planning
+indicators for comparing delays, not independent calibrated damage predictions.
+
 \subsection{Sidebar Controls Used Across Steps 2--4}
 
 \begin{description}[leftmargin=2em, style=nextline]

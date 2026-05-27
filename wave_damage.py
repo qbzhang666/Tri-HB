@@ -616,28 +616,62 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-with st.expander("Equations used by this workflow", expanded=False):
-    st.markdown("**Elastic wave speeds and equilibrium window**")
-    st.latex(r"M=\frac{E(1-\nu)}{(1+\nu)(1-2\nu)},\quad c_p=\sqrt{M/\rho},\quad t_{travel}=L/c_p")
-    st.latex(r"t_{eq}\approx 3\text{--}5\,t_{travel},\qquad \Delta t^*=\Delta t/t_{travel}")
-    st.markdown("**Stress invariants and failure index**")
-    st.latex(r"\sigma_x(t)=\sigma_{x0}+\Delta\sigma_x(t),\quad \sigma_y(t)=\sigma_{y0}+\Delta\sigma_y(t),\quad \sigma_z(t)=\sigma_{z0}+\Delta\sigma_z(t)")
-    st.latex(r"\Delta\sigma_x=x_{\mathrm{left}}(t)+x_{\mathrm{right}}(t),\quad \Delta\sigma_y=y_{\mathrm{drive}}(t),\quad \Delta\sigma_z=z_{\mathrm{drive}}(t)")
-    st.latex(r"p=\tfrac{1}{3}(\sigma_x+\sigma_y+\sigma_z),\qquad q=\sqrt{\tfrac{1}{2}[(\sigma_x-\sigma_y)^2+(\sigma_y-\sigma_z)^2+(\sigma_z-\sigma_x)^2]}")
-    st.latex(r"q_f=(A+Bp^n)\,[1+a_\theta(1-\cos 3\theta)],\qquad F=q/q_f")
-    st.markdown("**Saturating damage law**")
-    st.latex(r"\dot D=\frac{(1-D)^\alpha}{\tau_D}\left\langle\frac{F-1}{F_0}\right\rangle^m\left(\frac{|\dot\varepsilon_{eq}|}{\dot\varepsilon_0}\right)^\beta")
-    st.latex(r"E(D)=E_0(1-D),\qquad c_p(D)=c_{p0}\sqrt{\max(1-D,0)}")
-    st.caption("The p, q, theta, qf, F, and D histories are computed from total stress histories, not prestress alone.")
-    st.markdown("**How to choose failure and damage parameters**")
-    st.markdown(
-        """
-        - **A, B, n** define the pressure-dependent failure envelope and should be fitted from triaxial compression/extension strengths or a calibrated DEM failure surface.
-        - **aθ** controls Lode-angle sensitivity; set it to zero if no true-triaxial or Lode-angle calibration is available.
-        - **τD, F0, α, m, β, εdot0** are damage-evolution parameters fitted to dynamic strength, pulse-duration, dissipated-energy, CT/DIC damage, or DEM bond-breakage histories.
-        - The built-in values are planning defaults for sensitivity checks; use calibrated values before treating D as a material damage prediction.
-        """
-    )
+equation_title = {
+    "wave": "Equations used in Step 2: wave timing and regime",
+    "stress": "Equations used in Step 3: stress path and failure index",
+    "damage": "Equations used in Step 4: damage, energy and validation",
+}.get(workflow_view, "Equations used by this workflow")
+
+with st.expander(equation_title, expanded=False):
+    if workflow_view in {"wave", "combined"}:
+        st.markdown("**Step 2: elastic wave speeds and equilibrium window**")
+        st.latex(r"M=\frac{E(1-\nu)}{(1+\nu)(1-2\nu)},\quad c_p=\sqrt{M/\rho},\quad t_{travel}=L/c_p")
+        st.latex(r"t_{eq}\approx 3\text{--}5\,t_{travel},\qquad \Delta t^*=\Delta t/t_{travel}")
+        st.latex(r"\sigma_{\mathrm{dyn}}(t)=A\,g(t-\Delta t)")
+        st.caption("The pulse envelope g(t) is the selected half-sine, Hann, or rectangular waveform.")
+
+    if workflow_view in {"stress", "combined"}:
+        st.markdown("**Step 3: total stress histories, invariants and failure index**")
+        st.latex(r"\sigma_x(t)=\sigma_{x0}+\Delta\sigma_x(t),\quad \sigma_y(t)=\sigma_{y0}+\Delta\sigma_y(t),\quad \sigma_z(t)=\sigma_{z0}+\Delta\sigma_z(t)")
+        st.latex(r"\Delta\sigma_x=x_{\mathrm{left}}(t)+x_{\mathrm{right}}(t),\quad \Delta\sigma_y=y_{\mathrm{drive}}(t),\quad \Delta\sigma_z=z_{\mathrm{drive}}(t)")
+        st.latex(r"p=\tfrac{1}{3}(\sigma_x+\sigma_y+\sigma_z),\qquad q=\sqrt{\tfrac{1}{2}[(\sigma_x-\sigma_y)^2+(\sigma_y-\sigma_z)^2+(\sigma_z-\sigma_x)^2]}")
+        st.latex(r"J_2=\tfrac{1}{2}(s_x^2+s_y^2+s_z^2),\quad J_3=s_xs_ys_z,\quad s_i=\sigma_i-p")
+        st.latex(r"\cos(3\theta)=\frac{3\sqrt{3}}{2}\frac{J_3}{J_2^{3/2}}")
+        st.latex(r"q_f=(A+Bp^n)\,[1+a_\theta(1-\cos 3\theta)],\qquad F=q/q_f")
+        st.caption("Step 3 uses total stresses: static prestress plus dynamic pulse increments.")
+        st.markdown("**How to choose failure-surface parameters**")
+        st.markdown(
+            """
+            - **A, B, n** define the pressure-dependent failure envelope and should be fitted from triaxial compression/extension strengths or a calibrated DEM failure surface.
+            - **aθ** controls Lode-angle sensitivity; set it to zero if no true-triaxial or Lode-angle calibration is available.
+            """
+        )
+
+    if workflow_view in {"damage", "combined"}:
+        st.markdown("**Step 4: damage variable and rate law**")
+        st.latex(r"F(t)=q(t)/q_f(t),\qquad \langle x\rangle=\max(x,0)")
+        st.latex(r"\dot D=\frac{(1-D)^\alpha}{\tau_D}\left\langle\frac{F-1}{F_0}\right\rangle^m\left(\frac{|\dot\varepsilon_{eq}|}{\dot\varepsilon_0}\right)^\beta,\qquad 0\le D\le 1")
+        st.latex(r"D_i=\operatorname{clip}\!\left[D_{i-1}+\dot D_{i-1}(t_i-t_{i-1}),\,0,\,1\right]")
+        st.latex(r"E(D)=E_0(1-D),\qquad c_p(D)=c_{p0}\sqrt{\max(1-D,0)}")
+        st.caption("Step 4 uses the Step 3 failure index F(t) as the damage driver; the full p-q invariant equations are not repeated here.")
+        st.markdown("**Step 4: energy-density indicators**")
+        st.latex(r"\varepsilon_i=\sigma_i/E_0,\qquad P(t)=\sigma_x\dot\varepsilon_x+\sigma_y\dot\varepsilon_y+\sigma_z\dot\varepsilon_z")
+        st.latex(r"W_{\mathrm{input}}(t)=\int_0^t P(\tau)\,d\tau")
+        st.latex(r"W_{\mathrm{el}}=\frac{1}{2E_0}\left[\sigma_x^2+\sigma_y^2+\sigma_z^2-2\nu(\sigma_x\sigma_y+\sigma_y\sigma_z+\sigma_z\sigma_x)\right]")
+        st.latex(r"W_{\mathrm{diss}}\approx W_{\mathrm{input}}-W_{\mathrm{el}}+W_{\mathrm{el}}(0)")
+        st.markdown("**Step 4: validation descriptors and delay sensitivity**")
+        st.latex(r"D_c=\frac{\int_{\mathrm{centre}}D(x)\,dx}{\int_0^1D(x)\,dx},\qquad S_x=1-\frac{|D_{\mathrm{left}}-D_{\mathrm{right}}|}{D_{\mathrm{left}}+D_{\mathrm{right}}}")
+        st.latex(r"\eta_{\mathrm{sup}}(\Delta t^*)=\frac{\max_t\sigma_{\mathrm{centre}}(t;\Delta t^*)-\sigma_{x0}}{A_x}")
+        st.latex(r"C_{\mathrm{wave}}=\exp[-(\Delta t^*/1.2)^2],\qquad C_{\mathrm{damage}}=\frac{1}{1+\exp[-(\Delta t^*-5.0)/1.3]}")
+        st.latex(r"I_{\mathrm{final}}=\operatorname{clip}(0.15+0.35C_{\mathrm{wave}}+0.25C_{\mathrm{damage}},0,1)")
+        st.latex(r"I_{\mathrm{central}}=\operatorname{clip}(0.75C_{\mathrm{wave}}+0.25(1-C_{\mathrm{damage}}),0,1)")
+        st.markdown(
+            """
+            - **τD, F0, α, m, β, εdot0** are damage-evolution calibration parameters.
+            - **I_final** and **I_central** are normalised heuristic trends used in the delay-sensitivity plot, not independent damage-law solutions.
+            - **ηsup** is a pulse-superposition ratio; it can exceed 1 and is not itself a damage variable.
+            """
+        )
 
 # =============================================================================
 # Main tabs - ordered by the selected top-level workflow step
@@ -986,11 +1020,21 @@ with tab_export:
     ax12.plot(dt_star_grid, Dc_grid, label="Central damage fraction trend")
     ax12.axvline(dt_star, linestyle="--", label="Current Δt*")
     ax12.set_xlabel("Normalised delay, Δt*")
-    ax12.set_ylabel("Normalised indicator")
+    ax12.set_ylabel("Delay-sensitivity indicator")
     ax12.set_title("Delay-controlled transition from central superposition to sequential damage")
     ax12.grid(True, alpha=0.35)
     ax12.legend()
     st.pyplot(fig12)
+    st.caption(
+        "ηsup is the centre-stress superposition ratio. The final and central damage curves are "
+        "0-1 heuristic sensitivity indicators generated from the wave-control and damage-memory guide curves."
+    )
+    with st.expander("Delay-sensitivity indicator equations", expanded=False):
+        st.latex(r"\eta_{\mathrm{sup}}(\Delta t^*)=\frac{\max_t\sigma_{\mathrm{centre}}(t;\Delta t^*)-\sigma_{x0}}{A_x}")
+        st.latex(r"C_{\mathrm{wave}}=\exp[-(\Delta t^*/1.2)^2],\qquad C_{\mathrm{damage}}=\frac{1}{1+\exp[-(\Delta t^*-5.0)/1.3]}")
+        st.latex(r"I_{\mathrm{final}}=\operatorname{clip}(0.15+0.35C_{\mathrm{wave}}+0.25C_{\mathrm{damage}},0,1)")
+        st.latex(r"I_{\mathrm{central}}=\operatorname{clip}(0.75C_{\mathrm{wave}}+0.25(1-C_{\mathrm{damage}}),0,1)")
+        st.caption("The trend curves are planning indicators for delay sensitivity; use calibrated DEM/CT/DIC data for final damage quantification.")
     st.download_button("Download delay sensitivity figure", fig_to_bytes(fig12), "tri_hb_step3_delay_sensitivity.png", "image/png")
     plt.close(fig12)
 
