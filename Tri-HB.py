@@ -231,8 +231,12 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
     epsR_z_neg = np.zeros(N)
 
     # One-sided SHPB transmission signal.  In symmetric mode there is no separate
-    # transmission bar; all six bars are drive/reflection bars.
+    # transmission bar; all six bars are drive/reflection bars.  In asynchronous
+    # mode the -Y and -Z bars act as transmission bars on their respective axes,
+    # so epsT_y and epsT_z carry the per-axis transmitted wave.
     epsT_x = np.zeros(N)
+    epsT_y = np.zeros(N)
+    epsT_z = np.zeros(N)
 
     # Backward-compatible dynamic output aliases used elsewhere in the workspace.
     epsY_dyn = np.zeros(N)
@@ -284,6 +288,12 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
         # === SPECIMEN AXIAL (X) RESPONSE ===
         # Lateral confinement strengthens the rock (Mohr-Coulomb).
         # σ₁ is the axial baseline — it does NOT strengthen, it pre-loads.
+        # Confinement uses the STATIC perpendicular pre-stress.  Using the
+        # dynamic perpendicular stress here would create a positive-feedback
+        # loop in async mode (each axis would strengthen because of the
+        # others' dynamic stress, mutually).  Path-dependence in async mode
+        # is therefore expressed through the damage / strain state of the
+        # specimen when each pulse arrives, not through dynamic confinement.
         lateral_conf = max(cfg.confinement_Y, cfg.confinement_Z)
 
         if is_full_hydro:
@@ -350,10 +360,62 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
                 eps_z[i] = eps_z[i-1] + passive_lat
                 sig_z[i] = sigZ_static + lat_stiffness * (-eps_z[i])
         elif is_async:
-            eps_y[i] = eps_y[i-1] + passive_lat
-            eps_z[i] = eps_z[i-1] + passive_lat
-            sig_y[i] = sigY_static + lat_stiffness * (-eps_y[i]) + inc_y_pos
-            sig_z[i] = sigZ_static + lat_stiffness * (-eps_z[i]) + inc_z_pos
+            # === Per-axis three-wave SHPB for asynchronous triaxial mode ===
+            # Each axis (Y, Z) runs its own constitutive evaluation and three-
+            # wave reduction, mirroring the X-axis treatment above. The +Y / +Z
+            # bars are incident bars and the -Y / -Z bars are pure transmission
+            # bars (epsR_*_neg therefore stays zero on those axes).
+            #
+            # Cross-axis coupling enters through:
+            #   (a) confinement-dependent strengthening of the rock
+            #       (lateral_conf_y uses sig_x, sig_z; analogous for Z),
+            #   (b) Poisson lateral expansion that piggybacks on each axis's
+            #       strain rate (passive_lat from X plus a Y-driven term).
+
+            # --- Y axis ---
+            # Confinement uses STATIC perpendicular pre-stress (same convention
+            # as the X axis above) to avoid the runaway feedback that would
+            # arise from using dynamic perpendicular stresses.
+            lateral_conf_y = max(cfg.confinement_X, cfg.confinement_Z)
+            r_y = rock_response(max(eps_y[i-1], 0.0),
+                                abs(rate_y[i-1]) + 1.0,
+                                lateral_conf_y, rock_params)
+            sigma_y_dyn = r_y["stress"]
+            sigma_y_peak = r_y["sigma_peak"]
+            epsT_y[i] = sigma_y_dyn * As / (cfg.bar_E * Ab)
+            epsR_y_pos[i] = epsT_y[i] - epsI_y_pos[i]
+            epsR_y_neg[i] = 0.0
+            raw_rate_y = (cfg.bar_C0 / Ls) * (
+                epsI_y_pos[i] - epsR_y_pos[i] - epsT_y[i]
+            )
+            bar_rate_y = max(0.0, raw_rate_y)
+            rate_y[i] = bar_rate_y
+            # Bar-driven compression + Poisson expansion from the X loading
+            eps_y[i] = eps_y[i-1] + bar_rate_y * dt + passive_lat
+            sig_y[i] = sigY_static + sigma_y_dyn
+
+            # Poisson contribution from Y to Z (so Z sees the effect of an
+            # active Y pulse on the same step)
+            damage_ratio_y = (sigma_y_dyn / sigma_y_peak) if sigma_y_peak > 0 else 0.0
+            dilation_y = 1.0 + 3.0 * (damage_ratio_y - 0.6) if damage_ratio_y > 0.6 else 1.0
+            passive_lat_y = -rock_params["nu"] * bar_rate_y * dt * dilation_y
+
+            # --- Z axis ---
+            lateral_conf_z = max(cfg.confinement_X, cfg.confinement_Y)
+            r_z = rock_response(max(eps_z[i-1], 0.0),
+                                abs(rate_z[i-1]) + 1.0,
+                                lateral_conf_z, rock_params)
+            sigma_z_dyn = r_z["stress"]
+            epsT_z[i] = sigma_z_dyn * As / (cfg.bar_E * Ab)
+            epsR_z_pos[i] = epsT_z[i] - epsI_z_pos[i]
+            epsR_z_neg[i] = 0.0
+            raw_rate_z = (cfg.bar_C0 / Ls) * (
+                epsI_z_pos[i] - epsR_z_pos[i] - epsT_z[i]
+            )
+            bar_rate_z = max(0.0, raw_rate_z)
+            rate_z[i] = bar_rate_z
+            eps_z[i] = eps_z[i-1] + bar_rate_z * dt + passive_lat + passive_lat_y
+            sig_z[i] = sigZ_static + sigma_z_dyn
         else:
             eps_y[i] = eps_y[i-1] + passive_lat
             eps_z[i] = eps_z[i-1] + passive_lat
@@ -381,8 +443,12 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
                 (epsI_y_pos[i] - epsR_y_pos[i]) +
                 (epsI_y_neg[i] - epsR_y_neg[i])
             ))
+        elif is_async:
+            # Async Y axis is fully handled by the per-axis three-wave block
+            # above (epsT_y, epsR_y_pos, rate_y already set). Skip overwriting.
+            pass
         else:
-            # Passive lateral output or one-sided async Y pulse.
+            # Passive lateral output (gas-gun, em-uniaxial).
             epsR_y_pos[i] = epsY_dyn[i] if abs(inc_y_pos) < 1e-12 else (sig_y_dyn * As / (cfg.bar_E * Ab) - epsI_y_pos[i])
             epsR_y_neg[i] = 0.0
             rate_y[i] = max(0.0, (cfg.bar_C0 / Ls) * (epsI_y_pos[i] - epsR_y_pos[i]))
@@ -396,8 +462,12 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
                 (epsI_z_pos[i] - epsR_z_pos[i]) +
                 (epsI_z_neg[i] - epsR_z_neg[i])
             ))
+        elif is_async:
+            # Async Z axis is fully handled by the per-axis three-wave block
+            # above (epsT_z, epsR_z_pos, rate_z already set). Skip overwriting.
+            pass
         else:
-            # Passive lateral output or one-sided async Z pulse.
+            # Passive lateral output (gas-gun, em-uniaxial).
             epsR_z_pos[i] = epsZ_dyn[i] if abs(inc_z_pos) < 1e-12 else (sig_z_dyn * As / (cfg.bar_E * Ab) - epsI_z_pos[i])
             epsR_z_neg[i] = 0.0
             rate_z[i] = max(0.0, (cfg.bar_C0 / Ls) * (epsI_z_pos[i] - epsR_z_pos[i]))
@@ -412,8 +482,8 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
     # reflected; the same gauge would see whichever is larger.
     bar_signal_arrays = [
         epsI_x_pos, epsI_x_neg, epsR_x_pos, epsR_x_neg, epsT_x,
-        epsI_y_pos, epsI_y_neg, epsR_y_pos, epsR_y_neg,
-        epsI_z_pos, epsI_z_neg, epsR_z_pos, epsR_z_neg,
+        epsI_y_pos, epsI_y_neg, epsR_y_pos, epsR_y_neg, epsT_y,
+        epsI_z_pos, epsI_z_neg, epsR_z_pos, epsR_z_neg, epsT_z,
     ]
     bar_signals = [np.abs(arr * cfg.bar_E) for arr in bar_signal_arrays]
     max_bar_stress = float(max(np.max(s) for s in bar_signals))
@@ -459,7 +529,7 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
         epsR_x_pos=epsR_x_pos, epsR_x_neg=epsR_x_neg,
         epsR_y_pos=epsR_y_pos, epsR_y_neg=epsR_y_neg,
         epsR_z_pos=epsR_z_pos, epsR_z_neg=epsR_z_neg,
-        epsT_x=epsT_x,
+        epsT_x=epsT_x, epsT_y=epsT_y, epsT_z=epsT_z,
         epsY_dyn=epsY_dyn, epsZ_dyn=epsZ_dyn,
         warning=warning, summary=summary,
         config=dict(
@@ -499,6 +569,8 @@ def build_signals_csv(result: Dict) -> bytes:
         "eps_R_z_pos_uS":      result["epsR_z_pos"] * 1e6,
         "eps_R_z_neg_uS":      result["epsR_z_neg"] * 1e6,
         "eps_T_x_uS":          result["epsT_x"] * 1e6,
+        "eps_T_y_uS":          result["epsT_y"] * 1e6,
+        "eps_T_z_uS":          result["epsT_z"] * 1e6,
 
         # Legacy aliases kept so existing notebooks/workflows still open.
         "eps_I_pos_uS":        result["epsI_x_pos"] * 1e6,
@@ -948,6 +1020,10 @@ with tabs[0]:
             fig.add_trace(go.Scatter(x=t_us, y=result["epsR_y_pos"] * 1e6,
                                      name="ε_R (+Y reflected/output)",
                                      line=dict(color="#ff6b9d", width=1.5, dash="dot")))
+            if np.any(np.abs(result.get("epsT_y", np.array([0.0]))) > 0.0):
+                fig.add_trace(go.Scatter(x=t_us, y=result["epsT_y"] * 1e6,
+                                         name="ε_T (−Y transmitted)",
+                                         line=dict(color="#06d6a0", width=1.5, dash="dashdot")))
         if np.any(np.abs(result["epsI_z_pos"]) > 0.0):
             fig.add_trace(go.Scatter(x=t_us, y=result["epsI_z_pos"] * 1e6,
                                      name="ε_I (+Z incident)",
@@ -955,6 +1031,10 @@ with tabs[0]:
             fig.add_trace(go.Scatter(x=t_us, y=result["epsR_z_pos"] * 1e6,
                                      name="ε_R (+Z reflected/output)",
                                      line=dict(color="#c084fc", width=1.5, dash="dot")))
+            if np.any(np.abs(result.get("epsT_z", np.array([0.0]))) > 0.0):
+                fig.add_trace(go.Scatter(x=t_us, y=result["epsT_z"] * 1e6,
+                                         name="ε_T (−Z transmitted)",
+                                         line=dict(color="#a78bfa", width=1.5, dash="dashdot")))
 
     fig.update_layout(**base_layout("Time (μs)", "Strain (μstrain)"))
     st.plotly_chart(fig, use_container_width=True)
@@ -1061,6 +1141,21 @@ with tabs[-1]:
     st.latex(r"\sigma_i^{\rm dyn}(t) = \frac{E_b A_b}{2 A_s}\left[\varepsilon_{I,i}+\varepsilon_{R,i}+\varepsilon_{T,i}\right],\qquad i\in\{X,Y,Z\}")
     st.latex(r"\dot{\varepsilon}_i(t) = \frac{C_0}{L_i}\left[\varepsilon_{I,i}-\varepsilon_{R,i}-\varepsilon_{T,i}\right]")
     st.caption("For the classical one-sided X test, i = X. For EM async, the same dynamic equation is applied to each driven one-sided axis.")
+
+    st.markdown("**EM asynchronous triaxial detail.** Each active axis has its own incident, "
+                "reflected, and transmitted bar signal and its own constitutive evaluation. "
+                "The incident pulse on axis $i$ is shifted by $\\Delta t_i$:")
+    st.latex(r"\varepsilon_{I,i}(t)=\frac{\sigma_{\rm peak}}{E_b}\sin\!\left(\frac{\pi(t-\Delta t_i)}{\tau}\right),\qquad \Delta t_x=0")
+    st.markdown("Bar-to-bar wave superposition does **not** occur — the three bars are physically "
+                "orthogonal and only share the specimen. Cross-axis coupling enters through (i) the "
+                "Mohr–Coulomb confinement-dependent strength on each axis (using the *static* "
+                "perpendicular pre-stress to avoid feedback runaway between dynamically loaded axes),")
+    st.latex(r"\sigma_{\rm peak,Y}=\bigl(\sigma_{c0}+k_{\rm conf}\,\max(\sigma_1^{\rm static},\sigma_3^{\rm static})\bigr)\cdot \mathrm{DIF},\quad "
+             r"\sigma_{\rm peak,Z}=\bigl(\sigma_{c0}+k_{\rm conf}\,\max(\sigma_1^{\rm static},\sigma_2^{\rm static})\bigr)\cdot \mathrm{DIF}")
+    st.markdown("and (ii) Poisson lateral expansion carried between axes,")
+    st.latex(r"\Delta\varepsilon_i^{\rm Poisson}=-\nu\,\bigl(\dot\varepsilon_x+\dot\varepsilon_y\bigr)\,dt\,\cdot\,\text{dilation factor}")
+    st.markdown("So the equations on every axis remain the standard three-wave form above; only the "
+                "damage / strain state of the specimen each pulse meets differs from the synchronous case.")
 
     st.markdown("**Symmetric superposition** (Mode 4, opposing bars fire identically):")
     st.latex(r"\sigma_i^{\rm dyn}(t) = \frac{E_b A_b}{2 A_s}\left[(\varepsilon_{I,i}^{+}+\varepsilon_{R,i}^{+})+(\varepsilon_{I,i}^{-}+\varepsilon_{R,i}^{-})\right],\qquad i\in\{X,Y,Z\}")
