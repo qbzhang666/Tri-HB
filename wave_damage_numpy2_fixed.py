@@ -633,6 +633,12 @@ with tab_overview:
         st.write(f"Regime: **{regime}**")
         st.write(f"Equilibrium window: **{t_eq_low * 1e6:.1f}-{t_eq_high * 1e6:.1f} μs**")
         st.write(f"Peak dynamic stress inputs: X **{np.max(sx_dyn):.1f} MPa**, Y **{np.max(y_drive):.1f} MPa**, Z **{np.max(z_drive):.1f} MPa**")
+        with st.expander("Timing equations used in this plot", expanded=False):
+            st.latex(r"M=\frac{E(1-\nu)}{(1+\nu)(1-2\nu)},\qquad c_p=\sqrt{M/\rho}")
+            st.latex(r"t_{\mathrm{travel}}=\frac{L}{c_p},\qquad t_{\mathrm{eq}}\approx 3\text{--}5\,t_{\mathrm{travel}}")
+            st.latex(r"\Delta t^\ast=\frac{\Delta t}{t_{\mathrm{travel}}}")
+            st.latex(r"\sigma_{\mathrm{dyn}}(t)=A\,g(t-\Delta t)")
+            st.caption("The pulse curves use the selected envelope g(t): half-sine, Hann, or rectangular.")
         if analysis_goal == "Quick validation":
             st.info("Check that the main pulse length is longer than the equilibrium window before interpreting stress-strain or damage.")
         elif analysis_goal == "Stress-path focus":
@@ -648,7 +654,7 @@ with tab_overview:
     damage_control = 1.0 / (1.0 + np.exp(-(dt_grid - 5.0) / 1.3))
     ax2.plot(dt_grid, wave_control, label="Wave-interaction control")
     ax2.plot(dt_grid, damage_control, label="Damage-memory control")
-    ax2.axvline(dt_star, linestyle="--", linewidth=1.5, label="Current case")
+    ax2.axvline(dt_star, linestyle="--", linewidth=1.5, label="Current Δt*")
     ax2.axvspan(0, 1, alpha=0.12)
     ax2.axvspan(1, 3, alpha=0.10)
     ax2.axvspan(3, 10, alpha=0.08)
@@ -660,11 +666,26 @@ with tab_overview:
     ax2.set_xlim(0, 20)
     ax2.set_ylim(0, 1.1)
     ax2.set_xlabel("Normalised delay, Δt* = Δt / travel time")
-    ax2.set_ylabel("Relative controlling mechanism")
+    ax2.set_ylabel("Heuristic control indicator (0-1)")
     ax2.set_title("Wave-to-damage transition map")
     ax2.grid(True, alpha=0.35)
     ax2.legend()
     st.pyplot(fig2)
+    st.caption(
+        "The two smooth curves are heuristic guide curves, not calibrated damage laws. "
+        "The dashed line is the current normalised delay marker."
+    )
+    with st.expander("Transition-map guide equations", expanded=False):
+        st.latex(r"\Delta t^\ast=\Delta t/t_{\mathrm{travel}}")
+        st.latex(r"C_{\mathrm{wave}}=\exp[-(\Delta t^\ast/1.2)^2]")
+        st.latex(r"C_{\mathrm{damage}}=\frac{1}{1+\exp[-(\Delta t^\ast-5.0)/1.3]}")
+        st.markdown(
+            """
+            - Only the first two legend items are curves.
+            - **Current Δt\\*** is the dashed vertical marker for this case.
+            - The vertical axis is a unitless dominance indicator: values near 1 mean that mechanism is expected to be more influential.
+            """
+        )
     st.download_button("Download regime map", fig_to_bytes(fig2), "tri_hb_step3_regime_map.png", "image/png")
     plt.close(fig2)
 
@@ -880,7 +901,7 @@ with tab_export:
     ax12.plot(dt_star_grid, eta_grid, label="ηsup")
     ax12.plot(dt_star_grid, Dfinal_grid, label="Final damage trend")
     ax12.plot(dt_star_grid, Dc_grid, label="Central damage fraction trend")
-    ax12.axvline(dt_star, linestyle="--", label="Current case")
+    ax12.axvline(dt_star, linestyle="--", label="Current Δt*")
     ax12.set_xlabel("Normalised delay, Δt*")
     ax12.set_ylabel("Normalised indicator")
     ax12.set_title("Delay-controlled transition from central superposition to sequential damage")

@@ -1500,6 +1500,17 @@ $> 10$ & Sequential, damage-memory & Each pulse acts on damaged state \\
 \end{tabular}
 \end{center}
 
+The Step~2 transition map also overlays two dimensionless guide curves,
+\begin{align}
+  C_{\text{wave}}(\Delta t^\ast) &= \exp\!\left[-(\Delta t^\ast/1.2)^2\right], \\
+  C_{\text{damage}}(\Delta t^\ast) &=
+    \frac{1}{1+\exp\!\left[-(\Delta t^\ast-5.0)/1.3\right]}.
+\end{align}
+These curves are heuristic dominance indicators, not calibrated damage laws. The
+third legend item in the app is the vertical marker for the current
+$\Delta t^\ast$ value, so the map contains two curves plus one current-case
+marker.
+
 \paragraph{Superposition factor at the specimen centre.}
 \begin{equation}
   \sig_{\text{centre}}(t) = \sig_{x0} + A_x\,g\!\left(t - \tfrac{\Ls}{2c_p}\right)
