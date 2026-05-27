@@ -847,15 +847,15 @@ col1, col2, col3, col4, col5 = st.columns(5)
 drive_label = "Effective drive" if is_symmetric else "Peak incident"
 drive_value = 2 * peak_stress_MPa if is_symmetric else s["peak_incident_MPa"]
 col1.metric(drive_label, f"{drive_value:.0f} MPa")
-col2.metric("Specimen σ peak", f"{s['peak_specimen_stress_MPa']:.0f} MPa")
-col3.metric("Max bar stress", f"{s['peak_bar_stress_MPa']:.0f} MPa",
+col2.metric("Specimen σ peak", f"{s['peak_specimen_stress_MPa']:.1f} MPa")
+col3.metric("Max bar stress", f"{s['peak_bar_stress_MPa']:.1f} MPa",
             delta=f"limit {BAR.sigma_prop/1e6:.0f}",
             delta_color="inverse")
 if is_symmetric and s["is_full_hydrostatic"]:
-    col4.metric("Peak pressure", f"{s['peak_pressure_MPa']:.0f} MPa")
+    col4.metric("Peak pressure", f"{s['peak_pressure_MPa']:.1f} MPa")
 else:
     col4.metric("Strain rate", f"{s['avg_strain_rate']:.0f} /s")
-col5.metric("Peak strain", f"{s['peak_strain_pct']:.2f} %")
+col5.metric("Peak strain", f"{s['peak_strain_pct']:.3f} %")
 
 
 # =============================================================================

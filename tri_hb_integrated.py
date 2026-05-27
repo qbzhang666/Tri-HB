@@ -158,13 +158,13 @@ def experimental_analysis_page() -> None:
                    "\\cdot\\int\\varepsilon^2\\,\\mathrm{d}t\\,[\\mathrm{s}]\\;=\\;\\mathrm{J}$.")
 
         st.markdown("**Symmetric-mode (Mode 4) energy folding** — opposing bar pair contributes both incident pulses; "
-                    "the reflected energy is doubled to account for both ±X bars:")
+                    "both reflected bars are retained explicitly:")
         st.latex(r"W_I=E_b A_b C_0\!\int(\varepsilon_{I,+}^2+\varepsilon_{I,-}^2)\,\mathrm{d}t,\qquad "
-                 r"W_R=E_b A_b C_0\!\int 2\,\varepsilon_{R,+}^2\,\mathrm{d}t")
+                 r"W_R=E_b A_b C_0\!\int(\varepsilon_{R,+}^2+\varepsilon_{R,-}^2)\,\mathrm{d}t")
 
         st.markdown("**Absorbed energy from simulator stress–strain:**")
         st.latex(r"W_{\rm abs}(t)=\int_0^t \sigma_s(\tau)\,\dot\varepsilon_s(\tau)\,V_s\,\mathrm{d}\tau,"
-                 r"\quad V_s=L_s^{\,3}")
+                 r"\quad V_s=A_sL_s")
         st.caption("For simulator-derived histories, reflected, transmitted, and absorbed energies are closed against "
                    "the available incident energy so their cumulative sum never exceeds $W_I$.")
 
@@ -179,8 +179,28 @@ def experimental_analysis_page() -> None:
     latest_config = st.session_state.get("tri_hb_latest_config", {})
     default_bar_E_GPa = float(latest_config.get("bar_E", 210e9)) / 1e9
     default_bar_C0 = float(latest_config.get("bar_C0", 5172.0))
+    default_bar_area_m2 = float(latest_config.get("bar_area", 0.050 * 0.050))
     default_specimen_size_mm = float(latest_config.get("specimen_size", 0.050)) * 1000.0
     default_specimen_length_mm = float(latest_config.get("specimen_length", latest_config.get("specimen_size", 0.050))) * 1000.0
+    default_specimen_area_m2 = float(latest_config.get(
+        "specimen_area",
+        (default_specimen_size_mm * 1e-3) ** 2,
+    ))
+
+    # Defaults used by branches where duplicate geometry controls are hidden.
+    bar_E_GPa = default_bar_E_GPa
+    bar_C0 = default_bar_C0
+    bar_d_mm = float(np.sqrt(4.0 * default_bar_area_m2 / np.pi) * 1000.0)
+    square_bar = bool(np.isclose(default_bar_area_m2, 0.050 * 0.050, rtol=0.0, atol=1e-12))
+    specimen_side_mm = default_specimen_size_mm
+    specimen_length_mm = default_specimen_length_mm
+    specimen_shape = "Square/cube"
+
+    default_square_specimen_area = (default_specimen_size_mm * 1e-3) ** 2
+    default_circular_specimen_area = np.pi * (default_specimen_size_mm * 1e-3 / 2.0) ** 2
+    default_specimen_shape_index = 0
+    if abs(default_specimen_area_m2 - default_circular_specimen_area) < abs(default_specimen_area_m2 - default_square_specimen_area):
+        default_specimen_shape_index = 1
 
     with st.sidebar:
         st.header("Experimental analysis")
@@ -193,15 +213,34 @@ def experimental_analysis_page() -> None:
             source_options,
             help="Choose the source first; the column mapping and energy workflow update to match it.",
         )
-        st.divider()
-        st.subheader("Specimen and bars")
-        bar_E_GPa = st.number_input("Bar Young's modulus, Eb (GPa)", value=default_bar_E_GPa, min_value=1.0, step=5.0)
-        bar_C0 = st.number_input("Bar wave speed, C0 (m/s)", value=default_bar_C0, min_value=1000.0, step=50.0)
-        bar_d_mm = st.number_input("Round bar diameter (mm)", value=50.0, min_value=1.0, step=1.0)
-        square_bar = st.checkbox("Use square 50 x 50 mm bar area", value=True)
-        specimen_side_mm = st.number_input("Specimen side/diameter (mm)", value=default_specimen_size_mm, min_value=1.0, step=1.0)
-        specimen_length_mm = st.number_input("Specimen length (mm)", value=default_specimen_length_mm, min_value=1.0, step=1.0)
-        specimen_shape = st.radio("Specimen area", ["Square/cube", "Circular cylinder"], horizontal=True)
+
+        if data_source == "Upload bar strain gauges":
+            st.divider()
+            st.subheader("Specimen and bars")
+            st.caption("Required only for reducing uploaded bar-gauge histories.")
+            bar_E_GPa = st.number_input("Bar Young's modulus, Eb (GPa)", value=default_bar_E_GPa, min_value=1.0, step=5.0)
+            bar_C0 = st.number_input("Bar wave speed, C0 (m/s)", value=default_bar_C0, min_value=1000.0, step=50.0)
+            bar_d_mm = st.number_input("Round bar diameter (mm)", value=bar_d_mm, min_value=1.0, step=1.0)
+            square_bar = st.checkbox("Use square 50 x 50 mm bar area", value=square_bar)
+            specimen_side_mm = st.number_input("Specimen side/diameter (mm)", value=default_specimen_size_mm, min_value=1.0, step=1.0)
+            specimen_length_mm = st.number_input("Specimen length (mm)", value=default_specimen_length_mm, min_value=1.0, step=1.0)
+            specimen_shape = st.radio(
+                "Specimen area",
+                ["Square/cube", "Circular cylinder"],
+                horizontal=True,
+                index=default_specimen_shape_index,
+            )
+        elif data_source == "Latest simulator result":
+            st.divider()
+            st.caption(
+                "Step 2 inherits the bar, specimen geometry, and material settings from Step 1 Test Design. "
+                "Duplicate Specimen and bars inputs are hidden."
+            )
+        else:
+            st.divider()
+            st.caption(
+                "Direct stress-strain files already contain reduced stress and strain, so bar/specimen inputs are not required."
+            )
 
     use_simulator_result = data_source == "Latest simulator result"
     if data_source == "Upload bar strain gauges":
@@ -221,18 +260,22 @@ def experimental_analysis_page() -> None:
     if use_simulator_result and latest_result is not None:
         time_s = latest_result["time"]
         eps_i_pos = latest_result["epsI_x_pos"]
-        eps_i_neg = latest_result["epsI_x_neg"]
-        eps_r_pos = latest_result["epsR_x_pos"]
-        eps_t = latest_result["epsT_x"]
-        symmetric_factor = 2.0 if np.any(np.abs(eps_i_neg) > 0.0) else 1.0
-        Ab = (0.050 * 0.050) if square_bar else np.pi * (bar_d_mm * 1e-3 / 2.0) ** 2
-        Eb = bar_E_GPa * 1e9
-        energy_i = Ab * Eb * bar_C0 * cumulative_trapezoid(eps_i_pos**2 + eps_i_neg**2, time_s)
-        energy_r_target = Ab * Eb * bar_C0 * cumulative_trapezoid(symmetric_factor * eps_r_pos**2, time_s)
-        energy_t_target = Ab * Eb * bar_C0 * cumulative_trapezoid(eps_t**2, time_s)
-        sim_cfg = st.session_state.get("tri_hb_latest_config", {})
-        sim_size = float(sim_cfg.get("specimen_size", specimen_length_mm * 1e-3))
-        sim_volume = sim_size**3
+        eps_i_neg = latest_result.get("epsI_x_neg", np.zeros_like(eps_i_pos))
+        eps_r_pos = latest_result.get("epsR_x_pos", np.zeros_like(eps_i_pos))
+        eps_r_neg = latest_result.get("epsR_x_neg", np.zeros_like(eps_i_pos))
+        eps_t = latest_result.get("epsT_x", np.zeros_like(eps_i_pos))
+
+        sim_cfg = st.session_state.get("tri_hb_latest_config", latest_config)
+        Ab = float(sim_cfg.get("bar_area", default_bar_area_m2))
+        Eb = float(sim_cfg.get("bar_E", default_bar_E_GPa * 1e9))
+        C0 = float(sim_cfg.get("bar_C0", default_bar_C0))
+        As = float(sim_cfg.get("specimen_area", default_specimen_area_m2))
+        Ls = float(sim_cfg.get("specimen_length", default_specimen_length_mm * 1e-3))
+        sim_volume = As * Ls
+
+        energy_i = Ab * Eb * C0 * cumulative_trapezoid(eps_i_pos**2 + eps_i_neg**2, time_s)
+        energy_r_target = Ab * Eb * C0 * cumulative_trapezoid(eps_r_pos**2 + eps_r_neg**2, time_s)
+        energy_t_target = Ab * Eb * C0 * cumulative_trapezoid(eps_t**2, time_s)
         absorbed_target = cumulative_trapezoid(latest_result["sig_x"] * latest_result["rate_x"] * sim_volume, time_s)
         energy_r, energy_t, absorbed = close_energy_budget(
             energy_i,
@@ -252,7 +295,10 @@ def experimental_analysis_page() -> None:
                 "energy_absorbed_J": absorbed,
             }
         )
-        st.success("Using the latest result from Test Design and Simulator.")
+        st.success(
+            "Using the latest result from Test Design and Simulator. "
+            "Peak stress and strain are read from the same Step 1 arrays."
+        )
         df_raw = out.copy()
     elif uploaded is None:
         if analysis_mode == "Bar strain gauges":
