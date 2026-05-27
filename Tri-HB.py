@@ -35,7 +35,7 @@ class BarProps:
     E: float = 210e9            # Pa, Young's modulus
     rho: float = 7850.0         # kg/m^3
     C0: float = 5172.0          # m/s (= sqrt(E/rho))
-    sigma_prop: float = 930e6   # Pa, proportional limit
+    sigma_prop: float = 1000e6  # Pa, proportional limit
     sigma_yield: float = 1080e6 # Pa, yield strength
     Ab_round: float = np.pi * (0.040 / 2) ** 2  # gas-gun bar (Φ40)
     Ab_square: float = 0.050 * 0.050             # square bar (50×50)
@@ -49,11 +49,11 @@ BAR = BarProps()
 # =============================================================================
 ROCK_PARAMS = {
     "sandstone": dict(E_s=15e9, sigma_c0=80e6, nu=0.20, b_rate=0.18,
-                      k_conf=4.5, eps_peak=0.008, soften=80.0),
+                      epsdot_ref=1.0, k_conf=4.5, eps_peak=0.008, soften=80.0),
     "granite":   dict(E_s=50e9, sigma_c0=180e6, nu=0.25, b_rate=0.12,
-                      k_conf=5.5, eps_peak=0.005, soften=120.0),
+                      epsdot_ref=1.0, k_conf=5.5, eps_peak=0.005, soften=120.0),
     "concrete":  dict(E_s=30e9, sigma_c0=40e6, nu=0.20, b_rate=0.22,
-                      k_conf=4.0, eps_peak=0.006, soften=100.0),
+                      epsdot_ref=1.0, k_conf=4.0, eps_peak=0.006, soften=100.0),
 }
 
 
@@ -71,7 +71,7 @@ def rock_response(strain: float, strain_rate: float, confinement: float,
 
     Returns dict with stress, sigma_peak, modulus.
     """
-    rate_ref = 1.0
+    rate_ref = params.get("epsdot_ref", 1.0)
     DIF = 1.0 + params["b_rate"] * np.log10(max(strain_rate, rate_ref) / rate_ref)
     sigma_peak = (params["sigma_c0"] + params["k_conf"] * confinement) * DIF
 
@@ -96,7 +96,7 @@ def rock_response_hydrostatic(strain_vol: float, strain_rate: float,
     """Volumetric (cap) response for fully hydrostatic loading.
     Deviator is zero; specimen deforms by pore collapse / cataclasis.
     """
-    rate_ref = 1.0
+    rate_ref = params.get("epsdot_ref", 1.0)
     DIF = 1.0 + params["b_rate"] * np.log10(max(strain_rate, rate_ref) / rate_ref)
     p_cap = 4.0 * params["sigma_c0"] * DIF
 
@@ -1062,7 +1062,7 @@ with tabs[1]:
                                  line=dict(color="#ffd166", width=2.5, dash="dash")))
     # Bar-limit reference line
     fig.add_hline(y=BAR.sigma_prop / 1e6, line_dash="dash", line_color="#ff6b9d",
-                  annotation_text="bar limit (930 MPa)",
+                  annotation_text=f"bar limit ({BAR.sigma_prop / 1e6:.0f} MPa)",
                   annotation_position="top right",
                   annotation_font=dict(color="#ff6b9d", size=10))
     fig.update_layout(**base_layout("Time (μs)", "Stress (MPa)"))
@@ -1182,11 +1182,26 @@ with tabs[-1]:
 
     st.markdown("**Individual-bar dynamic stress and plasticity bound** (always required):")
     st.latex(r"\sigma_{b,i}^{I,\pm}(t)=E_b\varepsilon_{I,i}^{\pm}(t),\qquad \sigma_{b,i}^{R,\pm}(t)=E_b\varepsilon_{R,i}^{\pm}(t)")
-    st.latex(r"\max_{i\in\{X,Y,Z\},\;\pm}\;\max_t\left(|\sigma_{b,i}^{I,\pm}(t)|,|\sigma_{b,i}^{R,\pm}(t)|\right)\leq\sigma_{\rm prop}=930\ \text{MPa}")
+    st.latex(
+        r"\max_{i\in\{X,Y,Z\},\;\pm}\;\max_t\left(|\sigma_{b,i}^{I,\pm}(t)|,|\sigma_{b,i}^{R,\pm}(t)|\right)"
+        + rf"\leq\sigma_{{\rm prop}}={BAR.sigma_prop / 1e6:.0f}\ \text{{MPa}}"
+    )
 
     with st.expander("Constitutive model details"):
         st.latex(r"\sigma_{\text{peak}} = (\sigma_{c0} + k_{\text{conf}} \cdot \sigma_{\text{conf}}) \cdot \text{DIF}")
         st.latex(r"\text{DIF} = 1 + b_{\text{rate}} \log_{10}\!\left(\dot{\varepsilon}/\dot{\varepsilon}_{\text{ref}}\right)")
+        st.caption(
+            f"For the selected {rock_type} preset, b_rate = {preset['b_rate']:.2f} "
+            f"and εdot_ref = {preset.get('epsdot_ref', 1.0):.1f} s⁻¹. "
+            "They are calibration constants for the dynamic increase factor, not quantities derived from bar geometry."
+        )
+        st.markdown(
+            "To calibrate them, run or collect tests at the same confinement but different strain rates, "
+            "compute $\\mathrm{DIF}=\\sigma_{\\text{peak}}/(\\sigma_{c0}+k_{\\text{conf}}\\sigma_{\\text{conf}})$, "
+            "then fit the slope of $\\mathrm{DIF}$ against $\\log_{10}(\\dot\\varepsilon/\\dot\\varepsilon_{\\text{ref}})$. "
+            "$\\dot\\varepsilon_{\\text{ref}}$ is normally the quasi-static reference rate where $\\mathrm{DIF}=1$; "
+            "this simulator uses 1 s$^{-1}$ by default."
+        )
         st.markdown(
             "Pre-peak: $\\sigma = \\sigma_{\\text{peak}} \\cdot (2r - r^2)$, "
             "where $r = \\varepsilon / \\varepsilon_{\\text{peak}}$."

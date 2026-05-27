@@ -290,7 +290,7 @@ specimen experienced, nothing more.
 \subsection{The Bar Plasticity Limit}
 
 The three-wave equations assume the bars remain linearly elastic. 42CrMo
-steel has a proportional limit $\sigprop \approx \SI{930}{MPa}$. Whenever the
+steel has a proportional limit $\sigprop \approx \SI{1000}{MPa}$. Whenever the
 stress carried by any bar exceeds this value, the bar yields plastically, the
 wave equation~\eqref{eq:wave} no longer holds, and the analysis becomes invalid.
 This single constraint determines the operating envelope of the entire facility.
@@ -299,7 +299,7 @@ This single constraint determines the operating envelope of the entire facility.
 \begin{warningbox}[Bar plasticity: the most important diagnostic]
 The maximum stress on any bar must satisfy:
 \[
-  \boxed{\;\sig_{\text{bar}}^{\max} \leq \sigprop = \SI{930}{MPa}\;}
+  \boxed{\;\sig_{\text{bar}}^{\max} \leq \sigprop = \SI{1000}{MPa}\;}
 \]
 If exceeded, the test is invalid (and the bar may be damaged). The simulator
 flags this automatically with three tiers: caution at $0.85\,\sigprop$, warning
@@ -342,6 +342,15 @@ The two roles played by pre-stress are subtly different and worth distinguishing
       \sigma_{\text{peak}}^{\text{rock}}
         = \big(\sigma_{c0} + k_{\text{conf}} \cdot \max(\sigma_2, \sigma_3)\big) \cdot \text{DIF}.
     \end{equation}
+        The rate multiplier is
+    \begin{equation}
+      \text{DIF}=1+b_{\text{rate}}\log_{10}
+      \left(\frac{\epsdot}{\epsdot_{\text{ref}}}\right).
+    \end{equation}
+        Here $b_{\text{rate}}$ is the fitted slope of strength increase versus
+        $\log_{10}\epsdot$, and $\epsdot_{\text{ref}}$ is the reference strain
+        rate where $\text{DIF}=1$. The simulator presets use
+        $\epsdot_{\text{ref}}=\SI{1.0}{s^{-1}}$.
         Doubling $\sigma_2$ raises the peak strength of the specimen; doubling
         $\sigma_1$ does not.
 \end{itemize}
@@ -582,7 +591,7 @@ Mode~1. The student-facing procedure is:
         $\sig_x^{\text{total}}(t) = \sig_1 + \sig_x^{\text{dyn}}(t)$.
   \item Plot $\sig_x^{\text{total}}$ versus $\eps_x$. Read peak strength and
         average strain rate.
-  \item Check that maximum bar stress remained below $\sigprop = \SI{930}{MPa}$.
+  \item Check that maximum bar stress remained below $\sigprop = \SI{1000}{MPa}$.
 \end{enumerate}
 \end{stepbox}
 
@@ -617,7 +626,7 @@ for a \SI{50}{mm} specimen between \SI{50}{mm} square bars,
                     \approx \SI{430}{MPa}.
 \end{equation*}
 
-\textbf{Conclusion:} \SI{430}{MPa} is well below the \SI{930}{MPa} bar limit.
+\textbf{Conclusion:} \SI{430}{MPa} is well below the \SI{1000}{MPa} bar limit.
 Safe to proceed. Charge the capacitor for $\sigpeak \approx \SI{500}{MPa}$
 (margin above 430 to drive the specimen through peak), choose
 $\tau = \SI{200}{\micro s}$ to give a strain rate of order \SI{200}{s^{-1}}.
@@ -939,7 +948,7 @@ when full hydrostatic mode is selected.
         $\pm X \pm Y$ sub-modes.
   \item Choose $\sigpeak$ (single-bar peak amplitude). Remember the specimen
         will see $2 \sigpeak$ on each active axis. Verify the bar limit:
-        $\sigpeak < \sigprop = \SI{930}{MPa}$.
+        $\sigpeak < \sigprop = \SI{1000}{MPa}$.
   \item Choose $\tau$ for the desired strain rate. In symmetric mode, the
         strain rate is doubled compared to uniaxial mode at the same $\tau$,
         so for a target $\epsdot$, set $\tau \approx 2 \cdot \tau_{\text{uniaxial}}$.
@@ -982,10 +991,10 @@ equals the axial stress:
 \end{align*}
 \textbf{Bar stress check:} each bar carries one pulse at $\sigpeak$:
 \[
-  \sig_{\text{bar}}^{\max} \approx \SI{375}{MPa} < \SI{930}{MPa} \;\checkmark
+  \sig_{\text{bar}}^{\max} \approx \SI{375}{MPa} < \SI{1000}{MPa} \;\checkmark
 \]
 Plenty of margin -- this configuration is safely within the bar limit, even
-though it would require $\sigpeak = \SI{750}{MPa}$ (very near the bar limit) in
+though it would require $\sigpeak = \SI{750}{MPa}$ (closer to the bar limit) in
 uniaxial mode.
 
 \textbf{Pulse duration:} for target $\epsdot \sim \SI{300}{s^{-1}}$ in
@@ -1190,7 +1199,7 @@ fourth ($p$--$\eps_v$) appears only in symmetric mode.
 
   \item[Specimen Stresses] Total $\sig_X$, $\sig_Y$, $\sig_Z$ on the specimen.
     In symmetric mode, the mean pressure $p(t)$ is overlaid as a dashed
-    reference. A horizontal dashed line at \SI{930}{MPa} shows the bar
+    reference. A horizontal dashed line at \SI{1000}{MPa} shows the bar
     proportional limit for visual safety check.
 
   \item[$\sig$--$\eps$ Curve] Loading branch only. The curve traces from the
@@ -1691,7 +1700,7 @@ Step~1 \emph{Experimental setup} sidebar tab.
 Young's modulus & $E_b$ & \SI{210}{GPa} \\
 Density & $\rho_b$ & \SI{7850}{kg/m^3} \\
 Bar wave speed & $\Cz$ & \SI{5172}{m/s} \\
-Proportional limit & $\sigprop$ & \SI{930}{MPa} \\
+Proportional limit & $\sigprop$ & \SI{1000}{MPa} \\
 Yield stress (approx.) & $\sigma_Y$ & \SI{1080}{MPa} \\
 Round bar area (gas-gun, $\Phi 40$) & $\Ab$ & \SI{1257}{mm^2} \\
 Square bar area ($\SI{50}{mm} \times \SI{50}{mm}$) & $\Ab$ & \SI{2500}{mm^2} \\
@@ -1702,13 +1711,13 @@ Square bar area ($\SI{50}{mm} \times \SI{50}{mm}$) & $\Ab$ & \SI{2500}{mm^2} \\
 \subsection{Default rock parameters in the simulator}
 \begin{center}
 \renewcommand{\arraystretch}{1.3}
-\begin{tabular}{@{}lcccccc@{}}
+\begin{tabular}{@{}lccccccc@{}}
 \toprule
-\textbf{Rock} & $E_s$ (GPa) & $\sig_{c0}$ (MPa) & $\nu$ & $b_{\text{rate}}$ & $k_{\text{conf}}$ & $\eps_{\text{peak}}$ \\
+\textbf{Rock} & $E_s$ (GPa) & $\sig_{c0}$ (MPa) & $\nu$ & $b_{\text{rate}}$ & $\epsdot_{\text{ref}}$ (s$^{-1}$) & $k_{\text{conf}}$ & $\eps_{\text{peak}}$ \\
 \midrule
-Sandstone & 15 & 80 & 0.20 & 0.18 & 4.5 & 0.008 \\
-Granite   & 50 & 180 & 0.25 & 0.12 & 5.5 & 0.005 \\
-Concrete  & 30 & 40 & 0.20 & 0.22 & 4.0 & 0.006 \\
+Sandstone & 15 & 80 & 0.20 & 0.18 & 1.0 & 4.5 & 0.008 \\
+Granite   & 50 & 180 & 0.25 & 0.12 & 1.0 & 5.5 & 0.005 \\
+Concrete  & 30 & 40 & 0.20 & 0.22 & 1.0 & 4.0 & 0.006 \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -1716,6 +1725,18 @@ Concrete  & 30 & 40 & 0.20 & 0.22 & 4.0 & 0.006 \\
 Selecting a preset in the Step~1 sidebar populates $E_s$, $\sig_{c0}$, and
 $\nu$ from this table; the values are then editable so non-listed materials
 can be modelled.
+$b_{\text{rate}}$ and $\epsdot_{\text{ref}}$ are calibration constants for the
+dynamic increase factor. They should be obtained by fitting peak strength data
+measured at several strain rates under comparable confinement:
+\begin{equation}
+  b_{\text{rate}} =
+  \frac{\text{DIF}_2-\text{DIF}_1}
+       {\log_{10}(\epsdot_2/\epsdot_{\text{ref}})
+        -\log_{10}(\epsdot_1/\epsdot_{\text{ref}})},\qquad
+  \text{DIF}_i=
+  \frac{\sig_{\text{peak},i}}
+       {\sig_{c0}+k_{\text{conf}}\sig_{\text{conf}}}.
+\end{equation}
 
 \subsection{Default damage-model parameters (Step 4 Advanced mode)}
 \begin{center}
@@ -1771,7 +1792,7 @@ $F_0$ & Failure-index normalisation & 1.0 \\
         record $\Delta t^\ast$ and the regime classifier output. Discuss the
         link between $\Delta t^\ast$ and the change in peak strength.
   \item In Mode 4 (Symmetric XYZ), find the peak specimen pressure achievable
-        with single-pulse $\sigpeak = \SI{900}{MPa}$ (right at the bar limit).
+        with single-pulse $\sigpeak = \SI{1000}{MPa}$ (right at the bar limit).
         Compare with the maximum pressure achievable in Mode 2 (EM Uniaxial)
         before bar yielding.
   \item Derive the symmetric-mode equations~\eqref{eq:sigsym}--\eqref{eq:epsdotsym}
