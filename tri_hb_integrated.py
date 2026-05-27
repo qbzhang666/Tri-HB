@@ -167,8 +167,10 @@ def experimental_analysis_page() -> None:
         st.markdown("**Absorbed energy from simulator stress–strain:**")
         st.latex(r"W_{\rm abs}(t)=\int_0^t \sigma_s(\tau)\,\dot\varepsilon_s(\tau)\,V_s\,\mathrm{d}\tau,"
                  r"\quad V_s=A_sL_s")
-        st.caption("For simulator-derived histories, reflected, transmitted, and absorbed energies are closed against "
-                   "the available incident energy so their cumulative sum never exceeds $W_I$.")
+        st.caption("The simulator stores $\\sigma_s$ as the **total** axial stress (static pre-load + dynamic). "
+                   "Reflected, transmitted, and absorbed energies are then closed against the available "
+                   "incident wave energy so their cumulative sum never exceeds $W_I$; this prevents the "
+                   "static-preload contribution from appearing as spurious wave energy.")
 
         st.markdown("**Direct stress–strain branch** — only unit conversion and rate estimate:")
         st.latex(r"\dot\varepsilon_s(t)=\frac{\mathrm{d}\varepsilon_s}{\mathrm{d}t}\quad(\text{central difference})")
@@ -509,11 +511,31 @@ def experimental_analysis_page() -> None:
                     "Simulator energy histories use a closed budget: reflected, transmitted, and absorbed "
                     "energy are constrained by the available incident energy."
                 )
-            elif np.nanmax(out["energy_transmitted_J"] - out["energy_incident_J"]) > 1e-9:
-                st.warning(
-                    "Transmitted energy exceeds incident energy in the uploaded data. Check gauge signs, "
-                    "units, bar area, wave-speed settings, and signal alignment."
-                )
+            else:
+                transmitted_excess = float(np.nanmax(
+                    out["energy_transmitted_J"] - out["energy_incident_J"]
+                ))
+                reflected_excess = float(np.nanmax(
+                    out["energy_reflected_J"] - out["energy_incident_J"]
+                ))
+                absorbed_min = float(np.nanmin(out["energy_absorbed_J"]))
+                issues: list[str] = []
+                if transmitted_excess > 1e-9:
+                    issues.append(f"transmitted exceeds incident by up to {transmitted_excess:.3g} J")
+                if reflected_excess > 1e-9:
+                    issues.append(f"reflected exceeds incident by up to {reflected_excess:.3g} J")
+                if absorbed_min < -1e-9:
+                    issues.append(
+                        f"absorbed = W_I - W_R - W_T goes negative (min {absorbed_min:.3g} J), "
+                        "which means W_R + W_T > W_I"
+                    )
+                if issues:
+                    st.warning(
+                        "Energy balance is inconsistent — "
+                        + "; ".join(issues)
+                        + ". Check gauge signs, units, bar area, wave-speed setting, "
+                        "and time alignment of the incident/reflected/transmitted windows."
+                    )
             fig = go.Figure()
             for col, label in [
                 ("energy_incident_J", "Incident"),
