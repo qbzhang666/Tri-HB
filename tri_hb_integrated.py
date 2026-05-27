@@ -57,7 +57,7 @@ def strip_page_config(source: str) -> str:
     return "\n".join(kept)
 
 
-def run_legacy_app(filename: str) -> None:
+def run_legacy_app(filename: str, extra_globals: dict | None = None) -> None:
     """Execute an existing app inside this integrated shell."""
     path = APP_DIR / filename
     source = strip_page_config(path.read_text(encoding="utf-8"))
@@ -65,6 +65,8 @@ def run_legacy_app(filename: str) -> None:
         "__file__": str(path),
         "__name__": "__main__",
     }
+    if extra_globals:
+        globals_dict.update(extra_globals)
     exec(compile(source, str(path), "exec"), globals_dict)
 
 
@@ -233,7 +235,7 @@ def experimental_analysis_page() -> None:
         elif data_source == "Latest simulator result":
             st.divider()
             st.caption(
-                "Step 2 inherits the bar, specimen geometry, and material settings from Step 1 Test Design. "
+                "The analysis inherits the bar, specimen geometry, and material settings from the Step 1 test setup. "
                 "Duplicate Specimen and bars inputs are hidden."
             )
         else:
@@ -556,35 +558,55 @@ def overview_page() -> None:
         """
         Use the sidebar to move through the unified workflow:
 
-        1. **Test design and simulator** supports loading-mode design and stress-strain prediction.
-        2. **Experimental data analysis** reduces bar-gauge or direct stress-strain files, or uses the latest Step 1 result directly.
-        3. **Step 3: Waves, damage and validation** uses a guided layout by default, with advanced damage and failure-surface constants hidden until needed.
+        1. **Test setup, simulator and data analysis** defines the shared material, specimen, bar, loading, and experimental data source.
+        2. **Wave model** checks pulse timing, wave travel, equilibrium, and interaction regime.
+        3. **Stress path and analysis** reviews p-q-theta paths, stress histories, and reduced-data comparison.
+        4. **Damage model and DEM validation** evaluates damage evolution, energy indicators, DEM descriptors, and exports.
         """
     )
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Design modes", "4")
-    c2.metric("Workflow pages", "3")
+    c2.metric("Workflow steps", "4")
     c3.metric("Experimental reducer", "CSV/XLSX")
 
-    st.info("Start with test design, then reduce experimental data and review wave, damage, energy, and validation outputs in the combined workspace.")
+    st.info(
+        "Start with Step 1 to create the shared setup and either simulate or reduce data. "
+        "Steps 2-4 reuse those settings so the wave, stress-path, and damage views stay connected."
+    )
+
+
+def setup_simulator_and_data_page() -> None:
+    st.sidebar.markdown("### Step 1 task")
+    task = st.sidebar.radio(
+        "Choose workspace",
+        ["Test design and simulator", "Experimental data analysis"],
+        help="Both tasks share the same Step 1 setup. Run the simulator first when you want the analysis page to inherit simulated signals.",
+    )
+    if task == "Test design and simulator":
+        run_legacy_app("Tri-HB.py")
+    else:
+        experimental_analysis_page()
 
 
 page = st.sidebar.radio(
     "Tri-HB workspace",
     [
         "Overview",
-        "Test design and simulator",
-        "Experimental data analysis",
-        "Step 3: Waves, damage & validation",
+        "Step 1: Setup, simulator and data",
+        "Step 2: Wave model",
+        "Step 3: Stress path and analysis",
+        "Step 4: Damage model and DEM validation",
     ],
 )
 
 if page == "Overview":
     overview_page()
-elif page == "Test design and simulator":
-    run_legacy_app("Tri-HB.py")
-elif page == "Experimental data analysis":
-    experimental_analysis_page()
-elif page == "Step 3: Waves, damage & validation":
-    run_legacy_app("wave_damage.py")
+elif page == "Step 1: Setup, simulator and data":
+    setup_simulator_and_data_page()
+elif page == "Step 2: Wave model":
+    run_legacy_app("wave_damage.py", {"TRI_HB_WORKFLOW_VIEW": "wave"})
+elif page == "Step 3: Stress path and analysis":
+    run_legacy_app("wave_damage.py", {"TRI_HB_WORKFLOW_VIEW": "stress"})
+elif page == "Step 4: Damage model and DEM validation":
+    run_legacy_app("wave_damage.py", {"TRI_HB_WORKFLOW_VIEW": "damage"})

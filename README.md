@@ -14,9 +14,9 @@ streamlit run tri_hb_integrated.py
 
 The integrated app includes:
 
-- Test design and simulator from `Tri-HB.py`
-- Experimental CSV/XLSX data reduction to stress, strain, strain-rate and energy
-- Stress waves, stress path, failure index and energy from `wave_superposition.py`
-- Damage evolution, transition regimes and DEM/experimental descriptors from `wave_damage.py`
+- Step 1: shared test setup, simulator, and CSV/XLSX data reduction
+- Step 2: wave timing, travel-time, equilibrium, and pulse interaction model
+- Step 3: stress path, p-q-theta analysis, and reduced-data comparison
+- Step 4: damage evolution, energy indicators, DEM descriptors, and exports
 
 The integrated app is the recommended entry point for public use.

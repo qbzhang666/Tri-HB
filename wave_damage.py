@@ -1,10 +1,10 @@
 """
-Step 3: Stress waves, damage evolution and DEM validation.
+Stress-wave, stress-path, damage evolution and DEM validation workspace.
 
-Optimised Streamlit layout for the integrated Tri-HB workflow.  The page keeps
+Optimised Streamlit layout for the integrated Tri-HB workflow. The page keeps
 all of the original calculations, but the controls are arranged in a Guided /
-Advanced workflow so Step 3 can be used without scrolling through every model
-constant.
+Advanced workflow so users can work section by section without scrolling
+through every model constant.
 """
 
 import io
@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import streamlit as st
 
 st.set_page_config(
-    page_title="Step 3 - Tri-HB Waves, Damage and Validation",
+    page_title="Tri-HB Waves, Stress Path and Damage",
     layout="wide",
 )
 
@@ -135,21 +135,60 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("Step 3 - Stress waves, damage and DEM validation")
-st.caption(
-    "Guided review of wave timing, stress path, damage growth, energy balance, "
-    "and DEM/experimental descriptors using the shared Tri-HB setup."
-)
+workflow_view = globals().get("TRI_HB_WORKFLOW_VIEW", "combined")
+if workflow_view not in {"combined", "wave", "stress", "damage"}:
+    workflow_view = "combined"
+
+view_titles = {
+    "combined": "Stress waves, damage and DEM validation",
+    "wave": "Step 2 - Wave model",
+    "stress": "Step 3 - Stress path and analysis",
+    "damage": "Step 4 - Damage model and DEM validation",
+}
+view_captions = {
+    "combined": (
+        "Guided review of wave timing, stress path, damage growth, energy balance, "
+        "and DEM/experimental descriptors using the shared Tri-HB setup."
+    ),
+    "wave": "Check pulse timing, travel time, equilibrium window, wave superposition, and loading regime.",
+    "stress": "Review p-q-theta stress paths, stress histories, and comparison with reduced test data.",
+    "damage": "Evaluate damage growth, stiffness loss, energy indicators, DEM descriptors, and exportable model data.",
+}
+
+st.title(view_titles[workflow_view])
+st.caption(view_captions[workflow_view])
+if workflow_view in {"wave", "stress"}:
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stTabs"] div[role="tablist"] button[role="tab"]:not(:first-child) {
+            display: none;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+elif workflow_view == "damage":
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stTabs"] div[role="tablist"] button[role="tab"]:nth-child(n+4) {
+            display: none;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # =============================================================================
-# Linked setup from Step 1 and Step 2
+# Linked setup from the integrated workflow
 # =============================================================================
 linked_cfg = st.session_state.get("tri_hb_latest_config", {})
 linked_result = st.session_state.get("tri_hb_latest_result", {})
 linked_reduced = st.session_state.get("tri_hb_reduced_data")
 has_linked_design = bool(linked_cfg)
 
-# Defaults inherited from Step 1; sensible standalone values when Step 3 is run alone.
+# Defaults inherited from Step 1; sensible standalone values when this page is run alone.
 default_E_GPa = float(linked_cfg.get("material_E", 50e9)) / 1e9
 default_nu = float(linked_cfg.get("material_nu", 0.25))
 default_density = float(linked_cfg.get("material_density", 2650.0))
@@ -186,7 +225,7 @@ else:
 # Sidebar - simplified control hierarchy
 # =============================================================================
 with st.sidebar:
-    st.header("Step 3 controls")
+    st.header("Shared model controls")
     control_level = st.radio(
         "Control level",
         ["Guided", "Advanced"],
@@ -544,19 +583,19 @@ with link_c1:
             f"pulse {default_A:.0f} MPa for {default_td_us:.0f} μs."
         )
     elif has_linked_design:
-        st.info("Step 1 result exists, but Step 3 is using the visible override values.")
+        st.info("Step 1 result exists, but this view is using the visible override values.")
     else:
-        st.info("Standalone Step 3 mode: use the manual setup panel in the sidebar.")
+        st.info("Standalone mode: use the manual setup panel in the sidebar.")
 
 with link_c2:
     if linked_reduced is not None and len(linked_reduced) > 0:
         st.info(
-            "Step 2 reduced data is available for validation: "
+            "Reduced data from Step 1 is available for validation: "
             f"peak stress {linked_reduced['stress_MPa'].max():.1f} MPa, "
             f"peak strain {100.0 * linked_reduced['strain'].max():.3f}%."
         )
     else:
-        st.caption("Step 2 reduced stress-strain data has not been generated yet.")
+        st.caption("Reduced stress-strain data has not been generated in Step 1 yet.")
 
 m1, m2, m3, m4, m5 = st.columns(5)
 m1.metric("Travel time", f"{t_travel * 1e6:.2f} μs", help=f"cp = {cp0:.0f} m/s")
@@ -568,17 +607,16 @@ m5.metric("Final D", f"{D[-1]:.3f}", help=f"Central fraction Dc = {D_c:.3f}")
 st.markdown(
     """
     <div class="step3-card">
-    <b>Guided workflow:</b> start on <b>Overview</b> to check wave timing and regime, use
-    <b>Stress path</b> for p-q-theta interpretation, then use <b>Damage</b> and
-    <b>Validation</b> to compare damage indicators with Step 2, CT, DIC, or DEM output.
-    The detailed material, failure-surface, and damage-law constants are hidden unless
-    <b>Advanced</b> is selected in the sidebar.
+    <b>Workflow link:</b> Step 1 defines the shared test setup and reduced data.
+    Step 2 checks the wave model, Step 3 reviews the stress path, and Step 4 evaluates
+    damage, energy, and DEM/experimental validation descriptors. Detailed constants
+    are hidden unless <b>Advanced</b> is selected in the sidebar.
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-with st.expander("Equations used by Step 3", expanded=False):
+with st.expander("Equations used by this workflow", expanded=False):
     st.markdown("**Elastic wave speeds and equilibrium window**")
     st.latex(r"M=\frac{E(1-\nu)}{(1+\nu)(1-2\nu)},\quad c_p=\sqrt{M/\rho},\quad t_{travel}=L/c_p")
     st.latex(r"t_{eq}\approx 3\text{--}5\,t_{travel},\qquad \Delta t^*=\Delta t/t_{travel}")
@@ -591,15 +629,45 @@ with st.expander("Equations used by Step 3", expanded=False):
     st.caption("This page remains a planning and validation workspace. Direct DEM or CT calibration should replace the synthetic descriptor trends when available.")
 
 # =============================================================================
-# Main tabs - fewer and clearer than the original seven-tab layout
+# Main tabs - ordered by the selected top-level workflow step
 # =============================================================================
-tab_overview, tab_stress, tab_damage, tab_validation, tab_export = st.tabs([
-    "Overview",
-    "Stress path",
-    "Damage",
-    "Validation + energy",
-    "Sensitivity + export",
-])
+tab_order = {
+    "combined": [
+        ("overview", "Wave model"),
+        ("stress", "Stress path"),
+        ("damage", "Damage evolution"),
+        ("validation", "Energy + validation"),
+        ("export", "Sensitivity + export"),
+    ],
+    "wave": [
+        ("overview", "Wave model"),
+        ("stress", "Stress path"),
+        ("damage", "Damage evolution"),
+        ("validation", "Energy + validation"),
+        ("export", "Sensitivity + export"),
+    ],
+    "stress": [
+        ("stress", "Stress path"),
+        ("overview", "Wave model"),
+        ("damage", "Damage evolution"),
+        ("validation", "Energy + validation"),
+        ("export", "Sensitivity + export"),
+    ],
+    "damage": [
+        ("damage", "Damage evolution"),
+        ("validation", "Energy + validation"),
+        ("export", "Sensitivity + export"),
+        ("overview", "Wave model"),
+        ("stress", "Stress path"),
+    ],
+}[workflow_view]
+created_tabs = st.tabs([label for _, label in tab_order])
+tabs_by_key = {key: tab for (key, _), tab in zip(tab_order, created_tabs)}
+tab_overview = tabs_by_key["overview"]
+tab_stress = tabs_by_key["stress"]
+tab_damage = tabs_by_key["damage"]
+tab_validation = tabs_by_key["validation"]
+tab_export = tabs_by_key["export"]
 
 with tab_overview:
     st.subheader("Wave timing and regime check")
@@ -638,7 +706,7 @@ with tab_overview:
         elif analysis_goal == "Stress-path focus":
             st.info("Use the Stress path tab to verify whether the case is hydrostatic, deviatoric, or sequential-path dominated.")
         elif analysis_goal == "Damage calibration":
-            st.info("Use Advanced mode only after the wave timing and Step 2 stress curve look reasonable.")
+            st.info("Use Advanced mode only after the wave timing and reduced stress curve look reasonable.")
         else:
             st.info("Compare final D, Dc, Sx, and the energy trend against DEM bond-breakage and dissipated-energy outputs.")
 
@@ -833,27 +901,27 @@ with tab_validation:
     with c4:
         if linked_reduced is not None and len(linked_reduced) > 0:
             fig11, ax11 = plt.subplots(figsize=(7, 4.5))
-            ax11.plot(t_us, sx, label="Step 3 σx model")
+            ax11.plot(t_us, sx, label="Model σx")
             red = linked_reduced.dropna(subset=["time_us", "stress_MPa"]) if isinstance(linked_reduced, pd.DataFrame) else pd.DataFrame()
             if not red.empty:
-                ax11.plot(red["time_us"], red["stress_MPa"], linestyle="--", label="Step 2 reduced stress")
+                ax11.plot(red["time_us"], red["stress_MPa"], linestyle="--", label="Reduced stress")
             ax11.set_xlabel("Time (μs)")
             ax11.set_ylabel("Stress (MPa)")
-            ax11.set_title("Step 2 / Step 3 stress comparison")
+            ax11.set_title("Reduced-data / model stress comparison")
             ax11.grid(True, alpha=0.35)
             ax11.legend()
             st.pyplot(fig11)
             plt.close(fig11)
-            st.caption("Step 3 is an interpretation model; Step 2 is the reduced simulator/experimental stress-strain source.")
+            st.caption("The model response is compared against the reduced simulator or experimental stress source.")
         else:
             st.info(
-                "Generate Step 2 reduced data to overlay stress and energy histories here. "
+                "Generate reduced data in Step 1 to overlay stress and energy histories here. "
                 "Use DEM/CT/DIC outputs to replace the synthetic damage-profile descriptor when available."
             )
 
     st.markdown(
         """
-        **Validation checklist:** bar strain-gauge amplitude and delay, Step 2 reduced stress curve, DIC localisation,
+        **Validation checklist:** bar strain-gauge amplitude and delay, reduced stress curve, DIC localisation,
         CT damage volume/crack orientation, and DEM bond breakage plus dissipated energy.
         """
     )
@@ -895,15 +963,15 @@ with tab_export:
     col_csv, col_xlsx = st.columns(2)
     with col_csv:
         st.download_button(
-            "Download Step 3 results CSV",
+            "Download model results CSV",
             data=df_results.to_csv(index=False).encode("utf-8"),
-            file_name="tri_hb_step3_wave_damage_results.csv",
+            file_name="tri_hb_wave_stress_damage_results.csv",
             mime="text/csv",
         )
     with col_xlsx:
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            df_results.to_excel(writer, index=False, sheet_name="Step3 results")
+            df_results.to_excel(writer, index=False, sheet_name="Model results")
             pd.DataFrame({
                 "parameter": [
                     "control_level", "analysis_goal", "loading_path", "pulse_type", "E_GPa", "nu", "rho_kg_m3", "L_mm",
@@ -917,14 +985,14 @@ with tab_export:
                 ],
             }).to_excel(writer, index=False, sheet_name="Summary")
         st.download_button(
-            "Download Step 3 workbook",
+            "Download model workbook",
             data=buf.getvalue(),
-            file_name="tri_hb_step3_wave_damage_results.xlsx",
+            file_name="tri_hb_wave_stress_damage_results.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
 st.divider()
 st.caption(
-    "Step 3 uses a simplified diagonal-stress interpretation model for rapid validation. "
+    "The workflow uses a simplified diagonal-stress interpretation model for rapid validation. "
     "Use calibrated DEM, CT, and bar-gauge data to replace the synthetic descriptor trends for final reporting."
 )
