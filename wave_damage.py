@@ -621,12 +621,23 @@ with st.expander("Equations used by this workflow", expanded=False):
     st.latex(r"M=\frac{E(1-\nu)}{(1+\nu)(1-2\nu)},\quad c_p=\sqrt{M/\rho},\quad t_{travel}=L/c_p")
     st.latex(r"t_{eq}\approx 3\text{--}5\,t_{travel},\qquad \Delta t^*=\Delta t/t_{travel}")
     st.markdown("**Stress invariants and failure index**")
+    st.latex(r"\sigma_x(t)=\sigma_{x0}+\Delta\sigma_x(t),\quad \sigma_y(t)=\sigma_{y0}+\Delta\sigma_y(t),\quad \sigma_z(t)=\sigma_{z0}+\Delta\sigma_z(t)")
+    st.latex(r"\Delta\sigma_x=x_{\mathrm{left}}(t)+x_{\mathrm{right}}(t),\quad \Delta\sigma_y=y_{\mathrm{drive}}(t),\quad \Delta\sigma_z=z_{\mathrm{drive}}(t)")
     st.latex(r"p=\tfrac{1}{3}(\sigma_x+\sigma_y+\sigma_z),\qquad q=\sqrt{\tfrac{1}{2}[(\sigma_x-\sigma_y)^2+(\sigma_y-\sigma_z)^2+(\sigma_z-\sigma_x)^2]}")
     st.latex(r"q_f=(A+Bp^n)\,[1+a_\theta(1-\cos 3\theta)],\qquad F=q/q_f")
     st.markdown("**Saturating damage law**")
     st.latex(r"\dot D=\frac{(1-D)^\alpha}{\tau_D}\left\langle\frac{F-1}{F_0}\right\rangle^m\left(\frac{|\dot\varepsilon_{eq}|}{\dot\varepsilon_0}\right)^\beta")
     st.latex(r"E(D)=E_0(1-D),\qquad c_p(D)=c_{p0}\sqrt{\max(1-D,0)}")
-    st.caption("This page remains a planning and validation workspace. Direct DEM or CT calibration should replace the synthetic descriptor trends when available.")
+    st.caption("The p, q, theta, qf, F, and D histories are computed from total stress histories, not prestress alone.")
+    st.markdown("**How to choose failure and damage parameters**")
+    st.markdown(
+        """
+        - **A, B, n** define the pressure-dependent failure envelope and should be fitted from triaxial compression/extension strengths or a calibrated DEM failure surface.
+        - **aθ** controls Lode-angle sensitivity; set it to zero if no true-triaxial or Lode-angle calibration is available.
+        - **τD, F0, α, m, β, εdot0** are damage-evolution parameters fitted to dynamic strength, pulse-duration, dissipated-energy, CT/DIC damage, or DEM bond-breakage histories.
+        - The built-in values are planning defaults for sensitivity checks; use calibrated values before treating D as a material damage prediction.
+        """
+    )
 
 # =============================================================================
 # Main tabs - ordered by the selected top-level workflow step
@@ -759,6 +770,10 @@ with tab_overview:
 
 with tab_stress:
     st.subheader("Stress-path interpretation")
+    st.info(
+        "The stress path uses total stresses: static prestress plus dynamic pulse increments. "
+        "Prestress sets the starting point; the moving p-q-theta history is driven by the dynamic loading."
+    )
     c1, c2 = st.columns(2)
     with c1:
         fig3, ax3 = plt.subplots(figsize=(7, 5.2))

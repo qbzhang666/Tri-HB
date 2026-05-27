@@ -1526,8 +1526,16 @@ sequential pulses.
 
 \subsection{Stress-Path Equations (Step 3 Tab)}
 
-Assuming the principal axes align with the bar axes, the diagonal Cauchy
-tensor gives the invariants
+Step~3 uses the total stress history in each loading direction:
+\begin{align}
+  \sig_x(t) &= \sig_{x0} + \Delta\sig_x(t), \\
+  \sig_y(t) &= \sig_{y0} + \Delta\sig_y(t), \\
+  \sig_z(t) &= \sig_{z0} + \Delta\sig_z(t).
+\end{align}
+The prestress terms set the starting point, while the dynamic increments come
+from the finite-duration pulse histories generated in the wave model. Assuming
+the principal axes align with the bar axes, the diagonal Cauchy tensor gives the
+invariants
 \begin{align}
   p &= \tfrac{1}{3}(\sig_x + \sig_y + \sig_z), \\
   q &= \sqrt{\tfrac{1}{2}\bigl[(\sig_x - \sig_y)^2 + (\sig_y - \sig_z)^2 + (\sig_z - \sig_x)^2\bigr]}, \\
@@ -1547,6 +1555,11 @@ shear ($\theta = 30^\circ$).
 \end{align}
 The failure index $F$ is unitless; $F > 1$ means the stress state lies outside
 the static failure surface and damage is allowed to grow.
+The constants $A$, $B$, and $n$ are empirical pressure-dependent failure-envelope
+parameters that should be fitted to triaxial strength data or a calibrated DEM
+failure surface. The Lode-angle factor $a_\theta$ should be fitted from
+true-triaxial or compression/extension data; set $a_\theta=0$ when no
+Lode-angle calibration is available.
 
 \paragraph{Equivalent strain rate} (elastic estimate from diagonal stresses):
 \begin{equation}
@@ -1570,6 +1583,11 @@ constitutive strain rate.
 \end{equation}
 where $\langle\cdot\rangle$ denotes Macaulay brackets (damage grows only when
 $F > 1$).
+The damage constants $\tau_D$, $F_0$, $\alpha$, $m$, $\beta$, and
+$\epsdot_0$ are calibration parameters, not directly known from the wave-speed
+calculation. They should be fitted against dynamic strength, pulse-duration
+effects, dissipated energy, CT/DIC damage measures, or DEM bond-breakage
+histories. The app defaults are planning values for sensitivity checks.
 
 \paragraph{Stiffness and wave-speed degradation.}
 \begin{equation}
