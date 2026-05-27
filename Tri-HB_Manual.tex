@@ -1,0 +1,1771 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{mathtools}
+\usepackage{empheq}
+\usepackage{siunitx}
+% siunitx v3 removed \SI and \SIrange; v2 provided them. Add a compatibility
+% shim so the manual compiles under both versions.
+\providecommand{\SI}[2]{\qty{#1}{#2}}
+\providecommand{\SIrange}[3]{\qtyrange{#1}{#2}{#3}}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,decorations.pathreplacing,patterns}
+
+% --- Colours ---
+\definecolor{deepblue}{RGB}{31,56,100}
+\definecolor{midblue}{RGB}{46,117,182}
+\definecolor{accentpink}{RGB}{255,107,157}
+\definecolor{accentcyan}{RGB}{0,180,210}
+\definecolor{warnorange}{RGB}{255,140,30}
+\definecolor{dangerred}{RGB}{200,50,70}
+\definecolor{boxgrey}{RGB}{245,247,250}
+\definecolor{rulegrey}{RGB}{210,215,225}
+
+% --- Hyperref setup ---
+\hypersetup{
+  colorlinks=true,
+  linkcolor=deepblue,
+  citecolor=midblue,
+  urlcolor=midblue,
+  pdftitle={Virtual Tri-HB Integrated -- Student Manual},
+  pdfauthor={Monash Tri-HB Group}
+}
+
+% --- Title formatting ---
+\titleformat{\section}
+  {\Large\bfseries\color{deepblue}}
+  {\thesection.}{0.6em}{}
+  [\vspace{2pt}{\color{rulegrey}\hrule height 0.6pt}]
+\titleformat{\subsection}
+  {\large\bfseries\color{midblue}}
+  {\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries\color{midblue}}
+  {\thesubsubsection}{0.6em}{}
+
+% --- Headers and footers ---
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{deepblue}Virtual Tri-HB Integrated -- Student Manual}
+\fancyhead[R]{\small\color{deepblue}\nouppercase{\rightmark}}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\color{rulegrey}\hrule height 0.4pt}
+
+% --- Custom boxes ---
+\newtcolorbox{conceptbox}[1][]{
+  colback=boxgrey, colframe=midblue,
+  boxrule=0.6pt, arc=2pt,
+  fonttitle=\bfseries\color{white},
+  coltitle=white, colbacktitle=midblue,
+  title={#1}, breakable,
+  left=8pt, right=8pt, top=6pt, bottom=6pt
+}
+\newtcolorbox{stepbox}[1][]{
+  colback=white, colframe=accentcyan,
+  boxrule=1pt, arc=1pt,
+  fonttitle=\bfseries\color{white},
+  coltitle=white, colbacktitle=accentcyan,
+  title={#1}, breakable,
+  left=8pt, right=8pt, top=6pt, bottom=6pt
+}
+\newtcolorbox{warningbox}[1][]{
+  colback=boxgrey, colframe=warnorange,
+  boxrule=1pt, arc=1pt,
+  fonttitle=\bfseries\color{white},
+  coltitle=white, colbacktitle=warnorange,
+  title={#1}, breakable,
+  left=8pt, right=8pt, top=6pt, bottom=6pt
+}
+\newtcolorbox{newfeature}[1][]{
+  colback=boxgrey, colframe=accentpink,
+  boxrule=1pt, arc=1pt,
+  fonttitle=\bfseries\color{white},
+  coltitle=white, colbacktitle=accentpink,
+  title={#1}, breakable,
+  left=8pt, right=8pt, top=6pt, bottom=6pt
+}
+
+% --- Mathematical shortcuts ---
+\newcommand{\sig}{\sigma}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\epsdot}{\dot\eps}
+\newcommand{\Cz}{C_0}
+\newcommand{\Ab}{A_b}
+\newcommand{\As}{A_s}
+\newcommand{\Ls}{L_s}
+\newcommand{\sigprop}{\sig_{\text{prop}}}
+\newcommand{\sigpeak}{\sig_{\text{peak}}}
+
+% --- Title page content ---
+\title{
+  \vspace{-1.5cm}
+  {\Huge\bfseries\color{deepblue} Virtual Tri-HB}\\[6pt]
+  {\Large\bfseries\color{midblue} Integrated Workspace -- Student User Manual}\\[14pt]
+  {\large\itshape Four Loading Modes plus Experimental Analysis,\\
+  Wave, Stress-Path, Damage and DEM Validation}
+}
+\author{
+  Monash University $\cdot$ Tri-HB Research Group
+}
+\date{Companion to \texttt{tri\_hb\_integrated.py} (Integrated Edition)}
+
+\begin{document}
+
+% =====================================================
+% TITLE PAGE
+% =====================================================
+\maketitle
+\thispagestyle{empty}
+
+\vspace{1.0cm}
+\begin{center}
+\begin{tcolorbox}[colback=boxgrey, colframe=midblue, width=0.88\textwidth, arc=3pt]
+\begin{center}
+{\large\bfseries\color{deepblue} About This Manual}\\[6pt]
+\end{center}
+This manual is written for students learning dynamic mechanics testing through the
+Virtual Tri-HB simulator. It explains the physics, equations, and analysis
+procedures for each of the four loading modes available in the simulator, and for
+the experimental data reducer, wave model, stress-path interpreter, and damage
+model that surround it. Every equation is derived from first principles, with the
+steps a student would actually need to follow in lab work or in homework problems.
+
+The application is now delivered as a single \textbf{integrated Streamlit
+workspace} (\texttt{tri\_hb\_integrated.py}) that connects four analysis steps
+under one shared experimental setup:
+
+\begin{enumerate}[leftmargin=2.4em, itemsep=2pt]
+  \item \textbf{Step 1 -- Setup, simulator and data:} configure the bar, specimen,
+        material, and loading; run the simulator; \emph{or} reduce uploaded bar
+        gauge / direct stress-strain data.
+  \item \textbf{Step 2 -- Wave model:} pulse timing, travel time, equilibrium
+        window, and the wave-superposition / damage-memory regime classifier.
+  \item \textbf{Step 3 -- Stress path and analysis:} $p$--$q$--$\theta$ stress
+        paths, invariant histories, and comparison against reduced test data.
+  \item \textbf{Step 4 -- Damage model and DEM validation:} damage evolution,
+        stiffness and wave-speed degradation, energy balance, and synthetic DEM
+        descriptors.
+\end{enumerate}
+
+The four loading modes available in Step 1 are unchanged from earlier editions:
+\begin{enumerate}[leftmargin=2.4em, itemsep=2pt]
+  \item Gas-Gun uniaxial impact (classical SHPB)
+  \item Electromagnetic uniaxial impact (clean half-sine pulse)
+  \item Electromagnetic asynchronous triaxial impact (stress-path control)
+  \item Electromagnetic symmetric multidirectional impact (wave superposition)
+\end{enumerate}
+
+All four modes accept independent static pre-stress on \emph{three} orthogonal
+axes ($\sig_1$, $\sig_2$, $\sig_3$), applied through the hydraulic cylinders
+before the dynamic pulse arrives.
+\end{tcolorbox}
+\end{center}
+
+\newpage
+\tableofcontents
+\newpage
+
+% =====================================================
+% PART 1 -- FOUNDATIONS
+% =====================================================
+\section{Foundations: What Every Tri-HB Test Has in Common}
+
+Before separating the four loading modes, students should understand the building
+blocks shared by all of them. Every Tri-HB test, regardless of mode, involves the
+following physical elements: a long elastic bar (or several), a stress wave
+travelling along that bar, a small specimen at one or more bar interfaces, and
+strain gauges that record the wave passage. The mathematics of the bar and the
+mathematics of the specimen are kept separate, and the analysis bridges them
+through force and velocity continuity at the interfaces.
+
+\subsection{The 1-D Wave Equation in the Bars}
+
+Each pressure bar in the Tri-HB system is a long, slender rod of a high-strength
+steel (typically 42CrMo). Provided the wavelength of the propagating pulse
+is much greater than the bar diameter, the axial displacement $u(x,t)$ obeys the
+one-dimensional elastic wave equation:
+\begin{equation}
+  \frac{\partial^2 u}{\partial t^2} = \Cz^2 \frac{\partial^2 u}{\partial x^2},
+  \qquad \Cz = \sqrt{\frac{E_b}{\rho_b}}.
+  \label{eq:wave}
+\end{equation}
+For 42CrMo steel ($E_b = \SI{210}{GPa}$, $\rho_b = \SI{7850}{kg/m^3}$),
+the bar wave speed is $\Cz \approx \SI{5172}{m/s}$. The Step~1 sidebar exposes
+$E_b$ and $\Cz$ as editable number inputs so a different bar material or a
+dispersion-corrected calibrated $\Cz$ can be entered without code changes.
+
+The general solution of \eqref{eq:wave} is the d'Alembert form:
+\begin{equation}
+  u(x,t) = f(x - \Cz t) + g(x + \Cz t),
+\end{equation}
+where $f$ is a wave travelling in the $+x$ direction and $g$ is a wave travelling
+in the $-x$ direction. From this, the axial strain and particle velocity are:
+\begin{equation}
+  \eps(x,t) = \frac{\partial u}{\partial x},
+  \qquad
+  v(x,t) = \frac{\partial u}{\partial t} = -\Cz\,\eps_+(x,t) + \Cz\,\eps_-(x,t),
+\end{equation}
+where the subscripts denote the direction of travel. The cornerstone identity of
+Hopkinson bar analysis is $|v| = \Cz\,|\eps|$.
+
+\subsection{Force and Velocity at a Specimen Face}
+
+When a wave reaches a specimen-bar interface, two boundary conditions must hold:
+\textbf{force continuity} (the bar pushes the specimen with the same force the
+specimen pushes back) and \textbf{velocity continuity} (the bar end moves with the
+specimen face). For an incident bar carrying an incoming wave $\eps_I$ and a
+reflected wave $\eps_R$:
+\begin{align}
+  F_1(t) &= E_b \Ab \big[\eps_I(t) + \eps_R(t)\big],
+  \label{eq:F1}\\
+  v_1(t) &= \Cz \big[\eps_I(t) - \eps_R(t)\big].
+  \label{eq:v1}
+\end{align}
+On the opposite specimen face, a transmission bar carries only an outgoing wave
+$\eps_T$:
+\begin{align}
+  F_2(t) &= E_b \Ab\, \eps_T(t),
+  \label{eq:F2}\\
+  v_2(t) &= \Cz\, \eps_T(t).
+  \label{eq:v2}
+\end{align}
+\textit{Sign convention used throughout the simulator:} $\eps_I > 0$ corresponds
+to a compressive incident wave; $\eps_R$ is positive when the reflected wave is
+also compressive (which occurs only if the specimen is stiffer than the bar, a
+rare case); for normal brittle specimens $\eps_R$ is tensile (negative). The
+transmitted wave $\eps_T$ is positive for a compressive specimen response.
+
+\subsection{The Specimen as a Filter Between Two Bar Signals}
+
+The specimen, of length $\Ls$ and cross-section $\As$, is small compared to the
+bar wavelength. After several internal reverberations (typically a few
+microseconds), the specimen reaches dynamic stress equilibrium where
+$F_1 \approx F_2$. Under this condition, the specimen stress and strain rate are:
+\begin{empheq}[box=\fbox]{align}
+  \sig_s(t) &= \frac{F_1 + F_2}{2 \As}
+            = \frac{E_b \Ab}{2 \As}\big[\eps_I + \eps_R + \eps_T\big],
+  \label{eq:sigma3wave}\\
+  \epsdot_s(t) &= \frac{v_1 - v_2}{\Ls}
+              = \frac{\Cz}{\Ls}\big[\eps_I - \eps_R - \eps_T\big],
+  \label{eq:epsdot3wave}\\
+  \eps_s(t) &= \int_0^t \epsdot_s(\tau)\,d\tau.
+  \label{eq:eps3wave}
+\end{empheq}
+These three equations are the \textbf{three-wave method}. They are universal --
+the same equations hold whether the pulse comes from a striker, an
+electromagnetic generator, or anything else, and whether the bars are round or
+square.
+
+Under perfect equilibrium $\eps_I + \eps_R = \eps_T$, the strain-rate expression
+\eqref{eq:epsdot3wave} simplifies to the classical \emph{one-wave} form
+$\epsdot_s = -2\Cz\,\eps_R/\Ls$; equivalently the stress collapses to the
+transmitted-wave form $\sig_s = (E_b \Ab / \As)\,\eps_T$. The Step~1 reducer
+exposes both forms (``Three-wave average'' and ``Transmitted-wave only'') so
+students can compare them on the same dataset.
+
+\begin{conceptbox}[Why three-wave analysis works]
+The three-wave equations give us the specimen response without ever modelling the
+specimen explicitly. They follow purely from continuity of force and velocity at
+the interfaces and from how elastic waves propagate in the bars. A student should
+remember: \textbf{the bars are diagnostic instruments, not part of the specimen
+under test}. Their job is to record what stress and what strain rate the
+specimen experienced, nothing more.
+\end{conceptbox}
+
+\subsection{The Bar Plasticity Limit}
+
+The three-wave equations assume the bars remain linearly elastic. 42CrMo
+steel has a proportional limit $\sigprop \approx \SI{930}{MPa}$. Whenever the
+stress carried by any bar exceeds this value, the bar yields plastically, the
+wave equation~\eqref{eq:wave} no longer holds, and the analysis becomes invalid.
+This single constraint determines the operating envelope of the entire facility.
+\textbf{Always check it before running a test.}
+
+\begin{warningbox}[Bar plasticity: the most important diagnostic]
+The maximum stress on any bar must satisfy:
+\[
+  \boxed{\;\sig_{\text{bar}}^{\max} \leq \sigprop = \SI{930}{MPa}\;}
+\]
+If exceeded, the test is invalid (and the bar may be damaged). The simulator
+flags this automatically with three tiers: caution at $0.85\,\sigprop$, warning
+at $\sigprop$, critical at the yield stress \SI{1080}{MPa}.
+\end{warningbox}
+
+\subsection{Static Triaxial Pre-stress: $\sigma_1$, $\sigma_2$, $\sigma_3$}
+\label{subsec:prestress}
+
+Every Tri-HB test allows independent application of static pre-stress on the
+three principal axes via the hydraulic cylinders, \emph{before} the dynamic
+pulse arrives. This is what distinguishes the Tri-HB from a classical
+uniaxial SHPB. In the Step~1 sidebar, three sliders set the static pre-stress:
+$\sig_1$ on the X axis (the loading direction), $\sig_2$ on Y, and $\sig_3$ on
+Z. The default slider range is \SIrange{0}{50}{MPa} per axis; this is the value
+calibrated against the hydraulic loading frame currently in the digital twin
+and is the same upper bound for all four modes.
+
+The static and dynamic contributions superpose linearly to give the total
+stress state during the event:
+\begin{empheq}[box=\fbox]{align}
+  \sigma_X^{\text{total}}(t) &= \sigma_1^{\text{static}} + \sigma_X^{\text{dyn}}(t), \\
+  \sigma_Y^{\text{total}}(t) &= \sigma_2^{\text{static}} + \sigma_Y^{\text{dyn}}(t), \\
+  \sigma_Z^{\text{total}}(t) &= \sigma_3^{\text{static}} + \sigma_Z^{\text{dyn}}(t).
+\end{empheq}
+
+The two roles played by pre-stress are subtly different and worth distinguishing:
+
+\begin{itemize}[leftmargin=*, itemsep=4pt]
+  \item \textbf{$\sigma_1$ is an axial baseline.} Because X is the loading
+        direction, $\sigma_1$ does not strengthen the rock against the dynamic
+        pulse -- it shifts the entire $\sigma$--$\eps$ curve upward by a constant
+        offset. Increasing $\sigma_1$ adds to the total recorded axial stress
+        but does not change the peak strength of the rock.
+
+  \item \textbf{$\sigma_2$ and $\sigma_3$ are confining stresses.} Because Y
+        and Z are perpendicular to the X loading, they confine the rock and
+        \emph{strengthen} it via the Mohr--Coulomb mechanism:
+    \begin{equation}
+      \sigma_{\text{peak}}^{\text{rock}}
+        = \big(\sigma_{c0} + k_{\text{conf}} \cdot \max(\sigma_2, \sigma_3)\big) \cdot \text{DIF}.
+    \end{equation}
+        Doubling $\sigma_2$ raises the peak strength of the specimen; doubling
+        $\sigma_1$ does not.
+\end{itemize}
+
+\begin{conceptbox}[Why the bar gauge does NOT see the pre-stress]
+A common student question: if the static pre-stress is held by the hydraulic
+cylinders pressing on the bar ends, why don't the strain gauges on the bars
+record it? The answer is that the static pre-stress is reacted by the cylinder
+piston, the bar, and the specimen \emph{as a single static system at zero
+frequency}. The strain gauges are calibrated to the pre-event baseline (which
+is subtracted before analysis), so they record only the \emph{change} from
+that baseline -- the dynamic component. The wave-analysis equations in this
+manual operate exclusively on the dynamic component. The static pre-stress is
+added back at the reporting stage when computing the total stress state.
+\end{conceptbox}
+
+% =====================================================
+% MODE 1 -- GAS-GUN
+% =====================================================
+\newpage
+\section{Mode 1: Gas-Gun Uniaxial Impact (Classical SHPB)}
+
+This is the original mode of operation, and the easiest to understand. A
+projectile (the striker) is launched by compressed gas, strikes the end of an
+incident bar, and creates a stress pulse that travels into the specimen.
+
+\subsection{Hardware Configuration}
+
+\begin{itemize}[leftmargin=*, itemsep=2pt]
+  \item \textbf{Striker bar}: 42CrMo steel, $L = \SI{0.5}{m}$,
+        impact velocity up to \SI{50}{m/s}.
+  \item \textbf{Incident and transmission bars}: the simulator's
+        \emph{Experimental setup} sidebar tab lets the student choose
+        \texttt{Square 50 x 50 mm} ($\Ab = \SI{2500}{mm^2}$) or
+        \texttt{Round} with user-supplied diameter
+        ($\Ab = \pi (d/2)^2$). The classical gas-gun bench uses a round
+        $\Phi 40$ bar ($\Ab \approx \SI{1257}{mm^2}$); the digital
+        twin's default is the square cross-section because it is shared with
+        the EM bench.
+  \item \textbf{Absorption bar} and \textbf{moment-trap device}: prevent
+        end-reflections and tensile contamination.
+  \item \textbf{Static pre-stress}: hydraulic cylinders independently apply
+        $\sig_1$ on the X axis, $\sig_2$ on Y, and $\sig_3$ on Z faces of the
+        cubic specimen (slider range \SIrange{0}{50}{MPa} per axis in the
+        current simulator build). See Section~\ref{subsec:prestress} for the
+        role each plays.
+\end{itemize}
+
+\subsection{Step 1: Generating the Incident Pulse}
+
+When the striker, moving at velocity $V$, impacts the stationary incident bar,
+both bar ends suddenly acquire a common velocity $V/2$ (by momentum and
+continuity). The compressive stress generated is given by the impact relation:
+\begin{equation}
+  \boxed{\;\sigpeak = \tfrac{1}{2}\,\rho_b\,\Cz\,V \;=\; \tfrac{1}{2}\,(E_b/\Cz)\,V\;}
+  \label{eq:gungauge}
+\end{equation}
+The two forms are identical because $E_b = \rho_b\,\Cz^2$; the simulator
+internally uses $\tfrac{1}{2}\,(E_b/\Cz)\,V$ so that the editable bar parameters
+$E_b$ and $\Cz$ propagate directly into the peak stress.
+
+\begin{stepbox}[Worked numbers: striker velocity $V = \SI{20}{m/s}$]
+  \begin{align*}
+  \sigpeak &= \tfrac{1}{2}(\SI{210e9}{Pa} / \SI{5172}{m/s})(20\;\mathrm{m/s})
+           \\
+           &\approx \SI{406}{MPa}.
+  \end{align*}
+  Pulse duration is set by the round-trip time within the striker:
+  \begin{align*}
+  \tau &= \frac{2 L_{\text{striker}}}{\Cz} = \frac{2 \times 0.5}{5172}
+       \approx \SI{193}{\micro s}.
+  \end{align*}
+  So a \SI{20}{m/s} impact produces a roughly rectangular pulse of \SI{406}{MPa}
+  amplitude lasting \SI{193}{\micro s}.
+\end{stepbox}
+
+In practice, a thin disc of soft metal (the \emph{pulse shaper}, typically copper
+or rubber, \SIrange{0.5}{2}{mm} thick) is placed at the impact face. Its plastic
+deformation smooths the leading edge of the pulse from a near-instantaneous step
+to a finite rise of \SIrange{20}{40}{\micro s}, which (a) reduces high-frequency
+oscillations from Pochhammer--Chree dispersion, and (b) gives the specimen time
+to reach stress equilibrium before failure. The simulator's gas-gun pulse
+generator approximates this with a trapezoidal envelope of \SI{20}{\micro s}
+rise/fall and a flat plateau between.
+
+\subsection{Step 2: Pulse Propagation and Specimen Response}
+
+The pulse travels along the incident bar at $\Cz$. When it reaches the specimen,
+three things happen simultaneously:
+\begin{enumerate}[leftmargin=*]
+  \item Part of the pulse is \textbf{reflected} back into the incident bar
+        ($\eps_R$, normally tensile for brittle specimens).
+  \item Part is \textbf{transmitted} through the specimen into the
+        transmission bar ($\eps_T$, compressive).
+  \item The specimen \textbf{deforms} at strain rate
+        $\epsdot_s = (\Cz/\Ls)(\eps_I - \eps_R - \eps_T)$.
+\end{enumerate}
+The Y and Z output bars carry only the lateral expansion of the specimen
+(Poisson plus damage dilation), since no active dynamic pulse is applied to them
+in gas-gun mode.
+
+\subsection{Step 3: Reading the Strain Gauge Records}
+
+Strain gauges on the incident bar record both $\eps_I$ (passing on the way in)
+and $\eps_R$ (passing on the way back). A second pair of gauges on the
+transmission bar records $\eps_T$. To separate the incident from the reflected
+signal in time, the gauge is placed at a distance $L_g$ from the specimen such
+that:
+\begin{equation}
+  \frac{L_g}{\Cz} > \tau / 2,
+\end{equation}
+ensuring no overlap. For $\tau = \SI{193}{\micro s}$ and a typical
+$L_g = \SI{1.0}{m}$, the round-trip time is $\SI{387}{\micro s}$, giving safe
+separation.
+
+\subsection{Step 4: Wave Analysis (the Three-Wave Method)}
+
+Apply equations~\eqref{eq:sigma3wave}--\eqref{eq:eps3wave} directly:
+\begin{empheq}[box=\fbox]{align*}
+\sig_x(t) &= \frac{E_b \Ab}{2 \As}\big[\eps_I(t) + \eps_R(t) + \eps_T(t)\big] \\
+\epsdot_x(t) &= \frac{\Cz}{\Ls}\big[\eps_I(t) - \eps_R(t) - \eps_T(t)\big] \\
+\eps_x(t) &= \int_0^t \epsdot_x(\tau)\,d\tau
+\end{empheq}
+This produces the dynamic stress--strain curve $\sig_x(\eps_x)$, which is the
+primary deliverable of the test.
+
+\subsection{Step 5: Lateral (Y, Z) Analysis}
+
+Because no active pulse is applied to the Y/Z directions, those bars only record
+the specimen's outward push from Poisson contraction and damage dilation. The
+Y and Z output bars each show a single outgoing wave $\eps_Y(t)$ and $\eps_Z(t)$.
+These give the dynamic component of lateral stress (added on top of the static
+confining pre-stress $\sig_2$, $\sig_3$):
+\begin{equation}
+  \sig_y^{\text{dyn}}(t) = \frac{E_b \Ab}{\As}\,\eps_Y(t),
+  \qquad
+  \sig_z^{\text{dyn}}(t) = \frac{E_b \Ab}{\As}\,\eps_Z(t).
+\end{equation}
+Note: the factor of $1/2$ disappears compared to equation~\eqref{eq:sigma3wave}
+because there is only one bar carrying force on each lateral face, not two
+(the opposite face is held by the hydraulic cylinder, not by another bar).
+
+\subsection{Validity Limits for Mode 1}
+
+\begin{itemize}[leftmargin=*]
+  \item Striker velocity $V \leq \SI{50}{m/s}$ (mechanical limit). At $V$ near
+        \SI{50}{m/s}, $\sigpeak \approx \SI{1020}{MPa}$ already exceeds
+        $\sigprop$ -- the striker cannot be fired at full velocity without
+        bar yielding. Practical maximum is $V \approx \SI{40}{m/s}$.
+  \item Static pre-stress range (current digital twin):
+        $0 \leq \sig_1, \sig_2, \sig_3 \leq \SI{50}{MPa}$ per axis.
+  \item Strain rate range: $\epsdot \approx \SIrange{50}{500}{s^{-1}}$.
+\end{itemize}
+
+% =====================================================
+% MODE 2 -- EM UNIAXIAL
+% =====================================================
+\newpage
+\section{Mode 2: Electromagnetic Uniaxial Impact}
+
+This is the simplest mode of the new electromagnetic facility. The gas gun and
+striker are replaced by an electromagnetic pulse generator, but only one
+generator (along $+X$) is used. Apart from the pulse shape, the analysis is
+identical to Mode~1.
+
+\subsection{Hardware Difference From Mode 1}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Pulse generator}: capacitor bank discharged through a primary
+        coil produces a Lorentz force on a flyer plate (or directly on the bar
+        end), launching a stress pulse.
+  \item \textbf{Bars}: square cross-section $\SI{50}{mm} \times \SI{50}{mm}$
+        by default ($\Ab = \SI{2500}{mm^2}$). The square bars provide flat
+        contact with cubic specimens. Bar geometry is editable in the Step~1
+        sidebar (square or round, with user diameter).
+  \item \textbf{Pre-stress}: servo-controlled hydraulic cylinders apply
+        $\sig_1$, $\sig_2$, $\sig_3$ independently. The current digital twin
+        uses the same \SI{50}{MPa} slider range as Mode~1; raise the slider
+        cap in code if your physical facility supports a larger envelope.
+\end{itemize}
+
+\subsection{The Half-Sine Pulse Shape}
+
+Where the gas-gun pulse is approximately rectangular, the electromagnetic
+generator produces a clean half-sine pulse:
+\begin{empheq}[box=\fbox]{equation}
+  \sig_I(t) = \sigpeak \,\sin\!\left(\frac{\pi t}{\tau}\right),
+  \qquad 0 \leq t \leq \tau.
+  \label{eq:halfsine}
+\end{empheq}
+The peak amplitude $\sigpeak$ and duration $\tau$ are \emph{independently}
+tuneable through capacitor charging voltage and circuit inductance, respectively.
+This decoupling is the key advantage of the electromagnetic system: students can
+sweep through a range of strain rates by varying $\tau$ alone, holding $\sigpeak$
+fixed (or vice versa) -- a controlled experiment that is impossible with the
+gas gun, where $\sigpeak$ and $\tau$ are linked through the striker.
+
+\subsection{Why Half-Sine Pulses Are Better}
+
+\begin{conceptbox}[Frequency content matters]
+A perfectly rectangular pulse contains arbitrarily high-frequency Fourier
+components, which travel at different speeds in the bar (Pochhammer--Chree
+dispersion). This makes the pulse develop spurious oscillations as it
+propagates. A half-sine pulse has most of its energy near the fundamental
+frequency $f \sim 1/(2\tau)$, with rapidly decaying higher harmonics. Less
+high-frequency content means less dispersion, cleaner signals, and more reliable
+analysis.
+
+A half-sine pulse also reaches dynamic stress equilibrium in the specimen faster
+than a rectangular pulse of the same amplitude, because its smooth rise gives
+the specimen time to reverberate internally before peak stress is reached. This
+is critical for testing brittle materials, which would otherwise fail before
+equilibrium and produce unreliable strength measurements.
+\end{conceptbox}
+
+\subsection{Step-by-Step Wave Analysis (Same as Mode 1)}
+
+Because there is still only one driving bar, the equations are identical to
+Mode~1. The student-facing procedure is:
+\begin{stepbox}[EM uniaxial procedure]
+\begin{enumerate}[leftmargin=*, itemsep=3pt]
+  \item Apply static pre-stress $\sig_1$ (axial), $\sig_2$, $\sig_3$ (confining)
+        via the three independent servo cylinders. Record baseline strain on all
+        gauges. Wait for the system to settle (\SIrange{30}{60}{s}).
+  \item Charge the capacitor bank to the voltage required for the desired
+        $\sigpeak$. Set the inductance/circuit parameters for the desired $\tau$.
+  \item Trigger the pulse generator. Capture all bar gauge signals at sampling
+        rates $\geq \SI{1}{MHz}$.
+  \item Subtract the pre-trigger baseline from each channel. (This is what
+        removes the static pre-stress from the recorded signals -- see
+        Section~\ref{subsec:prestress}.)
+  \item Time-shift each channel to the specimen-face reference (incident gauge
+        forward by $L_g/\Cz$, reflected backward by $L_g/\Cz$, etc.).
+  \item Verify dynamic stress equilibrium: $|F_1 - F_2|/\bar F < 0.05$.
+  \item Apply the three-wave equations~\eqref{eq:sigma3wave}--\eqref{eq:eps3wave}
+        to obtain $\sig_x^{\text{dyn}}(t)$, $\epsdot_x(t)$, $\eps_x(t)$.
+  \item Add back the static $\sig_1$ baseline to get total axial stress
+        $\sig_x^{\text{total}}(t) = \sig_1 + \sig_x^{\text{dyn}}(t)$.
+  \item Plot $\sig_x^{\text{total}}$ versus $\eps_x$. Read peak strength and
+        average strain rate.
+  \item Check that maximum bar stress remained below $\sigprop = \SI{930}{MPa}$.
+\end{enumerate}
+\end{stepbox}
+
+\subsection{Worked Example: Sandstone with Triaxial Pre-stress}
+
+A student wants to test sandstone (UCS $\approx \SI{80}{MPa}$, Mohr-Coulomb slope
+$k_{\text{conf}} \approx 4.5$) under
+$\sig_1 = \SI{20}{MPa}$ axial baseline and $\sig_2 = \sig_3 = \SI{50}{MPa}$
+confining, at strain rate $\sim \SI{200}{s^{-1}}$. Estimate whether this is safe.
+
+\textbf{Step 1 -- Predicted dynamic peak strength of the specimen.} Only the
+\emph{lateral} pre-stresses $\sig_2, \sig_3$ enter the rock strength formula:
+\begin{align*}
+  \sigpeak^{\text{rock,dyn}}
+    &= (\sig_{c0} + k_{\text{conf}} \cdot \max(\sig_2, \sig_3)) \cdot \text{DIF} \\
+    &= (80 + 4.5 \times 50) \,\text{MPa} \cdot
+       \big(1 + 0.18 \log_{10}(200)\big) \\
+    &= 305 \cdot 1.41 \approx \SI{430}{MPa}.
+\end{align*}
+
+\textbf{Step 2 -- Total axial stress at peak.} Add the static axial baseline:
+\begin{equation*}
+  \sigpeak^{\text{total}} = \sig_1 + \sigpeak^{\text{rock,dyn}}
+                          = 20 + 430 \approx \SI{450}{MPa}.
+\end{equation*}
+
+\textbf{Step 3 -- Required bar stress.} The bar carries only the dynamic
+component (the static $\sig_1$ is held by the cylinder). Since $\As/\Ab = 1$
+for a \SI{50}{mm} specimen between \SI{50}{mm} square bars,
+\begin{equation*}
+  \sig_{\text{bar}} = \sigpeak^{\text{rock,dyn}} \cdot \frac{\As}{\Ab}
+                    \approx \SI{430}{MPa}.
+\end{equation*}
+
+\textbf{Conclusion:} \SI{430}{MPa} is well below the \SI{930}{MPa} bar limit.
+Safe to proceed. Charge the capacitor for $\sigpeak \approx \SI{500}{MPa}$
+(margin above 430 to drive the specimen through peak), choose
+$\tau = \SI{200}{\micro s}$ to give a strain rate of order \SI{200}{s^{-1}}.
+The simulator will report the total axial stress reaching $\sim$\SI{450}{MPa}
+on the $\sig_X$ trace, which is the static $\sig_1 = \SI{20}{MPa}$ plus the
+dynamic peak.
+
+% =====================================================
+% MODE 3 -- ASYNCHRONOUS TRIAXIAL
+% =====================================================
+\newpage
+\section{Mode 3: Asynchronous Triaxial Impact}
+
+This mode uses three of the six electromagnetic generators to apply pulses along
+$+X$, $+Y$, and $+Z$, each with an independent time delay. It enables the study
+of how the \emph{order} of multi-axis loading affects material failure -- a
+question that classical Hopkinson testing cannot address.
+
+\subsection{Hardware Configuration}
+
+Three pulse generators fire pulses on three orthogonal incident bars. The other
+three bars (at the $-X$, $-Y$, $-Z$ ends) act as transmission/output bars and
+remain passive. In this mode, all three positive-axis directions carry their
+own three-wave problem; the negative-axis directions only show transmitted
+signals.
+
+\subsection{The Time-Delay Concept}
+
+Let pulse $i \in \{x, y, z\}$ be defined as:
+\begin{equation}
+  \sig_{I,i}(t) = \sigpeak \, \sin\!\left(\frac{\pi (t - \Delta t_i)}{\tau}\right),
+  \qquad \Delta t_i \leq t \leq \Delta t_i + \tau.
+  \label{eq:asyncpulse}
+\end{equation}
+Setting $\Delta t_x = 0$, $\Delta t_y = \SI{50}{\micro s}$,
+$\Delta t_z = \SI{100}{\micro s}$ produces a sequential triaxial loading: the
+specimen first experiences uniaxial dynamic compression along $X$, then
+biaxial after \SI{50}{\micro s}, then triaxial after \SI{100}{\micro s}.
+
+\begin{conceptbox}[Why ordering matters]
+Brittle failure in rock and concrete is path-dependent. Cracks initiated in one
+loading direction can be either suppressed (if confinement arrives quickly) or
+allowed to propagate (if confinement arrives late). Asynchronous loading lets
+us \emph{isolate} this effect from the synchronous case, producing data on the
+fundamental question: do dynamic constitutive models need a stress-path term?
+
+Steps~2--3 of the integrated workspace turn this informal question into a
+quantitative one through the normalised-delay parameter
+$\Delta t^\ast = \Delta t / t_{\text{travel}}$ and the regime-classifier map
+described in Section~\ref{sec:wave_damage}.
+\end{conceptbox}
+
+\subsection{Three-Wave Analysis on Each Axis}
+
+Because each axis carries its own incident wave, each axis is analysed with the
+full three-wave method, separately:
+\begin{empheq}[box=\fbox]{equation}
+  \sig_i(t) = \frac{E_b \Ab}{2 \As}
+    \big[\eps_{I,i}(t) + \eps_{R,i}(t) + \eps_{T,i}(t)\big],
+  \quad i \in \{x, y, z\}.
+\end{empheq}
+\begin{empheq}[box=\fbox]{equation}
+  \epsdot_i(t) = \frac{\Cz}{\Ls}
+    \big[\eps_{I,i}(t) - \eps_{R,i}(t) - \eps_{T,i}(t)\big],
+  \quad i \in \{x, y, z\}.
+\end{empheq}
+The full triaxial stress state of the specimen at time $t$ is then:
+\begin{equation}
+  \boldsymbol{\sig}(t) =
+  \begin{bmatrix}
+    \sig_1^0 + \sig_x^{\text{dyn}}(t) & 0 & 0 \\
+    0 & \sig_2^0 + \sig_y^{\text{dyn}}(t) & 0 \\
+    0 & 0 & \sig_3^0 + \sig_z^{\text{dyn}}(t)
+  \end{bmatrix},
+\end{equation}
+where the superscript $0$ denotes the static pre-stress applied by the hydraulic
+cylinders before the dynamic event.
+
+\subsection{Step-by-Step Procedure}
+
+\begin{stepbox}[Asynchronous triaxial procedure]
+\begin{enumerate}[leftmargin=*, itemsep=3pt]
+  \item Apply static pre-stress $\sig_1^0$ (axial), $\sig_2^0$, $\sig_3^0$
+        (confining) via the three independent servo-cylinders. Record baselines.
+  \item Choose desired pulse delays $\Delta t_y$, $\Delta t_z$ (relative to
+        $\Delta t_x = 0$). Typical values:
+        $\Delta t = 0$ (synchronous, ground truth), $\Delta t = \tau/4$
+        (mild asynchrony), $\Delta t = \tau/2$ (strong asynchrony).
+  \item Charge all three capacitor banks to identical voltages (for equal
+        $\sigpeak$ on each axis).
+  \item Trigger generators with the programmed delays. Synchronisation jitter
+        must be $\ll \tau$; aim for $< \SI{1}{\micro s}$ on a \SI{200}{\micro s}
+        pulse.
+  \item Capture six bar signals (3 incident, 3 transmission) plus the four
+        lateral output gauges (Y$_1$, Y$_2$, Z$_1$, Z$_2$) for equilibrium
+        verification.
+  \item Subtract baselines, time-align each channel to its own specimen face.
+  \item Apply the three-wave method on each axis independently.
+  \item Plot the principal stress trajectory $(\sig_1(t), \sig_2(t), \sig_3(t))$
+        in 3D principal-stress space (or use the $p$--$q$ projection in Step~3).
+  \item Compare with a matched synchronous test ($\Delta t = 0$) to extract the
+        path-dependence effect.
+\end{enumerate}
+\end{stepbox}
+
+\subsection{Validity Notes}
+
+\begin{itemize}[leftmargin=*]
+  \item All three axes are subject to the same bar plasticity limit. For
+        $\sigpeak = \SI{500}{MPa}$ pulses on all three axes, no bar exceeds
+        \SI{500}{MPa} -- safe.
+  \item Equilibrium verification is harder in this mode because the specimen
+        is responding simultaneously to three different loadings. Check
+        $|F_{i,1} - F_{i,2}| / \bar F_i < 0.05$ on \emph{each} axis separately.
+  \item The constitutive interpretation requires a fully 3D stress-path
+        analysis; do not attempt to fit a uniaxial constitutive model to data
+        from this mode.
+\end{itemize}
+
+% =====================================================
+% MODE 4 -- SYMMETRIC SUPERPOSITION
+% =====================================================
+\newpage
+\section{Mode 4: Symmetric Multidirectional Impact (Wave Superposition)}
+
+This is the most powerful and most physically distinctive mode. All six
+electromagnetic generators fire \emph{simultaneously}, with identical pulses on
+opposing bar pairs $(+X, -X)$, $(+Y, -Y)$, $(+Z, -Z)$. The two pulses on each
+axis arrive at the specimen at the same instant, superposing constructively in
+force while cancelling in momentum. The specimen is \emph{squeezed} from all
+sides simultaneously.
+
+\begin{newfeature}[Why this mode is special]
+\begin{itemize}[leftmargin=*, itemsep=2pt]
+  \item \textbf{Force doubling at each face} via constructive superposition.
+  \item \textbf{Zero net momentum transfer} -- the specimen does not accelerate.
+  \item \textbf{No transmission bar exists} on the active axes; both
+        $\pm$-direction bars are incident-only.
+  \item \textbf{Bar stress is unchanged} from uniaxial mode at the same
+        $\sigpeak$. The doubling occurs in the \emph{specimen} stress, not the
+        bar stress -- a profound advantage for high-stress testing.
+  \item \textbf{Pure hydrostatic loading} possible when all six fire equally:
+        deviatoric stress $q \to 0$, the specimen probes its volumetric (cap)
+        response.
+\end{itemize}
+\end{newfeature}
+
+\subsection{The Geometry of Superposition}
+
+Consider a single axis, say $X$. In this mode, both the $+X$ and $-X$ bars carry
+identical incident pulses arriving at the specimen at the same instant. Define:
+\begin{align}
+  \eps_{I}^{+}(t) &= \text{incident wave on the } +X \text{ bar (positive-going)} \\
+  \eps_{I}^{-}(t) &= \text{incident wave on the } -X \text{ bar (negative-going)}
+\end{align}
+By construction, in symmetric mode, $\eps_I^+ = \eps_I^- = \eps_I$ at the
+specimen position. After the pulses interact with the specimen, each bar carries
+a reflected wave $\eps_R^+$ or $\eps_R^-$ travelling back outward. The simulator
+emits both $\eps_R^+$ and $\eps_R^-$ explicitly so that the symmetric energy
+folding (Section~\ref{subsec:expdata}) can use them directly.
+
+\subsection{Step-by-Step Derivation of the Symmetric Wave Equations}
+
+We now derive the analogue of the three-wave equations for symmetric mode. The
+derivation has four small steps; students should follow each one.
+
+\subsubsection{Step A: Force at the specimen face from each bar}
+
+The bar is still a 1D elastic medium. The force it exerts on the specimen face
+is (using equation~\eqref{eq:F1} for the $+X$ side and the equivalent for $-X$):
+\begin{align}
+  F^{+}(t) &= E_b \Ab \big[\eps_I^{+}(t) + \eps_R^{+}(t)\big],
+  \label{eq:Fplus}\\
+  F^{-}(t) &= E_b \Ab \big[\eps_I^{-}(t) + \eps_R^{-}(t)\big].
+  \label{eq:Fminus}
+\end{align}
+Each force pushes \emph{inward} on the specimen.
+
+\subsubsection{Step B: Force balance on the specimen}
+
+The specimen, treated as a rigid body to leading order, must satisfy
+$F^{+} = F^{-}$ (otherwise it would accelerate). By symmetry of the input
+pulses, this is automatic. The specimen stress is the average force divided by
+specimen cross-section:
+\begin{align}
+  \sig_s(t) &= \frac{F^{+} + F^{-}}{2 \As}
+            = \frac{E_b \Ab}{2 \As}\big[\eps_I^{+} + \eps_R^{+} + \eps_I^{-} + \eps_R^{-}\big].
+\end{align}
+Under perfect symmetry, $\eps_I^+ = \eps_I^- = \eps_I$ and
+$\eps_R^+ = \eps_R^- = \eps_R$, so:
+\begin{empheq}[box=\fbox]{equation}
+  \sig_s^{\text{sym}}(t)
+    = \frac{2 E_b \Ab}{2 \As}\big[\eps_I(t) + \eps_R(t)\big]
+    = \frac{E_b \Ab}{\As}\big[\eps_I(t) + \eps_R(t)\big].
+  \label{eq:sigsym}
+\end{empheq}
+Compare with the standard three-wave result~\eqref{eq:sigma3wave}: the prefactor
+has \emph{doubled} (no factor of $1/2$) because we now have two bars driving
+the specimen, not one.
+
+\subsubsection{Step C: Velocity of the specimen face}
+
+Consider the $+X$ specimen face. The $+X$ bar end velocity is, from~\eqref{eq:v1}:
+\[
+  v^{+}_{\text{bar}} = \Cz \big[\eps_I^{+} - \eps_R^{+}\big] = \Cz \big[\eps_I - \eps_R\big].
+\]
+This is the velocity at which the $+X$ face moves \emph{inward} (compressing the
+specimen). By symmetry, the $-X$ face moves inward at the same speed. The total
+\emph{rate of compression} of the specimen is the sum of these two inward
+velocities divided by the specimen length:
+\begin{empheq}[box=\fbox]{equation}
+  \epsdot_s^{\text{sym}}(t)
+    = \frac{v^{+} + v^{-}}{\Ls}
+    = \frac{2\Cz}{\Ls}\big[\eps_I(t) - \eps_R(t)\big].
+  \label{eq:epsdotsym}
+\end{empheq}
+The strain rate has \emph{doubled} compared to uniaxial mode. The factor of 2
+in equation~\eqref{eq:epsdotsym} is geometric: both faces move inward, not just
+one. The simulator further uses the simplified driver
+$\epsdot_s^{\text{sym}}(t) \approx (2\Cz/\Ls)\,\eps_I^+(t)$ in its time-step
+update to avoid a numerical deadlock at $t = 0$ where the reflected wave equals
+the incident wave before any specimen stress has built up; this approximation
+becomes exact once equilibrium is reached.
+
+\subsubsection{Step D: Reflected wave from the specimen response}
+
+To close the analysis, we need one more relation -- between $\eps_R$ and the
+specimen response. From force balance at the $+X$ face,
+$F^{+} = \sig_s \As \cdot \tfrac{1}{2}$ (each face carries half the specimen
+force balance, since both faces drive equally). Substituting~\eqref{eq:Fplus}:
+\[
+  E_b \Ab \big[\eps_I + \eps_R\big] = \frac{1}{2} \sig_s \As.
+\]
+Solving for $\eps_R$:
+\begin{equation}
+  \eps_R(t) = \frac{\sig_s(t) \As}{2 E_b \Ab} - \eps_I(t).
+  \label{eq:Rsym}
+\end{equation}
+This is the analogue of $\eps_T = \sig_s \As / (E_b \Ab)$ in the standard
+analysis, but with a factor of 2 in the denominator because two bars share the
+work.
+
+\subsection{Summary Table: Mode 1 vs Mode 4 Equations}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Quantity} & \textbf{Modes 1--3 (one-sided)} & \textbf{Mode 4 (symmetric)} \\
+\midrule
+Specimen stress & $\sig = \dfrac{E_b\Ab}{2\As}(\eps_I + \eps_R + \eps_T)$
+                & $\sig = \dfrac{E_b\Ab}{\As}(\eps_I + \eps_R)$ \\
+Strain rate     & $\epsdot = \dfrac{\Cz}{\Ls}(\eps_I - \eps_R - \eps_T)$
+                & $\epsdot = \dfrac{2\Cz}{\Ls}(\eps_I - \eps_R)$ \\
+Bars active     & $\eps_I, \eps_R, \eps_T$ (three bars) & $\eps_I, \eps_R$ (each of two bars) \\
+Effective drive & $\sig_{\text{drive}} = \sigpeak$ & $\sig_{\text{drive}} = 2\sigpeak$ \\
+Bar stress max  & $\sig_{\text{bar}}^{\max} \leq \sigpeak$
+                & $\sig_{\text{bar}}^{\max} \leq \sigpeak$ \\
+Specimen $\sig_{\max}$ achievable & $\sim \sigpeak$ & $\sim 2\sigpeak$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{warningbox}[The fundamental advantage of symmetric mode]
+The bar stress is the \emph{same} in symmetric mode as in uniaxial mode at the
+same $\sigpeak$, but the specimen experiences \emph{double} the stress. This
+means symmetric mode can reach specimen stresses that would require bar yielding
+in any one-sided mode. For testing strong rocks under high confinement, this is
+the only way to access the high-stress regime without damaging the bars.
+\end{warningbox}
+
+\subsection{The Three Symmetric Sub-Modes}
+
+The simulator offers three configurations:
+
+\begin{description}[leftmargin=2em, style=nextline]
+  \item[Symmetric $\pm X$ only]
+    Two pulses on $\pm X$; Y and Z bars passive. The specimen experiences
+    enhanced uniaxial loading: doubled stress, doubled strain rate, but no
+    triaxial state. Useful as a baseline against which the multi-axis modes
+    are compared.
+
+  \item[Symmetric $\pm X \pm Y$ (biaxial)]
+    Four pulses on $\pm X$ and $\pm Y$; Z passive (carries only static
+    confinement and Poisson reaction). The specimen experiences true biaxial
+    dynamic squeeze. The deviatoric stress along Z (the axis of asymmetry)
+    drives any shear-related failure.
+
+  \item[Full hydrostatic ($\pm X, \pm Y, \pm Z$)]
+    All six pulses fire identically. Under perfect symmetry,
+    $\sig_x = \sig_y = \sig_z$, so the deviatoric stress
+    $q = 0$ and the specimen cannot fail by shear yielding. Instead, it
+    deforms volumetrically along its compaction cap. This probes the
+    pressure-volume response, captured by the curve $p(\eps_v)$ where
+    $p = (\sig_x + \sig_y + \sig_z)/3$ and $\eps_v = \eps_x + \eps_y + \eps_z$.
+\end{description}
+
+\subsection{Pressure--Volume Response in the Hydrostatic Sub-Mode}
+
+For full hydrostatic loading, the relevant constitutive curve is the
+\emph{compaction curve}, governed by the bulk modulus $K$ and an eventual
+pressure cap $p_{\text{cap}}$ at which pore collapse and grain rearrangement
+take over:
+\begin{equation}
+  \frac{dp}{d\eps_v} = K \quad \text{(initial elastic regime)},
+  \qquad
+  p \to p_{\text{cap}} \quad \text{(post-cap plateau)}.
+\end{equation}
+For typical porous rocks, $p_{\text{cap}} \sim 4 \cdot \text{UCS}$ at moderate
+strain rate. The simulator switches to this constitutive regime automatically
+when full hydrostatic mode is selected.
+
+\subsection{Step-by-Step Symmetric-Mode Procedure}
+
+\begin{stepbox}[Symmetric multidirectional procedure]
+\begin{enumerate}[leftmargin=*, itemsep=3pt]
+  \item Apply static pre-stress: set $\sig_1^0 = \sig_2^0 = \sig_3^0$ for the
+        hydrostatic sub-mode, or set independent values for the $\pm X$ or
+        $\pm X \pm Y$ sub-modes.
+  \item Choose $\sigpeak$ (single-bar peak amplitude). Remember the specimen
+        will see $2 \sigpeak$ on each active axis. Verify the bar limit:
+        $\sigpeak < \sigprop = \SI{930}{MPa}$.
+  \item Choose $\tau$ for the desired strain rate. In symmetric mode, the
+        strain rate is doubled compared to uniaxial mode at the same $\tau$,
+        so for a target $\epsdot$, set $\tau \approx 2 \cdot \tau_{\text{uniaxial}}$.
+  \item Charge all six (or four, or two) capacitor banks to the same voltage
+        for identical $\sigpeak$ on each active bar.
+  \item Synchronise the trigger pulses. Synchronisation jitter must be
+        $\ll \tau/10$ for clean superposition; modern trigger electronics
+        achieve $< \SI{0.5}{\micro s}$.
+  \item Capture all bar gauge signals (4 per active axis: incident-wave gauge
+        and reflected-wave gauge on each of the two opposing bars).
+  \item Verify symmetry: $\eps_I^+ \approx \eps_I^-$ and
+        $\eps_R^+ \approx \eps_R^-$ on each axis. Asymmetry indicates either
+        synchronisation failure or non-uniform specimen damage; in either
+        case, the analysis is invalid.
+  \item Apply the symmetric-mode equations~\eqref{eq:sigsym}
+        and~\eqref{eq:epsdotsym} to obtain $\sig_i(t)$ and $\epsdot_i(t)$ on
+        each active axis.
+  \item For hydrostatic sub-mode: compute mean pressure $p(t)$ and volumetric
+        strain $\eps_v(t)$, plot $p(\eps_v)$.
+  \item For biaxial sub-mode: extract both the active-axis $\sig$--$\eps$
+        curves and the passive-axis Poisson response.
+  \item Confirm bar plasticity envelope is satisfied:
+        $\max_i |\sig_{\text{bar},i}(t)| < \sigprop$.
+\end{enumerate}
+\end{stepbox}
+
+\subsection{A Worked Symmetric Example}
+
+A student wants to test concrete (UCS \SI{40}{MPa}) under fully hydrostatic
+dynamic loading with target peak pressure \SI{800}{MPa}. Static pre-stress
+$\sig_1^0 = \sig_2^0 = \sig_3^0 = \SI{50}{MPa}$ (the slider maximum).
+
+\textbf{Required single-pulse amplitude:} since the specimen sees
+$2 \sigpeak$ on each axis, and the loading is hydrostatic so the mean pressure
+equals the axial stress:
+\begin{align*}
+  p_{\text{peak}} &= \sig_1^0 + 2\sigpeak \\
+  \SI{800}{MPa} &= \SI{50}{MPa} + 2\sigpeak \\
+  \sigpeak &= \SI{375}{MPa}.
+\end{align*}
+\textbf{Bar stress check:} each bar carries one pulse at $\sigpeak$:
+\[
+  \sig_{\text{bar}}^{\max} \approx \SI{375}{MPa} < \SI{930}{MPa} \;\checkmark
+\]
+Plenty of margin -- this configuration is safely within the bar limit, even
+though it would require $\sigpeak = \SI{750}{MPa}$ (very near the bar limit) in
+uniaxial mode.
+
+\textbf{Pulse duration:} for target $\epsdot \sim \SI{300}{s^{-1}}$ in
+symmetric mode, the doubled strain-rate factor means we want
+$\tau \approx 2\Cz \eps_I / (\Ls \cdot \epsdot_{\text{target}}) \sim$
+\SI{200}{\micro s}.
+
+\textbf{Result:} Charge each of six capacitor banks for $\sigpeak = \SI{375}{MPa}$,
+$\tau = \SI{200}{\micro s}$. Fire synchronously with $\sig_{\text{conf}} =
+\SI{50}{MPa}$ pre-applied. Expected outcome: pure compaction response, no shear
+failure, bar limits respected.
+
+% =====================================================
+% PART 4 -- COMPARISON & GUIDANCE
+% =====================================================
+\newpage
+\section{Comparing the Four Modes Side by Side}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\small
+\begin{tabular}{@{}p{3.6cm}p{2.6cm}p{2.6cm}p{2.6cm}p{2.6cm}@{}}
+\toprule
+\textbf{Property} & \textbf{Mode 1: Gas-Gun} & \textbf{Mode 2: EM Uniaxial} & \textbf{Mode 3: EM Async} & \textbf{Mode 4: Symmetric} \\
+\midrule
+Pulse shape & Trapezoidal (shaped) & Half-sine & Half-sine $\times 3$ & Half-sine $\times 6$ \\
+Active bars & 1 (X only) & 1 (X only) & 3 (+X, +Y, +Z) & Up to 6 ($\pm$XYZ) \\
+$\sig_1, \sig_2, \sig_3$ slider range & 0--50 MPa each & 0--50 MPa each & 0--50 MPa each & 0--50 MPa each \\
+Pulse independence & $\sigpeak \propto V$, $\tau \propto L$ & Independent & Independent & Independent \\
+Specimen $\sig_{\max}$ & $\sim \sigpeak$ & $\sim \sigpeak$ & $\sim \sigpeak$ each axis & $\sim 2\sigpeak$ each axis \\
+Bar stress at limit & $\sigpeak$ & $\sigpeak$ & $\sigpeak$ & $\sigpeak$ \\
+Stress path control & Uniaxial only & Uniaxial only & Yes (asynchronous) & Hydrostatic / biaxial \\
+Pure hydrostatic? & No & No & Approximately if $\Delta t = 0$ & Yes \\
+Best for & UCS, basic SHPB & Clean rate-dependence & Path-dependent failure & Cap mechanics, high stress \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent\textit{Note on slider range:} the \SI{50}{MPa} pre-stress cap reflects
+the current digital twin's calibration. The slider maximum is set in one place
+(\texttt{max\_conf} in the simulator file) and can be raised if a physical bench
+upgrade supports a larger envelope.
+
+\subsection{Choosing the Right Mode for a Research Question}
+
+\begin{itemize}[leftmargin=*, itemsep=3pt]
+  \item \textbf{Mode 1 (Gas-Gun)} when: the research is a baseline uniaxial
+        test, or a comparison against published SHPB literature. Reliable,
+        well-understood, but limited in confinement and pulse shape.
+
+  \item \textbf{Mode 2 (EM Uniaxial)} when: rate-dependent constitutive
+        behaviour is the primary question. Use the independent control of
+        $\sigpeak$ and $\tau$ to sweep $\epsdot$ at fixed $\sig$ and vice
+        versa.
+
+  \item \textbf{Mode 3 (EM Asynchronous)} when: the question is whether
+        loading order matters. Particularly relevant for blast-induced
+        rockburst and seismic loading, where the multi-axis pulses arrive
+        sequentially. Pair this mode with the Step~2 regime classifier and
+        the Step~3 $p$--$q$--$\theta$ path.
+
+  \item \textbf{Mode 4 (EM Symmetric)} when: (a) the target specimen stress
+        exceeds the bar plasticity limit in one-sided modes, or (b) the
+        research targets the volumetric (cap) response of the material, which
+        is inaccessible in any one-sided mode.
+\end{itemize}
+
+\subsection{Common Pitfalls and How the Simulator Helps}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Bar plasticity violation.} The simulator's three-tier warning
+        system (caution / warning / critical) catches this in real time. Plan
+        every test in the simulator first.
+  \item \textbf{Loss of stress equilibrium.} For very brittle specimens or
+        very short pulses, the specimen may fail before reverberations
+        equilibrate it. Check $|F_1 - F_2| / \bar F < 0.05$. The Step~2
+        ``Wave model'' tab reports the equilibrium window
+        $t_{\text{eq}} \in [3, 5]\,t_{\text{travel}}$ as a coloured band.
+  \item \textbf{Confusing strain rate with strain.} A short, high-amplitude
+        pulse delivers high $\epsdot$ but possibly insufficient total strain
+        to fail the specimen. Check both metrics in the summary panel.
+  \item \textbf{Asynchronous mode misinterpretation.} Do not fit a uniaxial
+        constitutive model to data from Mode 3. Use a 3D stress-path-aware
+        model (e.g., Drucker--Prager with cap, or Mohr--Coulomb with
+        non-associated flow) -- Step~3 provides the $p$--$q$--$\theta$
+        diagnostics needed to identify the path.
+  \item \textbf{Symmetric-mode synchronisation failure.} If
+        $\eps_I^+ \neq \eps_I^-$ on the recorded gauges, the assumed symmetry
+        is broken and the doubled-stress analysis no longer applies.
+  \item \textbf{Sign-convention mismatch on uploaded gauges.} The Step~1
+        reducer assumes textbook signs ($\eps_I > 0$, $\eps_R < 0$,
+        $\eps_T > 0$ for a compression test). Use the \emph{Compression
+        convention} radio button to flip data acquired with the opposite
+        polarity; an inverted convention typically appears as a negative
+        absorbed energy, which the simulator now flags explicitly.
+\end{itemize}
+
+% =====================================================
+% INTEGRATED WORKSPACE
+% =====================================================
+\newpage
+\section{The Integrated Workspace}
+
+The Virtual Tri-HB is now delivered as a single integrated Streamlit
+application, \texttt{tri\_hb\_integrated.py}, that bundles four analysis
+steps under one shared experimental setup. This section walks through how to
+launch the application and how to navigate the four-step workflow. The two
+sections that follow (Sections~\ref{sec:expdata} and~\ref{sec:wave_damage})
+document the specific equations used by the experimental reducer and by the
+wave/damage workspace.
+
+\subsection{Launching the Application}
+
+\begin{stepbox}[Local launch (development / classroom laptop)]
+\begin{enumerate}[leftmargin=*, itemsep=3pt]
+  \item Install Python $\geq 3.9$.
+  \item Open a terminal in the folder containing \texttt{tri\_hb\_integrated.py},
+        \texttt{Tri-HB.py}, \texttt{wave\_damage.py}, and
+        \texttt{requirements.txt}.
+  \item Install dependencies: \texttt{pip install -r requirements.txt}.
+  \item Launch the integrated app: \texttt{streamlit run tri\_hb\_integrated.py}.
+  \item The browser opens at \texttt{http://localhost:8501}. If it does not,
+        open that URL manually.
+\end{enumerate}
+\end{stepbox}
+
+For shared use across a class, push the repository to GitHub and connect it at
+\texttt{share.streamlit.io}. Students then access the integrated workspace
+through a public URL with no local installation.
+
+\subsection{Top-Level Navigation: Five Pages}
+
+A single radio in the sidebar selects which page is active. The intent is to
+move through them in order, but jumping back is supported because each step
+reads the shared \texttt{tri\_hb\_latest\_config} and
+\texttt{tri\_hb\_latest\_result} from session state.
+
+\begin{description}[leftmargin=2em, style=nextline]
+  \item[Overview]
+    Landing page that explains the workflow. Use it to confirm the manual
+    matches the deployed app version.
+
+  \item[Step 1: Setup, simulator and data]
+    Defines the shared experimental setup (material, specimen, bar, loading)
+    and produces either a \emph{simulated} stress--strain history or a
+    \emph{reduced} stress--strain history from uploaded gauge data. A second
+    radio inside the sidebar switches between two tasks: \emph{Test design
+    and simulator} (the four-mode simulator, Sections~2--5) and
+    \emph{Experimental data analysis} (the bar-gauge / direct stress-strain
+    reducer, Section~\ref{sec:expdata}).
+
+  \item[Step 2: Wave model]
+    Pulse timing, travel time, equilibrium window, and the wave-superposition
+    / damage-memory regime classifier. Loads the
+    \texttt{wave\_damage.py} module with the ``Wave model'' tab first.
+
+  \item[Step 3: Stress path and analysis]
+    $p$--$q$--$\theta$ paths, invariant histories, comparison against
+    the reduced experimental data from Step~1. Same module, with the ``Stress
+    path'' tab first.
+
+  \item[Step 4: Damage model and DEM validation]
+    Damage evolution, stiffness and wave-speed degradation, energy balance,
+    DEM/experimental descriptors, parametric study, and export. Same module,
+    with the ``Damage evolution'' tab first.
+\end{description}
+
+\subsection{Step 1 Sidebar: Two Tabs}
+
+Inside the Step~1 simulator task, the sidebar is split into two tabs that
+match the operational separation a real test team uses.
+
+\begin{description}[leftmargin=2em, style=nextline]
+  \item[Experimental setup]
+    Specimen material (preset + editable $E$, UCS, $\nu$, $\rho$), specimen
+    geometry (cross-section, side / diameter, loading length $\Ls$), and bar
+    properties (bar $E_b$, $\Cz$, cross-section). Defaults match the
+    42CrMo square 50$\times$50\,mm bench; every value can be overridden
+    to model a different facility.
+
+  \item[Test loading]
+    Loading mode (4 modes), symmetric-axis selector (if Mode~4), pulse settings
+    (striker velocity for gas-gun; $\sigpeak$ and $\tau$ for EM), static
+    pre-stress sliders for $\sig_1$, $\sig_2$, $\sig_3$, and the asynchronous
+    timing sliders if Mode~3 is active.
+\end{description}
+
+When Step~1 is configured for ``Experimental data analysis'' instead of the
+simulator, the sidebar replaces the test-loading controls with the data-source
+selector and the column-mapping controls described in
+Section~\ref{sec:expdata}.
+
+\subsection{Main Panel Tabs in the Step 1 Simulator}
+
+The main panel updates live as inputs change. Five tabs are available; the
+fourth ($p$--$\eps_v$) appears only in symmetric mode.
+
+\begin{description}[leftmargin=2em, style=nextline]
+  \item[Bar Waveforms] Time-history of all strain gauge signals: incident,
+    reflected, transmitted, and lateral output bars. In symmetric mode, both
+    $\eps_I^+$ and $\eps_I^-$ are plotted to verify synchronisation.
+
+  \item[Specimen Stresses] Total $\sig_X$, $\sig_Y$, $\sig_Z$ on the specimen.
+    In symmetric mode, the mean pressure $p(t)$ is overlaid as a dashed
+    reference. A horizontal dashed line at \SI{930}{MPa} shows the bar
+    proportional limit for visual safety check.
+
+  \item[$\sig$--$\eps$ Curve] Loading branch only. The curve traces from the
+    start of the pulse through peak strength and post-peak softening, then
+    stops when strain plateaus.
+
+  \item[$p$--$\eps_v$] Visible only in symmetric mode. The compaction
+    (volumetric) curve shows initial bulk-modulus slope followed by a cap
+    pressure plateau.
+
+  \item[Equations] Reference card showing the wave-analysis equations for
+    the active mode, including the standard three-wave method and the
+    symmetric-mode variant.
+\end{description}
+
+\subsection{Bar Plasticity Warning Banner}
+
+Whenever the maximum bar stress approaches the proportional limit, a coloured
+warning banner appears at the top of the page:
+
+\begin{itemize}[leftmargin=*, itemsep=2pt]
+  \item \textcolor{warnorange}{\textbf{Caution}} (yellow tint) at
+        $0.85\,\sigprop$.
+  \item \textcolor{warnorange}{\textbf{Warning}} (orange) at $\sigprop$.
+        Wave analysis becomes nonlinear; results are unreliable.
+  \item \textcolor{dangerred}{\textbf{Critical}} (red) at the yield stress
+        \SI{1080}{MPa}. Bars deform plastically; the test is invalid and
+        should not be run on the physical apparatus.
+\end{itemize}
+
+This is the simulator's primary safety feature. \textbf{Always check the banner
+is clear (or at most cautionary) before considering the corresponding
+configuration for physical testing.}
+
+\subsection{Data Export from Step 1}
+
+Four export buttons sit at the bottom of the simulator page. Filenames are
+auto-generated from the configuration so re-running with different parameters
+produces uniquely-named files for batch comparison.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\small
+\begin{tabular}{@{}p{3.6cm}p{2cm}p{8.5cm}@{}}
+\toprule
+\textbf{Button} & \textbf{Format} & \textbf{Contents} \\
+\midrule
+All Signals & CSV &
+  Time-series: all bar gauge strains
+  ($\eps_I^{\pm}, \eps_R^{\pm}, \eps_T, \eps_Y, \eps_Z$ as available),
+  specimen stresses ($\sig_X, \sig_Y, \sig_Z$), strains, pressure,
+  volumetric strain, axial strain rate. \\
+$\sig$--$\eps$ Curve & CSV &
+  Loading branch only: axial strain, axial stress, mean pressure,
+  volumetric strain. \\
+Configuration & JSON &
+  Full input config + summary metrics + bar/rock properties + warning
+  state + ISO 8601 export timestamp. Provides full provenance. \\
+Full workbook & XLSX &
+  Multi-sheet Excel: Sheet~1 Signals, Sheet~2 Stress-Strain,
+  Sheet~3 Configuration. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{conceptbox}[Recommended export workflow]
+For coursework and research projects:
+\begin{enumerate}[leftmargin=2em, itemsep=2pt]
+  \item Run the simulator with your chosen configuration.
+  \item Verify the bar plasticity banner is clear.
+  \item Export the JSON \emph{and} either the CSV or XLSX, both filed under
+        the auto-generated filename.
+  \item Move to Step~2--4 to interpret wave timing, stress path, and damage,
+        which automatically inherit the Step~1 setup through session state.
+  \item Export Step~4's CSV for the damage and energy histories alongside the
+        Step~1 file. The JSON provides the audit trail linking both.
+\end{enumerate}
+\end{conceptbox}
+
+\subsection{A Worked Streamlit Session}
+
+\begin{stepbox}[Session: Granite at high confinement, EM Symmetric XYZ]
+\begin{enumerate}[leftmargin=*, itemsep=3pt]
+  \item In the top sidebar, select \emph{Step 1: Setup, simulator and data}
+        and leave the inner radio on \emph{Test design and simulator}.
+  \item Open the \emph{Experimental setup} tab. Choose \emph{Material preset =
+        granite}; keep the auto-filled $E$, UCS, $\nu$. Set \emph{Specimen
+        cross-section = Square/cube}, \emph{Side length = \SI{50}{mm}},
+        \emph{Loading length = \SI{50}{mm}}. Leave bar settings on the
+        \SI{50}{mm} square default.
+  \item Switch to the \emph{Test loading} tab. Choose \emph{Loading mode = EM
+        Symmetric Multi-axis}; the axis selector appears -- pick \emph{Full
+        hydrostatic ($\pm X \pm Y \pm Z$)}.
+  \item Set \emph{Single-pulse peak amplitude = \SI{400}{MPa}}, \emph{Pulse
+        duration = \SI{200}{\micro s}}. Set
+        $\sig_1 = \sig_2 = \sig_3 = \SI{50}{MPa}$.
+  \item Inspect the warning banner. If it shows ``Caution'' or above, reduce
+        $\sigpeak$ until the banner is clear.
+  \item Click the \emph{$p$--$\eps_v$} tab. Read the slope at low $\eps_v$
+        (the dynamic bulk modulus $K_d$) and the plateau at high $\eps_v$
+        (the cap pressure).
+  \item Click \emph{Full workbook (XLSX)}; verify the \emph{Configuration}
+        sheet records all your inputs.
+  \item Move to Step~2: confirm the equilibrium band and check
+        $\Delta t^\ast$ (this should be 0 for a synchronous test).
+  \item Move to Step~3: check the $p$--$q$ path collapses onto the
+        $q \approx 0$ axis (hydrostatic).
+  \item Move to Step~4: read the final damage $D$, the central damage
+        fraction $D_c$, and the energy descriptors. Export the CSV for
+        downstream comparison with DEM or experimental data.
+\end{enumerate}
+\end{stepbox}
+
+% =====================================================
+% EXPERIMENTAL DATA ANALYSIS
+% =====================================================
+\newpage
+\section{Step 1 (Alternate Task): Experimental Data Analysis}
+\label{sec:expdata}
+\label{subsec:expdata}
+
+When the inner Step~1 radio is set to ``Experimental data analysis'', the
+simulator's loading controls are replaced by a reducer that converts raw bar
+gauge or direct stress-strain data into the same set of outputs the simulator
+produces. This means students can compare a real measurement and a simulation
+on the same axes, using the same downstream pages (Steps~2--4).
+
+\subsection{Three Data Sources}
+
+\begin{description}[leftmargin=2em, style=nextline]
+  \item[Latest simulator result]
+    Reuses the most recent simulator output stored in session state. Useful
+    for verifying that the reducer and the simulator agree, and for handing
+    simulated data into the energy balance, wave model, and damage page.
+
+  \item[Upload bar strain gauges]
+    A CSV/XLSX with columns for time and the incident, reflected, and
+    transmitted bar strains. The student maps each column manually and picks
+    the unit (\si{\micro\strain} or strain), the time unit
+    (\si{\micro s}, ms, or s), and the compression convention (positive or
+    negative). The reducer then applies the SHPB equations and produces
+    stress, strain, strain rate, and energy histories.
+
+  \item[Upload direct stress-strain]
+    A CSV/XLSX that already contains a reduced stress and strain. Only unit
+    conversion and a derivative for the strain rate are needed; this branch
+    is intended for comparison against the simulator output.
+\end{description}
+
+\subsection{Equations Used by the Reducer}
+
+Let $E_b$ be the bar Young's modulus, $\Cz = \sqrt{E_b/\rho_b}$ the bar wave
+speed, $\Ab$ the bar cross-section, $\As$ and $\Ls$ the specimen area and
+length, and $\eps_I$, $\eps_R$, $\eps_T$ the incident, reflected, and
+transmitted bar strains.
+
+\paragraph{Specimen stress (three-wave average).}
+\begin{equation}
+  \sig_s(t) = \frac{E_b \Ab}{2 \As}\,\bigl[\eps_I(t)+\eps_R(t)+\eps_T(t)\bigr].
+\end{equation}
+
+\paragraph{Specimen stress (transmitted-wave only).}  Assumes force equilibrium
+$\eps_I + \eps_R \approx \eps_T$:
+\begin{equation}
+  \sig_s(t) = \frac{E_b \Ab}{\As}\,\eps_T(t).
+\end{equation}
+
+\paragraph{Specimen strain rate and strain.}
+\begin{align}
+  \epsdot_s(t) &= \frac{\Cz}{\Ls}\,\bigl[\eps_I(t)-\eps_R(t)-\eps_T(t)\bigr], \\
+  \eps_s(t)   &= \int_0^t \epsdot_s(\tau)\,d\tau \quad \text{(trapezoidal)}.
+\end{align}
+Under perfect equilibrium $\eps_I + \eps_R = \eps_T$ the rate reduces to
+$\epsdot_s = -2\Cz\,\eps_R/\Ls$; this app keeps the general 3-wave form so
+pre-equilibrium signals are still handled.
+
+\paragraph{Bar-wave energies.}
+\begin{align}
+  W_I(t) &= E_b \Ab \Cz \int_0^t \eps_I^2\,d\tau, \\
+  W_R(t) &= E_b \Ab \Cz \int_0^t \eps_R^2\,d\tau, \\
+  W_T(t) &= E_b \Ab \Cz \int_0^t \eps_T^2\,d\tau, \\
+  W_{\text{abs}}(t) &= W_I(t) - W_R(t) - W_T(t).
+\end{align}
+The units check is
+$\Ab\,[\si{m^2}] \cdot E_b\,[\si{Pa}] \cdot \Cz\,[\si{m/s}]
+\cdot \int \eps^2\,dt\,[\si{s}] = \si{J}$.
+
+\paragraph{Symmetric-mode (Mode~4) energy folding.}
+Opposing bar pairs contribute both incident pulses and both reflected pulses
+explicitly:
+\begin{equation}
+  W_I = E_b \Ab \Cz \int \bigl(\eps_{I,+}^{\,2} + \eps_{I,-}^{\,2}\bigr)\,dt,
+  \qquad
+  W_R = E_b \Ab \Cz \int \bigl(\eps_{R,+}^{\,2} + \eps_{R,-}^{\,2}\bigr)\,dt.
+\end{equation}
+
+\paragraph{Absorbed energy from simulator stress-strain.}
+\begin{equation}
+  W_{\text{abs}}(t) = \int_0^t \sig_s(\tau)\,\epsdot_s(\tau)\,V_s\,d\tau,
+  \qquad V_s = \As\,\Ls.
+\end{equation}
+The simulator stores $\sig_s$ as the \emph{total} axial stress (static pre-load
++ dynamic), so the reflected, transmitted, and absorbed energies for a
+simulator-derived history are closed against the available incident energy.
+This monotone closure prevents the static-preload contribution from appearing
+as spurious wave energy and keeps the cumulative budget consistent with the
+incident envelope.
+
+\paragraph{Direct stress-strain branch.}
+Only unit conversion and a derivative:
+\begin{equation}
+  \epsdot_s(t) = \frac{d\eps_s}{dt} \quad \text{(numpy central difference)}.
+\end{equation}
+Strain unit options: strain (1), percent (\(\div 100\)), microstrain
+(\(\times 10^{-6}\)). Stress unit options: MPa (passthrough), Pa
+(\(\div 10^6\)). The compression-convention selector applies a single global
+sign so the formulas above remain consistent with the textbook convention
+$\eps_I > 0$, $\eps_R < 0$, $\eps_T > 0$ for a compression test.
+
+\subsection{Reducer Outputs and Energy Sanity Check}
+
+The reducer writes the result to session state as
+\texttt{tri\_hb\_reduced\_data} so that Steps~2--4 can use it for validation
+overlays. Outputs include time, stress, strain, strain rate, and (for bar-gauge
+data) the four energy histories.
+
+A built-in energy sanity check raises a warning whenever any of:
+\[
+  W_T > W_I, \qquad W_R > W_I, \qquad W_{\text{abs}} = W_I - W_R - W_T < 0
+\]
+hold for uploaded bar-gauge data. The most common cause is a sign or unit
+mismatch in the uploaded file (e.g.\ microstrain reported as strain, or
+compression positive in some columns and negative in others). The warning
+reports the numerical excess so the student knows how serious the mismatch is.
+
+\subsection{A Worked Reducer Session}
+
+\begin{stepbox}[Session: Comparing a measurement against the simulator]
+\begin{enumerate}[leftmargin=*, itemsep=3pt]
+  \item In Step~1, configure and run the simulator to match the geometry and
+        loading of the physical test. Note the simulator's peak stress and
+        strain rate.
+  \item Switch the inner Step~1 radio to ``Experimental data analysis''.
+  \item In the sidebar, choose \emph{Data source = Upload bar strain gauges}.
+        The bar / specimen geometry inputs inherit the simulator's setup
+        automatically; override them only if the upload was taken with a
+        different rig.
+  \item Upload the CSV/XLSX. Map the time column, $\eps_I$, $\eps_R$,
+        $\eps_T$. Pick the time and strain units; check the compression
+        convention against the raw data (textbook: $\eps_I > 0$ for
+        compression).
+  \item Choose \emph{Stress reduction = Three-wave average} for a baseline,
+        then switch to \emph{Transmitted-wave only} to confirm the two
+        formulas agree once equilibrium is reached.
+  \item Read the four metric cards: peak stress, peak strain, peak strain
+        rate, absorbed energy. Inspect the time-history and energy tabs; if
+        the energy warning appears, fix the sign or unit before continuing.
+  \item Move to Step~3. The ``DEM/experimental descriptors'' overlay (in
+        Step~4) will use this reduced dataset for validation comparisons.
+\end{enumerate}
+\end{stepbox}
+
+% =====================================================
+% WAVE, STRESS PATH, DAMAGE, DEM PAGE
+% =====================================================
+\newpage
+\section{Steps 2--4: Wave Model, Stress Path, Damage and DEM Validation}
+\label{sec:wave_damage}
+
+Steps~2, 3, and 4 are three views into the same underlying module
+(\texttt{wave\_damage.py}). They share the experimental setup defined in
+Step~1 (material, specimen length, prestress, pulse amplitude, pulse duration,
+loading dimensionality, asynchronous delay) and switch only which tab is
+opened first. The equations below are listed once and apply across all three
+steps.
+
+\subsection{Wave Model Equations (Step 2 Tab)}
+
+\paragraph{Elastic constants and wave speeds.}
+\begin{align}
+  M &= \frac{E(1-\nu)}{(1+\nu)(1-2\nu)}, \\
+  c_p &= \sqrt{M/\rho}, \qquad c_s = \sqrt{G/\rho},
+\end{align}
+with $M$ the constrained (P-wave) modulus. Wave travel time and the equilibrium
+window are
+\begin{equation}
+  t_{\text{travel}} = \Ls/c_p, \qquad t_{\text{eq}} \in [3,\,5]\,t_{\text{travel}}.
+\end{equation}
+The equilibrium window is shaded on the time-history plot.
+
+\paragraph{Normalised delay and regime classifier.}
+\begin{equation}
+  \Delta t^\ast = \Delta t / t_{\text{travel}}.
+\end{equation}
+The simulator partitions $\Delta t^\ast$ into four regimes:
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}lll@{}}
+\toprule
+$\Delta t^\ast$ & Regime & Dominant physics \\
+\midrule
+$< 1$ & Synchronous wave superposition & Constructive overlap at specimen \\
+$1$ to $3$ & Reverberation-coupled & Internal echoes still strong \\
+$3$ to $10$ & Transitional & Decaying reverberations \\
+$> 10$ & Sequential, damage-memory & Each pulse acts on damaged state \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Superposition factor at the specimen centre.}
+\begin{equation}
+  \sig_{\text{centre}}(t) = \sig_{x0} + A_x\,g\!\left(t - \tfrac{\Ls}{2c_p}\right)
+   + A_x r\,g\!\left(t - \Delta t - \tfrac{\Ls}{2c_p}\right),
+\end{equation}
+\begin{equation}
+  \eta_{\text{sup}} = \frac{\max_t \sig_{\text{centre}}(t) - \sig_{x0}}{A_x},
+\end{equation}
+where $g(\cdot)$ is the chosen pulse envelope (Hann, half-sine, or rectangular)
+and $r$ is the right-bar amplitude ratio. A value $\eta_{\text{sup}} \to 2$
+indicates full constructive overlap; $\eta_{\text{sup}} \to 1$ indicates
+sequential pulses.
+
+\subsection{Stress-Path Equations (Step 3 Tab)}
+
+Assuming the principal axes align with the bar axes, the diagonal Cauchy
+tensor gives the invariants
+\begin{align}
+  p &= \tfrac{1}{3}(\sig_x + \sig_y + \sig_z), \\
+  q &= \sqrt{\tfrac{1}{2}\bigl[(\sig_x - \sig_y)^2 + (\sig_y - \sig_z)^2 + (\sig_z - \sig_x)^2\bigr]}, \\
+  J_2 &= \tfrac{1}{2}(s_1^2 + s_2^2 + s_3^2), \quad s_i = \sig_i - p, \\
+  J_3 &= s_1 s_2 s_3, \\
+  \cos(3\theta) &= \frac{3\sqrt{3}}{2}\,\frac{J_3}{J_2^{3/2}}.
+\end{align}
+The Lode angle $\theta$ distinguishes triaxial compression
+($\theta = 0$) from triaxial extension ($\theta = 60^\circ$) and from pure
+shear ($\theta = 30^\circ$).
+
+\paragraph{Failure surface and failure index.}
+\begin{align}
+  h(\theta) &= 1 + a_\theta\bigl(1 - \cos 3\theta\bigr), \\
+  q_f(p,\theta) &= \bigl(A + B\,p^{n}\bigr)\,h(\theta), \\
+  F(t) &= q(t) / q_f(t).
+\end{align}
+The failure index $F$ is unitless; $F > 1$ means the stress state lies outside
+the static failure surface and damage is allowed to grow.
+
+\paragraph{Equivalent strain rate} (elastic estimate from diagonal stresses):
+\begin{equation}
+  \eps_i = \sig_i / E, \quad \epsdot_i = d\eps_i / dt,
+\end{equation}
+\begin{equation}
+  \epsdot_{\text{eq}} = \sqrt{\tfrac{2}{3} \cdot \tfrac{1}{2}\bigl[(\epsdot_x - \epsdot_y)^2 + (\epsdot_y - \epsdot_z)^2 + (\epsdot_z - \epsdot_x)^2\bigr]}.
+\end{equation}
+This is a planning-grade indicator built from elastic strains only -- it
+ignores plastic strain and lateral coupling. Use it as a regime tag, not as a
+constitutive strain rate.
+
+\subsection{Damage and Energy Equations (Step 4 Tab)}
+
+\paragraph{Damage evolution} (Perzyna-type, saturating, rate-sensitive):
+\begin{equation}
+  \dot D = \frac{(1-D)^{\alpha}}{\tau_D}
+           \Bigl\langle \frac{F-1}{F_0} \Bigr\rangle^{m}
+           \Bigl(\frac{|\epsdot_{\text{eq}}|}{\epsdot_0}\Bigr)^{\beta},
+  \qquad D \in [0,1],
+\end{equation}
+where $\langle\cdot\rangle$ denotes Macaulay brackets (damage grows only when
+$F > 1$).
+
+\paragraph{Stiffness and wave-speed degradation.}
+\begin{equation}
+  E(D) = E_0 (1 - D), \qquad c_p(D) = c_{p0}\,\sqrt{\max(1 - D,\,0)}.
+\end{equation}
+
+\paragraph{Energy indicators} (per unit volume):
+\begin{align}
+  W_{\text{el}} &= \frac{1}{2E}\bigl[\sig_x^2 + \sig_y^2 + \sig_z^2
+                   - 2\nu(\sig_x\sig_y + \sig_y\sig_z + \sig_z\sig_x)\bigr], \\
+  W_{\text{input}}(t) &= \int_0^t \bigl(\sig_x \epsdot_x + \sig_y \epsdot_y + \sig_z \epsdot_z\bigr)\,d\tau, \\
+  W_{\text{diss}} &\approx W_{\text{input}} - W_{\text{el}} + W_{\text{el}}(0).
+\end{align}
+With stresses in MPa and dimensionless strains, $W$ is in MJ/m\textsuperscript{3}.
+
+\paragraph{Synthetic DEM/experimental descriptors.}
+The damage profile $D(x)$ across the specimen is constructed from three
+contributions (left wave, right wave, and central superposition), then summary
+statistics are derived:
+\begin{align}
+  D_c &= \frac{\int_{\text{centre}} D(x)\,dx}{\int_0^{\Ls} D(x)\,dx}
+       \quad \text{(central damage fraction)}, \\
+  S_x &= 1 - \frac{|D_{\text{left}} - D_{\text{right}}|}{D_{\text{left}} + D_{\text{right}}}
+       \quad \text{(symmetry index)}.
+\end{align}
+These are model indicators for planning and interpretation, not actual DEM
+outputs -- compare against a real DEM simulation or CT scan to validate.
+
+\subsection{Sidebar Controls Used Across Steps 2--4}
+
+\begin{description}[leftmargin=2em, style=nextline]
+  \item[Control level] \emph{Guided} or \emph{Advanced}. Advanced exposes the
+    failure parameters $A, B, n$, the Lode amplitude $a_\theta$, the damage
+    time scale $\tau_D$, the saturation exponent $\alpha$, the overstress
+    exponent $m$, the rate exponent $\beta$, the reference strain rate
+    $\epsdot_0$, and the normalisation $F_0$.
+
+  \item[Use Step 1 setup] When ticked (default if Step~1 has been run), the
+    material, geometry, prestress, pulse amplitude, pulse duration, and
+    loading dimensionality are read from the shared session state. Untick it
+    to enter a standalone setup.
+
+  \item[Analysis goal] \emph{Quick validation}, \emph{Stress-path focus}, or
+    \emph{Damage calibration}. Pre-fills sensible defaults for the chosen
+    workflow.
+\end{description}
+
+\subsection{Export from Step 4}
+
+A single CSV download bundles every time-series produced by the wave/damage
+module: input pulses, $\sig_x$ / $\sig_y$ / $\sig_z$, the invariants $p$, $q$,
+$\theta$, the failure surface $q_f$, the failure index $F$, the equivalent
+strain rate, $D$, $\dot D$, $E(D)$, $c_p(D)$, $W_{\text{input}}$,
+$W_{\text{el}}$, and $W_{\text{diss}}$.
+
+% =====================================================
+% APPENDIX
+% =====================================================
+\newpage
+\appendix
+\section{Reference Tables}
+
+\subsection{Bar properties (42CrMo steel) -- default values}
+
+These are the simulator's default bar parameters; each is editable in the
+Step~1 \emph{Experimental setup} sidebar tab.
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Default value} \\
+\midrule
+Young's modulus & $E_b$ & \SI{210}{GPa} \\
+Density & $\rho_b$ & \SI{7850}{kg/m^3} \\
+Bar wave speed & $\Cz$ & \SI{5172}{m/s} \\
+Proportional limit & $\sigprop$ & \SI{930}{MPa} \\
+Yield stress (approx.) & $\sigma_Y$ & \SI{1080}{MPa} \\
+Round bar area (gas-gun, $\Phi 40$) & $\Ab$ & \SI{1257}{mm^2} \\
+Square bar area ($\SI{50}{mm} \times \SI{50}{mm}$) & $\Ab$ & \SI{2500}{mm^2} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Default rock parameters in the simulator}
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+\textbf{Rock} & $E_s$ (GPa) & $\sig_{c0}$ (MPa) & $\nu$ & $b_{\text{rate}}$ & $k_{\text{conf}}$ & $\eps_{\text{peak}}$ \\
+\midrule
+Sandstone & 15 & 80 & 0.20 & 0.18 & 4.5 & 0.008 \\
+Granite   & 50 & 180 & 0.25 & 0.12 & 5.5 & 0.005 \\
+Concrete  & 30 & 40 & 0.20 & 0.22 & 4.0 & 0.006 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Selecting a preset in the Step~1 sidebar populates $E_s$, $\sig_{c0}$, and
+$\nu$ from this table; the values are then editable so non-listed materials
+can be modelled.
+
+\subsection{Default damage-model parameters (Step 4 Advanced mode)}
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Symbol} & \textbf{Meaning} & \textbf{Default} \\
+\midrule
+$A$ & Failure-surface constant & \SI{15}{MPa} \\
+$B$ & Failure-surface pressure coefficient & 1.3 \\
+$n$ & Failure-surface pressure exponent & 0.75 \\
+$a_\theta$ & Lode-angle amplitude & 0.10 \\
+$\tau_D$ & Damage time scale & \SI{30}{\micro s} \\
+$\alpha$ & Saturation exponent & 1.0 \\
+$m$ & Overstress exponent & 2.0 \\
+$\beta$ & Rate exponent & 0.15 \\
+$\epsdot_0$ & Reference strain rate & \SI{1.0}{s^{-1}} \\
+$F_0$ & Failure-index normalisation & 1.0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Useful identities}
+\begin{align*}
+  \text{Acoustic impedance:}\quad & Z = \rho \Cz \\
+  \text{Pulse-to-bar transmission:}\quad
+    & \frac{F_{\text{transmitted}}}{F_{\text{incident}}}
+      = \frac{2 Z_2}{Z_1 + Z_2} \\
+  \text{Dynamic Increase Factor (rate hardening):}\quad
+    & \text{DIF} = 1 + b_{\text{rate}} \log_{10}\!\frac{\epsdot}{\epsdot_{\text{ref}}} \\
+  \text{Mean pressure:}\quad & p = (\sig_1 + \sig_2 + \sig_3)/3 \\
+  \text{Deviatoric stress:}\quad
+    & q = \sqrt{\tfrac{1}{2}\big[(\sig_1 - \sig_2)^2 + (\sig_2 - \sig_3)^2 + (\sig_3 - \sig_1)^2\big]} \\
+  \text{Lode angle:}\quad
+    & \cos(3\theta) = (3\sqrt{3}/2)\,J_3/J_2^{3/2}
+\end{align*}
+
+\section{Suggested Student Exercises}
+
+\begin{enumerate}[leftmargin=*, itemsep=4pt]
+  \item In Mode 1 (Gas-Gun), find the maximum striker velocity for which a
+        granite specimen with \SI{50}{MPa} confinement remains within the bar
+        proportional limit. Verify your hand calculation against the
+        simulator's warning system.
+  \item In Mode 2 (EM Uniaxial), keep $\sigpeak = \SI{400}{MPa}$ fixed and
+        vary $\tau$ from \SI{50}{\micro s} to \SI{300}{\micro s}. Plot peak specimen
+        stress vs strain rate. Extract the rate hardening parameter
+        $b_{\text{rate}}$ and compare with the rock's nominal value.
+  \item In Mode 3 (Async), run sandstone at $\sig_{\text{conf}} = \SI{30}{MPa}$
+        with $\Delta t_y = \Delta t_z = 0$ (synchronous), then with
+        $\Delta t_y = \SI{100}{\micro s}$, $\Delta t_z = \SI{200}{\micro s}$.
+        Compare peak $\sig_x$ between the two cases, then open Step~2 and
+        record $\Delta t^\ast$ and the regime classifier output. Discuss the
+        link between $\Delta t^\ast$ and the change in peak strength.
+  \item In Mode 4 (Symmetric XYZ), find the peak specimen pressure achievable
+        with single-pulse $\sigpeak = \SI{900}{MPa}$ (right at the bar limit).
+        Compare with the maximum pressure achievable in Mode 2 (EM Uniaxial)
+        before bar yielding.
+  \item Derive the symmetric-mode equations~\eqref{eq:sigsym}--\eqref{eq:epsdotsym}
+        from first principles (force and velocity continuity), without
+        consulting Section~5.2.
+  \item Extend the symmetric-mode derivation to the case where the two
+        opposing pulses have \emph{different} amplitudes, say $\sigpeak^+$
+        and $\sigpeak^-$. Show that the specimen experiences both a squeeze
+        (proportional to $\sigpeak^+ + \sigpeak^-$) and a net acceleration
+        (proportional to $\sigpeak^+ - \sigpeak^-$). At what amplitude ratio
+        does this degenerate into Mode 2 (one-sided) behaviour?
+  \item In Mode 2 (EM Uniaxial), test sandstone with $\sigpeak = \SI{300}{MPa}$,
+        $\tau = \SI{200}{\micro s}$, and $\sig_2 = \sig_3 = \SI{30}{MPa}$.
+        Run the simulation three times with $\sig_1 = 0$, $\SI{25}{MPa}$,
+        and $\SI{50}{MPa}$. Export the $\sig$--$\eps$ CSV from each run.
+        Overlay the three curves in your preferred plotting software and
+        verify that increasing $\sig_1$ shifts the entire curve upward by
+        a constant offset \emph{without} changing peak strength. Explain
+        why $\sig_1$ behaves differently from $\sig_2$ and $\sig_3$.
+  \item In Step~1, run any Mode~2 case. Then switch the inner radio to
+        ``Experimental data analysis'' and choose \emph{Data source = Latest
+        simulator result}. Confirm that the three-wave reduction reproduces
+        the simulator's stress--strain curve. Switch to \emph{Transmitted-wave
+        only} and check that the two reductions agree once stress equilibrium
+        is reached.
+  \item Take the same Mode~2 simulator result and download the All Signals
+        CSV. Re-upload it through the ``Upload bar strain gauges'' branch
+        with column mapping. Verify the reduced curve matches the
+        simulator-derived curve, then deliberately mis-set the strain unit
+        (e.g. claim ``microstrain'' for data actually stored as strain) and
+        observe how the energy sanity warning fires.
+  \item Move to Step~3 with any asynchronous Mode~3 simulator result. Read
+        $\Delta t^\ast$ and the regime classifier off the Wave model tab,
+        then trace the $p$--$q$ path in the Stress path tab. Identify the
+        instant at which $F(t) = q(t)/q_f(t)$ first exceeds unity and
+        compare with the time at which damage starts to grow on the Damage
+        evolution tab in Step~4.
+  \item Choose any test case that interests you and use the export buttons
+        to download all four file types (Signals CSV, $\sig$--$\eps$ CSV,
+        Configuration JSON, Full XLSX). Open the JSON file in a text editor
+        and identify: (a) the simulator version, (b) the export timestamp,
+        (c) the bar plasticity warning state, and (d) the peak specimen
+        stress. Discuss how this metadata supports reproducibility in a
+        research context.
+\end{enumerate}
+
+\vspace{1cm}
+\begin{center}
+{\large\itshape\color{deepblue} -- End of Manual --}\\[6pt]
+\small\color{midblue} For corrections or suggestions, please contact the Tri-HB
+research group.
+\end{center}
+
+\end{document}
