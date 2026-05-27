@@ -558,7 +558,7 @@ def overview_page() -> None:
 
         1. **Test design and simulator** supports loading-mode design and stress-strain prediction.
         2. **Experimental data analysis** reduces bar-gauge or direct stress-strain files, or uses the latest Step 1 result directly.
-        3. **Stress waves, damage and DEM validation** uses one shared experimental setup for stress waves, stress path, energy, damage evolution, and validation descriptors.
+        3. **Step 3: Waves, damage and validation** uses a guided layout by default, with advanced damage and failure-surface constants hidden until needed.
         """
     )
 
@@ -576,7 +576,7 @@ page = st.sidebar.radio(
         "Overview",
         "Test design and simulator",
         "Experimental data analysis",
-        "Stress waves, damage and DEM validation",
+        "Step 3: Waves, damage & validation",
     ],
 )
 
@@ -586,5 +586,5 @@ elif page == "Test design and simulator":
     run_legacy_app("Tri-HB.py")
 elif page == "Experimental data analysis":
     experimental_analysis_page()
-elif page == "Stress waves, damage and DEM validation":
+elif page == "Step 3: Waves, damage & validation":
     run_legacy_app("wave_damage.py")
