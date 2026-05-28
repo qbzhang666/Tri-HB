@@ -802,7 +802,7 @@ with st.sidebar:
 
     mode_label_map = {
         "Gas-Gun Uniaxial": "gas-gun",
-        "Monash Tri-HB Mode 2: Gas-Gun Coupled Triaxial": "gas-gun-triaxial",
+        "Monash Tri-HB Mode 2": "gas-gun-triaxial",
         "EM Uniaxial": "em-uniaxial",
         "EM Async Triaxial": "em-async",
         "EM Symmetric Multi-axis": "em-symmetric",
