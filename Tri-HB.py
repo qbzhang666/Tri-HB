@@ -802,7 +802,7 @@ with st.sidebar:
 
     mode_label_map = {
         "Gas-Gun Uniaxial": "gas-gun",
-        "Mode 2: Gas-Gun Coupled Triaxial": "gas-gun-triaxial",
+        "Monash Tri-HB Mode 2: Gas-Gun Coupled Triaxial": "gas-gun-triaxial",
         "EM Uniaxial": "em-uniaxial",
         "EM Async Triaxial": "em-async",
         "EM Symmetric Multi-axis": "em-symmetric",
@@ -816,7 +816,7 @@ with st.sidebar:
 
     mode_descriptions = {
         "gas-gun": "Single striker → incident bar → specimen → transmission bar (classical SHPB).",
-        "gas-gun-triaxial": "Gas-gun X pulse after quasi-static σ₂/σ₃ confinement; total stress = static preload + dynamic increment.",
+        "gas-gun-triaxial": "Monash Tri-HB gas-gun X pulse after quasi-static σ₂/σ₃ confinement; total stress = static preload + dynamic increment.",
         "em-uniaxial": "Single EM half-sine pulse along +X. Y/Z carry only Poisson reactions.",
         "em-async": "3 EM pulses (+X, +Y, +Z) with adjustable time delays. Stress-path-dependent.",
         "em-symmetric": "6 EM pulses fire SIMULTANEOUSLY on opposing bars. Constructive superposition at specimen → 2× stress per axis.",
