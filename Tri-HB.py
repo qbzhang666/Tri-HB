@@ -728,8 +728,8 @@ st.markdown('<div class="main-header">Virtual Tri-HB</div>', unsafe_allow_html=T
 st.markdown('<div class="subtitle">Triaxial Hopkinson Bar Simulator · Monash · v3 (Streamlit)</div>',
             unsafe_allow_html=True)
 st.markdown(
-    "Five loading modes: gas-gun uniaxial, gas-gun coupled static-dynamic "
-    "triaxial, EM uniaxial, EM asynchronous triaxial, and EM symmetric "
+    "Five loading modes: gas-gun uniaxial, Monash Tri-HB system, "
+    "EM uniaxial, EM asynchronous triaxial, and EM symmetric "
     "multidirectional impact. Configure the test, run the simulation, and "
     "export results for further analysis."
 )
@@ -802,7 +802,7 @@ with st.sidebar:
 
     mode_label_map = {
         "Gas-Gun Uniaxial": "gas-gun",
-        "Monash Tri-HB Mode 2": "gas-gun-triaxial",
+        "Monash Tri-HB System": "gas-gun-triaxial",
         "EM Uniaxial": "em-uniaxial",
         "EM Async Triaxial": "em-async",
         "EM Symmetric Multi-axis": "em-symmetric",
@@ -816,7 +816,7 @@ with st.sidebar:
 
     mode_descriptions = {
         "gas-gun": "Single striker → incident bar → specimen → transmission bar (classical SHPB).",
-        "gas-gun-triaxial": "Monash Tri-HB gas-gun X pulse after quasi-static σ₂/σ₃ confinement; total stress = static preload + dynamic increment.",
+        "gas-gun-triaxial": "Monash Tri-HB system: gas-gun X pulse after quasi-static σ₁/σ₂/σ₃ pre-stress; total stress = static preload + dynamic increment.",
         "em-uniaxial": "Single EM half-sine pulse along +X. Y/Z carry only Poisson reactions.",
         "em-async": "3 EM pulses (+X, +Y, +Z) with adjustable time delays. Stress-path-dependent.",
         "em-symmetric": "6 EM pulses fire SIMULTANEOUSLY on opposing bars. Constructive superposition at specimen → 2× stress per axis.",
@@ -859,11 +859,11 @@ with st.sidebar:
     if mode == "gas-gun":
         prestress_defaults = (0, 0, 0)
         prestress_disabled = True
-        test_tab.caption("Classical gas-gun mode is unconfined. Select Mode 2 for hydraulic triaxial pre-stress.")
+        test_tab.caption("Classical gas-gun mode is unconfined. Select the Monash Tri-HB System for hydraulic triaxial pre-stress.")
     elif is_gas_triaxial:
-        prestress_defaults = (0, 30, 30)
+        prestress_defaults = (30, 20, 15)
         prestress_disabled = False
-        test_tab.caption("Mode 2: σ₂ and σ₃ are applied by hydraulic cylinders before the striker fires; σ₁ is optional.")
+        test_tab.caption("System: σ₁, σ₂, and σ₃ are applied by hydraulic cylinders before the striker fires.")
     else:
         prestress_defaults = (20, 15, 10)
         prestress_disabled = False
@@ -1039,28 +1039,43 @@ with tabs[0]:
         fig.add_trace(go.Scatter(x=t_us, y=result["epsT_x"] * 1e6,
                                  name="ε_T (X transmitted)",
                                  line=dict(color="#06d6a0", width=2)))
-        if np.any(np.abs(result["epsI_y_pos"]) > 0.0):
+        has_y_incident = np.any(np.abs(result["epsI_y_pos"]) > 0.0)
+        has_y_output_signal = (
+            np.any(np.abs(result["epsR_y_pos"]) > 0.0)
+            or np.any(np.abs(result.get("epsY_dyn", np.array([0.0]))) > 0.0)
+        )
+        has_y_output = has_y_output_signal and (has_y_incident or is_gas_triaxial)
+        if has_y_incident:
             fig.add_trace(go.Scatter(x=t_us, y=result["epsI_y_pos"] * 1e6,
                                      name="ε_I (+Y incident)",
                                      line=dict(color="#06d6a0", width=1.5, dash="dot")))
+        if has_y_output:
             fig.add_trace(go.Scatter(x=t_us, y=result["epsR_y_pos"] * 1e6,
-                                     name="ε_R (+Y reflected/output)",
+                                     name="ε_out (Y output bar)",
                                      line=dict(color="#ff6b9d", width=1.5, dash="dot")))
-            if np.any(np.abs(result.get("epsT_y", np.array([0.0]))) > 0.0):
-                fig.add_trace(go.Scatter(x=t_us, y=result["epsT_y"] * 1e6,
-                                         name="ε_T (−Y transmitted)",
-                                         line=dict(color="#06d6a0", width=1.5, dash="dashdot")))
-        if np.any(np.abs(result["epsI_z_pos"]) > 0.0):
+        if np.any(np.abs(result.get("epsT_y", np.array([0.0]))) > 0.0):
+            fig.add_trace(go.Scatter(x=t_us, y=result["epsT_y"] * 1e6,
+                                     name="ε_T (−Y transmitted)",
+                                     line=dict(color="#06d6a0", width=1.5, dash="dashdot")))
+
+        has_z_incident = np.any(np.abs(result["epsI_z_pos"]) > 0.0)
+        has_z_output_signal = (
+            np.any(np.abs(result["epsR_z_pos"]) > 0.0)
+            or np.any(np.abs(result.get("epsZ_dyn", np.array([0.0]))) > 0.0)
+        )
+        has_z_output = has_z_output_signal and (has_z_incident or is_gas_triaxial)
+        if has_z_incident:
             fig.add_trace(go.Scatter(x=t_us, y=result["epsI_z_pos"] * 1e6,
                                      name="ε_I (+Z incident)",
                                      line=dict(color="#a78bfa", width=1.5, dash="dot")))
+        if has_z_output:
             fig.add_trace(go.Scatter(x=t_us, y=result["epsR_z_pos"] * 1e6,
-                                     name="ε_R (+Z reflected/output)",
+                                     name="ε_out (Z output bar)",
                                      line=dict(color="#c084fc", width=1.5, dash="dot")))
-            if np.any(np.abs(result.get("epsT_z", np.array([0.0]))) > 0.0):
-                fig.add_trace(go.Scatter(x=t_us, y=result["epsT_z"] * 1e6,
-                                         name="ε_T (−Z transmitted)",
-                                         line=dict(color="#a78bfa", width=1.5, dash="dashdot")))
+        if np.any(np.abs(result.get("epsT_z", np.array([0.0]))) > 0.0):
+            fig.add_trace(go.Scatter(x=t_us, y=result["epsT_z"] * 1e6,
+                                     name="ε_T (−Z transmitted)",
+                                     line=dict(color="#a78bfa", width=1.5, dash="dashdot")))
 
     fig.update_layout(**base_layout("Time (μs)", "Strain (μstrain)"))
     st.plotly_chart(fig, use_container_width=True)
@@ -1068,8 +1083,10 @@ with tabs[0]:
     st.caption(
         "Bar gauge signals only show the **dynamic** wave component. Static "
         "pre-stress is held by the hydraulic cylinders and is added separately "
-        "to the specimen stress. In symmetric mode the ± incident traces for "
-        "each axis overlap, so one incident pair trace is shown per active axis."
+        "to the specimen stress. For the Monash Tri-HB system, Y and Z have no "
+        "incident pulse; their curves are passive output-bar measurements. In "
+        "symmetric mode the ± incident traces for each axis overlap, so one "
+        "incident pair trace is shown per active axis."
     )
 
 
@@ -1168,7 +1185,7 @@ with tabs[-1]:
     st.latex(r"\dot{\varepsilon}_i(t) = \frac{C_0}{L_i}\left[\varepsilon_{I,i}-\varepsilon_{R,i}-\varepsilon_{T,i}\right]")
     st.caption("For the classical one-sided X test, i = X. For EM async, the same dynamic equation is applied to each driven one-sided axis.")
 
-    st.markdown("**Mode 2 gas-gun coupled static-dynamic triaxial loading:**")
+    st.markdown("**Monash Tri-HB system gas-gun coupled static-dynamic triaxial loading:**")
     st.latex(r"\sigma_I^{\rm peak}=\frac{1}{2}\rho_b C_0 V=\frac{1}{2}\frac{E_b}{C_0}V")
     st.latex(r"\sigma_X^{\rm total}(t)=\sigma_1+\sigma_X^{\rm dyn}(t),\quad "
              r"\sigma_Y^{\rm total}(t)=\sigma_2+\sigma_Y^{\rm dyn}(t),\quad "
@@ -1176,7 +1193,7 @@ with tabs[-1]:
     st.latex(r"\sigma_Y^{\rm dyn},\sigma_Z^{\rm dyn}\;\text{are Poisson-coupled lateral bar responses, approximately }\;\sigma_{\rm lat}^{\rm dyn}\approx-\nu\sigma_X^{\rm dyn}")
     st.latex(r"\sigma_{\rm peak}^{\rm rock,dyn}=\left[\sigma_{c0}+k_{\rm conf}\max(\sigma_2,\sigma_3)\right]\mathrm{DIF}")
     st.caption(
-        "Mode 2 keeps the gas-gun X-axis wave equations unchanged. The bar gauges are baseline-subtracted "
+        "The Monash Tri-HB system keeps the gas-gun X-axis wave equations unchanged. The bar gauges are baseline-subtracted "
         "dynamic signals; the hydraulic pre-stresses are added back when plotting/reporting total stress. "
         "In this app the confinement-strengthening term uses the static perpendicular stresses, while σ1 is "
         "only an axial baseline."
