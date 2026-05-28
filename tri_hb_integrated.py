@@ -159,7 +159,7 @@ def experimental_analysis_page() -> None:
         st.caption("Units: $A_b\\,[\\mathrm{m}^2]\\cdot E_b\\,[\\mathrm{Pa}]\\cdot C_0\\,[\\mathrm{m/s}]"
                    "\\cdot\\int\\varepsilon^2\\,\\mathrm{d}t\\,[\\mathrm{s}]\\;=\\;\\mathrm{J}$.")
 
-        st.markdown("**Symmetric-mode (Mode 4) energy folding** — opposing bar pair contributes both incident pulses; "
+        st.markdown("**Symmetric-mode (Mode 5) energy folding** — opposing bar pair contributes both incident pulses; "
                     "both reflected bars are retained explicitly:")
         st.latex(r"W_I=E_b A_b C_0\!\int(\varepsilon_{I,+}^2+\varepsilon_{I,-}^2)\,\mathrm{d}t,\qquad "
                  r"W_R=E_b A_b C_0\!\int(\varepsilon_{R,+}^2+\varepsilon_{R,-}^2)\,\mathrm{d}t")
@@ -580,7 +580,7 @@ def overview_page() -> None:
         """
         Use the sidebar to move through the unified workflow:
 
-        1. **Test setup, simulator and data analysis** defines the shared material, specimen, bar, loading, and experimental data source.
+        1. **Test setup, simulator and data analysis** defines the shared material, specimen, bar, loading mode, and experimental data source.
         2. **Wave model** checks pulse timing, wave travel, equilibrium, and interaction regime.
         3. **Stress path and analysis** reviews p-q-theta paths, stress histories, and reduced-data comparison.
         4. **Damage model and DEM validation** evaluates damage evolution, energy indicators, DEM descriptors, and exports.
@@ -588,7 +588,7 @@ def overview_page() -> None:
     )
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Design modes", "4")
+    c1.metric("Design modes", "5")
     c2.metric("Workflow steps", "4")
     c3.metric("Experimental reducer", "CSV/XLSX")
 

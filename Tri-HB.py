@@ -3,12 +3,13 @@ Virtual Tri-HB Simulator — Streamlit version
 ============================================
 
 Streamlit workspace for Triaxial Hopkinson Bar test design and analysis.
-Four loading modes:
+Five loading modes:
 
   1. Gas-Gun uniaxial impact (classical SHPB)
-  2. EM uniaxial impact (clean half-sine pulse)
-  3. EM asynchronous triaxial impact (stress-path control)
-  4. EM symmetric multidirectional impact (wave superposition)
+  2. Gas-Gun coupled static-dynamic triaxial impact
+  3. EM uniaxial impact (clean half-sine pulse)
+  4. EM asynchronous triaxial impact (stress-path control)
+  5. EM symmetric multidirectional impact (wave superposition)
 
 Run with:  streamlit run virtual_tri_hb_streamlit.py
 
@@ -143,7 +144,7 @@ def em_half_sine(t: float, peak_stress: float, duration: float,
 # =============================================================================
 @dataclass
 class SimConfig:
-    mode: str                  # 'gas-gun' | 'em-uniaxial' | 'em-async' | 'em-symmetric'
+    mode: str                  # 'gas-gun' | 'gas-gun-triaxial' | 'em-uniaxial' | 'em-async' | 'em-symmetric'
     rock_type: str
     velocity: float            # m/s, gas-gun
     peak_stress: float         # Pa, EM modes
@@ -191,7 +192,8 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
         pulse_delay_Y=pulse_delay_Y, pulse_delay_Z=pulse_delay_Z,
         symmetric_axes=symmetric_axes,
     )
-    is_gas_gun = cfg.mode == "gas-gun"
+    is_gas_drive = cfg.mode in ("gas-gun", "gas-gun-triaxial")
+    is_gas_uniaxial = cfg.mode == "gas-gun"
     is_symmetric = cfg.mode == "em-symmetric"
     is_async = cfg.mode == "em-async"
 
@@ -204,7 +206,7 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
 
     # Time grid
     dt = 1e-6
-    t_end = 600e-6 if is_gas_gun else 500e-6
+    t_end = 600e-6 if is_gas_drive else 500e-6
     N = int(t_end / dt)
     time = np.arange(N) * dt
 
@@ -262,7 +264,7 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
         inc_y_pos = inc_y_neg = 0.0
         inc_z_pos = inc_z_neg = 0.0
 
-        if cfg.mode == "gas-gun":
+        if is_gas_drive:
             inc_x_pos = gas_gun_pulse(t, cfg.velocity, bar_E=cfg.bar_E, bar_C0=cfg.bar_C0)
         elif cfg.mode == "em-uniaxial":
             inc_x_pos = em_half_sine(t, cfg.peak_stress, cfg.pulse_duration)
@@ -294,7 +296,7 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
         # others' dynamic stress, mutually).  Path-dependence in async mode
         # is therefore expressed through the damage / strain state of the
         # specimen when each pulse arrives, not through dynamic confinement.
-        lateral_conf = max(cfg.confinement_Y, cfg.confinement_Z)
+        lateral_conf = 0.0 if is_gas_uniaxial else max(cfg.confinement_Y, cfg.confinement_Z)
 
         if is_full_hydro:
             eps_vol = (eps_x[i-1] + eps_y[i-1] + eps_z[i-1]) / 3.0
@@ -448,7 +450,7 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
             # above (epsT_y, epsR_y_pos, rate_y already set). Skip overwriting.
             pass
         else:
-            # Passive lateral output (gas-gun, em-uniaxial).
+            # Passive lateral output (gas-gun modes, em-uniaxial).
             epsR_y_pos[i] = epsY_dyn[i] if abs(inc_y_pos) < 1e-12 else (sig_y_dyn * As / (cfg.bar_E * Ab) - epsI_y_pos[i])
             epsR_y_neg[i] = 0.0
             rate_y[i] = max(0.0, (cfg.bar_C0 / Ls) * (epsI_y_pos[i] - epsR_y_pos[i]))
@@ -467,7 +469,7 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
             # above (epsT_z, epsR_z_pos, rate_z already set). Skip overwriting.
             pass
         else:
-            # Passive lateral output (gas-gun, em-uniaxial).
+            # Passive lateral output (gas-gun modes, em-uniaxial).
             epsR_z_pos[i] = epsZ_dyn[i] if abs(inc_z_pos) < 1e-12 else (sig_z_dyn * As / (cfg.bar_E * Ab) - epsI_z_pos[i])
             epsR_z_neg[i] = 0.0
             rate_z[i] = max(0.0, (cfg.bar_C0 / Ls) * (epsI_z_pos[i] - epsR_z_pos[i]))
@@ -514,7 +516,7 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
         peak_strain_pct=float(np.max(eps_x)) * 100,
         peak_pressure_MPa=float(np.max(pressure)) / 1e6,
         avg_strain_rate=avg_rate,
-        pulse_duration_us=192.0 if is_gas_gun else cfg.pulse_duration * 1e6,
+        pulse_duration_us=2.0 * 0.5 / cfg.bar_C0 * 1e6 if is_gas_drive else cfg.pulse_duration * 1e6,
         is_full_hydrostatic=is_full_hydro,
     )
 
@@ -726,9 +728,10 @@ st.markdown('<div class="main-header">Virtual Tri-HB</div>', unsafe_allow_html=T
 st.markdown('<div class="subtitle">Triaxial Hopkinson Bar Simulator · Monash · v3 (Streamlit)</div>',
             unsafe_allow_html=True)
 st.markdown(
-    "Four loading modes: gas-gun uniaxial, EM uniaxial, EM asynchronous triaxial, "
-    "and EM symmetric multidirectional impact. Configure the test, run the "
-    "simulation, and export results for further analysis."
+    "Five loading modes: gas-gun uniaxial, gas-gun coupled static-dynamic "
+    "triaxial, EM uniaxial, EM asynchronous triaxial, and EM symmetric "
+    "multidirectional impact. Configure the test, run the simulation, and "
+    "export results for further analysis."
 )
 
 
@@ -799,18 +802,21 @@ with st.sidebar:
 
     mode_label_map = {
         "Gas-Gun Uniaxial": "gas-gun",
+        "Mode 2: Gas-Gun Coupled Triaxial": "gas-gun-triaxial",
         "EM Uniaxial": "em-uniaxial",
         "EM Async Triaxial": "em-async",
         "EM Symmetric Multi-axis": "em-symmetric",
     }
     mode_label = test_tab.selectbox("Loading mode", list(mode_label_map.keys()))
     mode = mode_label_map[mode_label]
-    is_em = mode != "gas-gun"
+    is_gas_drive = mode in ("gas-gun", "gas-gun-triaxial")
+    is_gas_triaxial = mode == "gas-gun-triaxial"
     is_symmetric = mode == "em-symmetric"
     is_async = mode == "em-async"
 
     mode_descriptions = {
         "gas-gun": "Single striker → incident bar → specimen → transmission bar (classical SHPB).",
+        "gas-gun-triaxial": "Gas-gun X pulse after quasi-static σ₂/σ₃ confinement; total stress = static preload + dynamic increment.",
         "em-uniaxial": "Single EM half-sine pulse along +X. Y/Z carry only Poisson reactions.",
         "em-async": "3 EM pulses (+X, +Y, +Z) with adjustable time delays. Stress-path-dependent.",
         "em-symmetric": "6 EM pulses fire SIMULTANEOUSLY on opposing bars. Constructive superposition at specimen → 2× stress per axis.",
@@ -831,7 +837,7 @@ with st.sidebar:
     test_tab.divider()
     test_tab.subheader("Pulse settings")
 
-    if mode == "gas-gun":
+    if is_gas_drive:
         velocity = test_tab.slider("Striker velocity (m/s)", 5, 50, 20, step=1)
         peak_stress_MPa = 0
         pulse_duration_us = 2.0 * 0.5 / bar_C0 * 1e6
@@ -850,12 +856,32 @@ with st.sidebar:
 
     test_tab.divider()
     test_tab.subheader("Static pre-stress")
-    test_tab.caption("Applied by hydraulic cylinders before the dynamic pulse arrives.")
+    if mode == "gas-gun":
+        prestress_defaults = (0, 0, 0)
+        prestress_disabled = True
+        test_tab.caption("Classical gas-gun mode is unconfined. Select Mode 2 for hydraulic triaxial pre-stress.")
+    elif is_gas_triaxial:
+        prestress_defaults = (0, 30, 30)
+        prestress_disabled = False
+        test_tab.caption("Mode 2: σ₂ and σ₃ are applied by hydraulic cylinders before the striker fires; σ₁ is optional.")
+    else:
+        prestress_defaults = (20, 15, 10)
+        prestress_disabled = False
+        test_tab.caption("Applied by hydraulic cylinders before the dynamic pulse arrives.")
 
     max_conf = 50
-    conf_X = test_tab.slider("σ₁ axial (X) — MPa", 0, max_conf, 20, step=1)
-    conf_Y = test_tab.slider("σ₂ confining (Y) — MPa", 0, max_conf, 15, step=1)
-    conf_Z = test_tab.slider("σ₃ confining (Z) — MPa", 0, max_conf, 10, step=1)
+    conf_X = test_tab.slider("σ₁ axial (X) — MPa", 0, max_conf, prestress_defaults[0], step=1, disabled=prestress_disabled)
+    conf_Y = test_tab.slider("σ₂ confining (Y) — MPa", 0, max_conf, prestress_defaults[1], step=1, disabled=prestress_disabled)
+    conf_Z = test_tab.slider("σ₃ confining (Z) — MPa", 0, max_conf, prestress_defaults[2], step=1, disabled=prestress_disabled)
+
+    if is_gas_triaxial:
+        rate_ref = float(preset.get("epsdot_ref", 1.0))
+        dif_nominal = 1.0 + float(preset["b_rate"]) * np.log10(max(150.0, rate_ref) / rate_ref)
+        planned_peak = (float(material_UCS_MPa) + float(preset["k_conf"]) * max(conf_Y, conf_Z)) * dif_nominal
+        test_tab.caption(
+            f"Planning estimate at εdot ≈ 150 /s: rock peak ≈ {planned_peak:.0f} MPa; "
+            f"incident pulse ≈ {gas_peak:.0f} MPa; bar proportional limit = {BAR.sigma_prop / 1e6:.0f} MPa."
+        )
 
     if is_async:
         test_tab.divider()
@@ -1137,10 +1163,24 @@ if is_symmetric:
 with tabs[-1]:
     st.subheader("Wave Analysis Equations")
 
-    st.markdown("**Standard one-sided drive** (gas-gun, EM uniaxial, EM async):")
+    st.markdown("**Standard one-sided drive** (gas-gun modes, EM uniaxial, EM async):")
     st.latex(r"\sigma_i^{\rm dyn}(t) = \frac{E_b A_b}{2 A_s}\left[\varepsilon_{I,i}+\varepsilon_{R,i}+\varepsilon_{T,i}\right],\qquad i\in\{X,Y,Z\}")
     st.latex(r"\dot{\varepsilon}_i(t) = \frac{C_0}{L_i}\left[\varepsilon_{I,i}-\varepsilon_{R,i}-\varepsilon_{T,i}\right]")
     st.caption("For the classical one-sided X test, i = X. For EM async, the same dynamic equation is applied to each driven one-sided axis.")
+
+    st.markdown("**Mode 2 gas-gun coupled static-dynamic triaxial loading:**")
+    st.latex(r"\sigma_I^{\rm peak}=\frac{1}{2}\rho_b C_0 V=\frac{1}{2}\frac{E_b}{C_0}V")
+    st.latex(r"\sigma_X^{\rm total}(t)=\sigma_1+\sigma_X^{\rm dyn}(t),\quad "
+             r"\sigma_Y^{\rm total}(t)=\sigma_2+\sigma_Y^{\rm dyn}(t),\quad "
+             r"\sigma_Z^{\rm total}(t)=\sigma_3+\sigma_Z^{\rm dyn}(t)")
+    st.latex(r"\sigma_Y^{\rm dyn},\sigma_Z^{\rm dyn}\;\text{are Poisson-coupled lateral bar responses, approximately }\;\sigma_{\rm lat}^{\rm dyn}\approx-\nu\sigma_X^{\rm dyn}")
+    st.latex(r"\sigma_{\rm peak}^{\rm rock,dyn}=\left[\sigma_{c0}+k_{\rm conf}\max(\sigma_2,\sigma_3)\right]\mathrm{DIF}")
+    st.caption(
+        "Mode 2 keeps the gas-gun X-axis wave equations unchanged. The bar gauges are baseline-subtracted "
+        "dynamic signals; the hydraulic pre-stresses are added back when plotting/reporting total stress. "
+        "In this app the confinement-strengthening term uses the static perpendicular stresses, while σ1 is "
+        "only an axial baseline."
+    )
 
     st.markdown("**EM asynchronous triaxial detail.** Each active axis has its own incident, "
                 "reflected, and transmitted bar signal and its own constitutive evaluation. "
@@ -1157,7 +1197,7 @@ with tabs[-1]:
     st.markdown("So the equations on every axis remain the standard three-wave form above; only the "
                 "damage / strain state of the specimen each pulse meets differs from the synchronous case.")
 
-    st.markdown("**Symmetric superposition** (Mode 4, opposing bars fire identically):")
+    st.markdown("**Symmetric superposition** (Mode 5, opposing bars fire identically):")
     st.latex(r"\sigma_i^{\rm dyn}(t) = \frac{E_b A_b}{2 A_s}\left[(\varepsilon_{I,i}^{+}+\varepsilon_{R,i}^{+})+(\varepsilon_{I,i}^{-}+\varepsilon_{R,i}^{-})\right],\qquad i\in\{X,Y,Z\}")
     st.latex(r"\dot{\varepsilon}_i(t) = \frac{C_0}{L_i}\left[(\varepsilon_{I,i}^{+}-\varepsilon_{R,i}^{+})+(\varepsilon_{I,i}^{-}-\varepsilon_{R,i}^{-})\right]")
     st.markdown("When the two opposing pulses in an axis are matched, this reduces to:")
