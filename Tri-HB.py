@@ -51,11 +51,11 @@ BAR = BarProps()
 # =============================================================================
 ROCK_PARAMS = {
     "sandstone": dict(E_s=15e9, sigma_c0=80e6, nu=0.20, b_rate=0.18,
-                      epsdot_ref=1.0, k_conf=4.5, eps_peak=0.008, soften=80.0),
+                      epsdot_ref=1e-5, k_conf=4.5, eps_peak=0.008, soften=80.0),
     "granite":   dict(E_s=50e9, sigma_c0=180e6, nu=0.25, b_rate=0.12,
-                      epsdot_ref=1.0, k_conf=5.5, eps_peak=0.005, soften=120.0),
+                      epsdot_ref=1e-5, k_conf=5.5, eps_peak=0.005, soften=120.0),
     "concrete":  dict(E_s=30e9, sigma_c0=40e6, nu=0.20, b_rate=0.22,
-                      epsdot_ref=1.0, k_conf=4.0, eps_peak=0.006, soften=100.0),
+                      epsdot_ref=1e-5, k_conf=4.0, eps_peak=0.006, soften=100.0),
 }
 
 
@@ -73,7 +73,7 @@ def rock_response(strain: float, strain_rate: float, confinement: float,
 
     Returns dict with stress, sigma_peak, modulus.
     """
-    rate_ref = params.get("epsdot_ref", 1.0)
+    rate_ref = params.get("epsdot_ref", 1e-5)
     DIF = 1.0 + params["b_rate"] * np.log10(max(strain_rate, rate_ref) / rate_ref)
     sigma_peak = (params["sigma_c0"] + params["k_conf"] * confinement) * DIF
 
@@ -98,7 +98,7 @@ def rock_response_hydrostatic(strain_vol: float, strain_rate: float,
     """Volumetric (cap) response for fully hydrostatic loading.
     Deviator is zero; specimen deforms by pore collapse / cataclasis.
     """
-    rate_ref = params.get("epsdot_ref", 1.0)
+    rate_ref = params.get("epsdot_ref", 1e-5)
     DIF = 1.0 + params["b_rate"] * np.log10(max(strain_rate, rate_ref) / rate_ref)
     p_cap = 4.0 * params["sigma_c0"] * DIF
 
@@ -936,7 +936,7 @@ with st.sidebar:
         conf_Z = test_tab.slider("σ₃ confining (Z) — MPa", 0, max_conf, prestress_defaults[2], step=1, disabled=prestress_disabled)
 
     if is_confinement_chamber or is_gas_triaxial:
-        rate_ref = float(preset.get("epsdot_ref", 1.0))
+        rate_ref = float(preset.get("epsdot_ref", 1e-5))
         dif_nominal = 1.0 + float(preset["b_rate"]) * np.log10(max(150.0, rate_ref) / rate_ref)
         planned_peak = (float(material_UCS_MPa) + float(preset["k_conf"]) * max(conf_Y, conf_Z)) * dif_nominal
         planning_label = "rock dynamic peak" if is_confinement_chamber else "rock peak"
@@ -1364,9 +1364,10 @@ with tabs[-1]:
     with st.expander("Constitutive model details"):
         st.latex(r"\sigma_{\text{peak}} = (\sigma_{c0} + k_{\text{conf}} \cdot \sigma_{\text{conf}}) \cdot \text{DIF}")
         st.latex(r"\text{DIF} = 1 + b_{\text{rate}} \log_{10}\!\left(\dot{\varepsilon}/\dot{\varepsilon}_{\text{ref}}\right)")
+        rate_ref_text = f"{preset.get('epsdot_ref', 1e-5):.1g}".replace("e-0", "e-").replace("e+0", "e+")
         st.caption(
             f"For the selected {rock_type} preset, b_rate = {preset['b_rate']:.2f} "
-            f"and εdot_ref = {preset.get('epsdot_ref', 1.0):.1g} s⁻¹. "
+            f"and εdot_ref = {rate_ref_text} s⁻¹. "
             "They are calibration constants for the dynamic increase factor, not quantities derived from bar geometry."
         )
         st.markdown(

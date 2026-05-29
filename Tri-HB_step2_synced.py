@@ -49,11 +49,11 @@ BAR = BarProps()
 # =============================================================================
 ROCK_PARAMS = {
     "sandstone": dict(E_s=15e9, sigma_c0=80e6, nu=0.20, b_rate=0.18,
-                      epsdot_ref=1.0, k_conf=4.5, eps_peak=0.008, soften=80.0),
+                      epsdot_ref=1e-5, k_conf=4.5, eps_peak=0.008, soften=80.0),
     "granite":   dict(E_s=50e9, sigma_c0=180e6, nu=0.25, b_rate=0.12,
-                      epsdot_ref=1.0, k_conf=5.5, eps_peak=0.005, soften=120.0),
+                      epsdot_ref=1e-5, k_conf=5.5, eps_peak=0.005, soften=120.0),
     "concrete":  dict(E_s=30e9, sigma_c0=40e6, nu=0.20, b_rate=0.22,
-                      epsdot_ref=1.0, k_conf=4.0, eps_peak=0.006, soften=100.0),
+                      epsdot_ref=1e-5, k_conf=4.0, eps_peak=0.006, soften=100.0),
 }
 
 
@@ -71,7 +71,7 @@ def rock_response(strain: float, strain_rate: float, confinement: float,
 
     Returns dict with stress, sigma_peak, modulus.
     """
-    rate_ref = params.get("epsdot_ref", 1.0)
+    rate_ref = params.get("epsdot_ref", 1e-5)
     DIF = 1.0 + params["b_rate"] * np.log10(max(strain_rate, rate_ref) / rate_ref)
     sigma_peak = (params["sigma_c0"] + params["k_conf"] * confinement) * DIF
 
@@ -96,7 +96,7 @@ def rock_response_hydrostatic(strain_vol: float, strain_rate: float,
     """Volumetric (cap) response for fully hydrostatic loading.
     Deviator is zero; specimen deforms by pore collapse / cataclasis.
     """
-    rate_ref = params.get("epsdot_ref", 1.0)
+    rate_ref = params.get("epsdot_ref", 1e-5)
     DIF = 1.0 + params["b_rate"] * np.log10(max(strain_rate, rate_ref) / rate_ref)
     p_cap = 4.0 * params["sigma_c0"] * DIF
 

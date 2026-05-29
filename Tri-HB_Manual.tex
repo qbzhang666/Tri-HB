@@ -350,7 +350,7 @@ The two roles played by pre-stress are subtly different and worth distinguishing
         Here $b_{\text{rate}}$ is the fitted slope of strength increase versus
         $\log_{10}\epsdot$, and $\epsdot_{\text{ref}}$ is the reference strain
         rate where $\text{DIF}=1$. The simulator presets use
-        $\epsdot_{\text{ref}}=\SI{1.0}{s^{-1}}$.
+        $\epsdot_{\text{ref}}=\SI{1e-5}{s^{-1}}$.
         Doubling $\sigma_2$ raises the peak strength of the specimen; doubling
         $\sigma_1$ does not.
 \end{itemize}
@@ -608,14 +608,14 @@ confining, at strain rate $\sim \SI{200}{s^{-1}}$. Estimate whether this is safe
   \sigpeak^{\text{rock,dyn}}
     &= (\sig_{c0} + k_{\text{conf}} \cdot \max(\sig_2, \sig_3)) \cdot \text{DIF} \\
     &= (80 + 4.5 \times 50) \,\text{MPa} \cdot
-       \big(1 + 0.18 \log_{10}(200)\big) \\
-    &= 305 \cdot 1.41 \approx \SI{430}{MPa}.
+       \big(1 + 0.18 \log_{10}(200/10^{-5})\big) \\
+    &= 305 \cdot 2.31 \approx \SI{706}{MPa}.
 \end{align*}
 
 \textbf{Step 2 -- Total axial stress at peak.} Add the static axial baseline:
 \begin{equation*}
   \sigpeak^{\text{total}} = \sig_1 + \sigpeak^{\text{rock,dyn}}
-                          = 20 + 430 \approx \SI{450}{MPa}.
+                          = 20 + 706 \approx \SI{726}{MPa}.
 \end{equation*}
 
 \textbf{Step 3 -- Required bar stress.} The bar carries only the dynamic
@@ -623,14 +623,15 @@ component (the static $\sig_1$ is held by the cylinder). Since $\As/\Ab = 1$
 for a \SI{50}{mm} specimen between \SI{50}{mm} square bars,
 \begin{equation*}
   \sig_{\text{bar}} = \sigpeak^{\text{rock,dyn}} \cdot \frac{\As}{\Ab}
-                    \approx \SI{430}{MPa}.
+                    \approx \SI{706}{MPa}.
 \end{equation*}
 
-\textbf{Conclusion:} \SI{430}{MPa} is well below the \SI{1000}{MPa} bar limit.
-Safe to proceed. Charge the capacitor for $\sigpeak \approx \SI{500}{MPa}$
-(margin above 430 to drive the specimen through peak), choose
+\textbf{Conclusion:} \SI{706}{MPa} is below the \SI{1000}{MPa} bar limit.
+Safe to proceed, but with reduced headroom. Charge the capacitor for
+$\sigpeak \approx \SI{800}{MPa}$
+(margin above 706 to drive the specimen through peak), choose
 $\tau = \SI{200}{\micro s}$ to give a strain rate of order \SI{200}{s^{-1}}.
-The simulator will report the total axial stress reaching $\sim$\SI{450}{MPa}
+The simulator will report the total axial stress reaching $\sim$\SI{726}{MPa}
 on the $\sig_X$ trace, which is the static $\sig_1 = \SI{20}{MPa}$ plus the
 dynamic peak.
 
@@ -1715,9 +1716,9 @@ Square bar area ($\SI{50}{mm} \times \SI{50}{mm}$) & $\Ab$ & \SI{2500}{mm^2} \\
 \toprule
 \textbf{Rock} & $E_s$ (GPa) & $\sig_{c0}$ (MPa) & $\nu$ & $b_{\text{rate}}$ & $\epsdot_{\text{ref}}$ (s$^{-1}$) & $k_{\text{conf}}$ & $\eps_{\text{peak}}$ \\
 \midrule
-Sandstone & 15 & 80 & 0.20 & 0.18 & 1.0 & 4.5 & 0.008 \\
-Granite   & 50 & 180 & 0.25 & 0.12 & 1.0 & 5.5 & 0.005 \\
-Concrete  & 30 & 40 & 0.20 & 0.22 & 1.0 & 4.0 & 0.006 \\
+Sandstone & 15 & 80 & 0.20 & 0.18 & \num{1e-5} & 4.5 & 0.008 \\
+Granite   & 50 & 180 & 0.25 & 0.12 & \num{1e-5} & 5.5 & 0.005 \\
+Concrete  & 30 & 40 & 0.20 & 0.22 & \num{1e-5} & 4.0 & 0.006 \\
 \bottomrule
 \end{tabular}
 \end{center}
