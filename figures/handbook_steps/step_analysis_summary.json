@@ -1,0 +1,15 @@
+{
+  "sample": "Sandstone asynchronous XYZ, Ax=Ay=Az=400 MPa, td=200 us, delays 80/160 us",
+  "t_travel_us": 19.937402037376884,
+  "dt_star_y": 4.012558900604152,
+  "eta_sup": 1.6180339860070065,
+  "peak_p_MPa": 237.40453153749186,
+  "peak_q_MPa": 392.93886414040577,
+  "peak_failure_index": 5.589181693739504,
+  "final_D": 0.9999999999999997,
+  "central_damage_fraction": 0.31547809774490904,
+  "symmetry_index": 1.0,
+  "final_W_input_MJ_m3": 2.0341048994915872e-14,
+  "final_W_elastic_MJ_m3": 0.03283333333333333,
+  "final_W_diss_MJ_m3": 2.0337898032352086e-14
+}
