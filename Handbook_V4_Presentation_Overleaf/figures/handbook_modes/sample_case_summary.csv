@@ -1,0 +1,7 @@
+mode,file,peak_specimen_stress_MPa,peak_bar_stress_MPa,peak_pressure_MPa,peak_strain_pct,avg_strain_rate_s-1,warning
+Mode 1: Gas-gun uniaxial SHPB,mode_1_gas_gun_uniaxial.png,185.612,406.032,165.083,5.7314,298.509,
+Mode 2: Confinement-chamber triaxial SHPB,mode_2_confinement_chamber.png,400.592,406.032,146.864,1.4046,77.176,
+Mode 3: Monash Tri-HB gas-gun triaxial,mode_3_monash_tri_hb.png,400.592,406.032,145.367,1.4046,77.176,
+Mode 4: EM uniaxial half-sine,mode_4_em_uniaxial.png,387.15,400.0,163.32,0.6874,49.1,
+Mode 5: EM asynchronous triaxial,mode_5_em_async_triaxial.png,387.15,400.0,367.704,0.6874,49.1,
+Mode 6: EM symmetric full XYZ,mode_6_em_symmetric_xyz.png,1184.243,400.0,1184.243,5.0172,250.859,

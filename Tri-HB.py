@@ -748,7 +748,8 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main-header {
-        font-size: 2.8rem;
+        font-size: clamp(1.75rem, 2.1vw, 2.4rem);
+        line-height: 1.12;
         font-weight: 700;
         background: linear-gradient(135deg, #00d4ff 0%, #ff6b9d 100%);
         -webkit-background-clip: text;
@@ -757,16 +758,34 @@ st.markdown("""
     }
     .subtitle {
         color: #6a7287;
-        font-size: 0.95rem;
-        letter-spacing: 1px;
+        font-size: 0.82rem;
+        letter-spacing: 0.4px;
         text-transform: uppercase;
-        margin-bottom: 1.5rem;
+        margin-bottom: 0.8rem;
     }
     .metric-good { color: #06d6a0 !important; }
     .metric-warn { color: #ffa032 !important; }
     .metric-crit { color: #ff3c50 !important; }
-    div[data-testid="stMetricValue"] { font-family: 'JetBrains Mono', monospace; }
-    div[data-testid="stMetricLabel"] { text-transform: uppercase; letter-spacing: 1px; font-size: 0.75rem; }
+    div[data-testid="stMetricValue"] {
+        font-family: 'JetBrains Mono', Consolas, monospace;
+        font-size: clamp(1.28rem, 1.7vw, 1.95rem) !important;
+        line-height: 1.05 !important;
+        letter-spacing: 0 !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    div[data-testid="stMetricLabel"] {
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+        font-size: 0.74rem !important;
+        line-height: 1.12 !important;
+        color: #a8afbb !important;
+    }
+    div[data-testid="stMetricDelta"] {
+        font-size: 0.72rem !important;
+        line-height: 1.1 !important;
+    }
     .stSlider > div[data-baseweb="slider"] { padding: 0 0.5rem; }
 </style>
 """, unsafe_allow_html=True)

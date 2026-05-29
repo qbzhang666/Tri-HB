@@ -120,16 +120,75 @@ def format_mpa(value):
 st.markdown(
     """
     <style>
+    h1 {
+        font-size: clamp(1.75rem, 2.1vw, 2.45rem) !important;
+        line-height: 1.12 !important;
+        letter-spacing: 0 !important;
+        margin-bottom: 0.35rem !important;
+    }
+    h2 {
+        font-size: clamp(1.25rem, 1.45vw, 1.55rem) !important;
+        line-height: 1.2 !important;
+    }
+    h3 {
+        font-size: 1.05rem !important;
+        line-height: 1.25 !important;
+    }
     .step3-card {
         border: 1px solid rgba(120,130,150,0.25);
-        border-radius: 0.65rem;
-        padding: 0.85rem 1rem;
+        border-radius: 0.55rem;
+        padding: 0.65rem 0.8rem;
         background: rgba(80, 95, 120, 0.10);
-        margin-bottom: 0.6rem;
+        margin-bottom: 0.55rem;
+        font-size: 0.88rem;
+        line-height: 1.45;
     }
     .step3-card b { color: #ffffff; }
-    .step3-muted { color: #9aa4b2; font-size: 0.92rem; }
-    div[data-testid="stMetricValue"] { font-family: 'JetBrains Mono', monospace; }
+    .step3-muted { color: #9aa4b2; font-size: 0.84rem; line-height: 1.42; }
+    .step3-status {
+        border-radius: 0.5rem;
+        padding: 0.55rem 0.7rem;
+        margin: 0.15rem 0 0.6rem 0;
+        font-size: 0.88rem;
+        line-height: 1.42;
+    }
+    .step3-status b { color: #ffffff; }
+    .step3-status-success {
+        color: #55ef8a;
+        background: rgba(34, 139, 82, 0.25);
+        border: 1px solid rgba(85, 239, 138, 0.22);
+    }
+    .step3-status-info {
+        color: #a9c7ff;
+        background: rgba(64, 105, 170, 0.18);
+        border: 1px solid rgba(140, 174, 230, 0.20);
+    }
+    .step3-status-muted {
+        color: #9aa4b2;
+        background: rgba(80, 95, 120, 0.08);
+        border: 1px solid rgba(120,130,150,0.18);
+    }
+    div[data-testid="stMetricValue"] {
+        font-family: 'JetBrains Mono', Consolas, monospace;
+        font-size: clamp(1.28rem, 1.7vw, 1.95rem) !important;
+        line-height: 1.05 !important;
+        letter-spacing: 0 !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    div[data-testid="stMetricLabel"] {
+        font-size: 0.74rem !important;
+        line-height: 1.12 !important;
+        letter-spacing: 0 !important;
+        text-transform: none !important;
+        color: #a8afbb !important;
+        white-space: normal !important;
+    }
+    div[data-testid="stMetricDelta"] {
+        font-size: 0.72rem !important;
+        line-height: 1.1 !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -575,29 +634,59 @@ st.session_state["tri_hb_step3_damage_data"] = df_results
 # =============================================================================
 # Top status and summary
 # =============================================================================
-link_c1, link_c2 = st.columns(2)
+link_c1, link_c2 = st.columns([1.05, 0.95])
 with link_c1:
     if has_linked_design and sync_to_step1:
-        st.success(
-            f"Linked to Step 1: prestress {default_sx0:.0f}/{default_sy0:.0f}/{default_sz0:.0f} MPa, "
-            f"pulse {default_A:.0f} MPa for {default_td_us:.0f} μs."
+        st.markdown(
+            f"""
+            <div class="step3-status step3-status-success">
+            Step 1 linked: prestress <b>{default_sx0:.0f}/{default_sy0:.0f}/{default_sz0:.0f} MPa</b>;
+            pulse <b>{default_A:.0f} MPa</b>, <b>{default_td_us:.0f} &micro;s</b>.
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
     elif has_linked_design:
-        st.info("Step 1 result exists, but this view is using the visible override values.")
+        st.markdown(
+            """
+            <div class="step3-status step3-status-info">
+            Step 1 result exists; visible override values are active.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     else:
-        st.info("Standalone mode: use the manual setup panel in the sidebar.")
+        st.markdown(
+            """
+            <div class="step3-status step3-status-info">
+            Standalone mode: use the manual setup panel in the sidebar.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 with link_c2:
     if linked_reduced is not None and len(linked_reduced) > 0:
-        st.info(
-            "Reduced data from Step 1 is available for validation: "
-            f"peak stress {linked_reduced['stress_MPa'].max():.1f} MPa, "
-            f"peak strain {100.0 * linked_reduced['strain'].max():.3f}%."
+        st.markdown(
+            f"""
+            <div class="step3-status step3-status-info">
+            Reduced data ready: peak stress <b>{linked_reduced['stress_MPa'].max():.1f} MPa</b>;
+            peak strain <b>{100.0 * linked_reduced['strain'].max():.3f}%</b>.
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
     else:
-        st.caption("Reduced stress-strain data has not been generated in Step 1 yet.")
+        st.markdown(
+            """
+            <div class="step3-status step3-status-muted">
+            Reduced stress-strain data has not been generated in Step 1 yet.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-m1, m2, m3, m4, m5 = st.columns(5)
+m1, m2, m3, m4, m5 = st.columns([1.05, 1.25, 0.75, 0.75, 0.85])
 m1.metric("Travel time", f"{t_travel * 1e6:.2f} μs", help=f"cp = {cp0:.0f} m/s")
 m2.metric("Regime", regime_short, help=regime)
 m3.metric("Δt*", f"{dt_star:.2f}")

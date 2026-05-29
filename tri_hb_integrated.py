@@ -30,6 +30,111 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+st.markdown(
+    """
+    <style>
+    .block-container {
+        max-width: 1180px;
+        padding-top: 1.7rem;
+        padding-bottom: 2.2rem;
+    }
+    h1 {
+        font-size: clamp(1.75rem, 2.1vw, 2.45rem) !important;
+        line-height: 1.12 !important;
+        letter-spacing: 0 !important;
+        margin-bottom: 0.35rem !important;
+    }
+    h2 {
+        font-size: clamp(1.25rem, 1.45vw, 1.55rem) !important;
+        line-height: 1.2 !important;
+        letter-spacing: 0 !important;
+        margin-top: 1.05rem !important;
+        margin-bottom: 0.55rem !important;
+    }
+    h3 {
+        font-size: 1.05rem !important;
+        line-height: 1.25 !important;
+        letter-spacing: 0 !important;
+    }
+    p, li, label, div[data-testid="stMarkdownContainer"] {
+        font-size: 0.94rem;
+        line-height: 1.48;
+    }
+    div[data-testid="stCaptionContainer"] {
+        font-size: 0.84rem !important;
+        line-height: 1.42 !important;
+    }
+    div[data-testid="stMetric"] {
+        padding: 0.2rem 0;
+    }
+    div[data-testid="stMetricLabel"] {
+        color: #a8afbb !important;
+        font-size: 0.74rem !important;
+        line-height: 1.12 !important;
+        letter-spacing: 0 !important;
+        text-transform: none !important;
+        white-space: normal !important;
+    }
+    div[data-testid="stMetricValue"] {
+        font-family: "JetBrains Mono", Consolas, monospace;
+        font-size: clamp(1.28rem, 1.7vw, 1.95rem) !important;
+        line-height: 1.05 !important;
+        letter-spacing: 0 !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    div[data-testid="stMetricDelta"] {
+        font-size: 0.72rem !important;
+        line-height: 1.1 !important;
+    }
+    div[data-testid="stAlert"] {
+        padding: 0.55rem 0.75rem;
+    }
+    div[data-testid="stAlert"] p {
+        font-size: 0.88rem;
+        line-height: 1.42;
+    }
+    button[role="tab"] {
+        font-size: 0.86rem !important;
+        padding: 0.55rem 0.75rem !important;
+    }
+    section[data-testid="stSidebar"] {
+        width: 20rem !important;
+        min-width: 20rem !important;
+    }
+    section[data-testid="stSidebar"] > div:first-child {
+        padding-left: 0.8rem;
+        padding-right: 0.8rem;
+    }
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        font-size: 1.02rem !important;
+    }
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] {
+        font-size: 0.88rem !important;
+        line-height: 1.42;
+    }
+    @media (max-width: 1100px) {
+        .block-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        div[data-testid="stMetricValue"] {
+            font-size: 1.35rem !important;
+        }
+        section[data-testid="stSidebar"] {
+            width: 18.5rem !important;
+            min-width: 18.5rem !important;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 def strip_page_config(source: str) -> str:
     """Remove st.set_page_config blocks from legacy Streamlit scripts."""
@@ -626,15 +731,22 @@ page = st.sidebar.radio(
         "Step 3: Stress path and analysis",
         "Step 4: Damage model and DEM validation",
     ],
+    key="tri_hb_workspace_page",
 )
 
-if page == "Overview":
-    overview_page()
-elif page == "Step 1: Setup, simulator and data":
-    setup_simulator_and_data_page()
-elif page == "Step 2: Wave model":
-    run_legacy_app("wave_damage.py", {"TRI_HB_WORKFLOW_VIEW": "wave"})
-elif page == "Step 3: Stress path and analysis":
-    run_legacy_app("wave_damage.py", {"TRI_HB_WORKFLOW_VIEW": "stress"})
-elif page == "Step 4: Damage model and DEM validation":
-    run_legacy_app("wave_damage.py", {"TRI_HB_WORKFLOW_VIEW": "damage"})
+if st.session_state.get("tri_hb_last_rendered_page") != page:
+    st.session_state["tri_hb_last_rendered_page"] = page
+    st.rerun()
+
+page_slot = st.empty()
+with page_slot.container():
+    if page == "Overview":
+        overview_page()
+    elif page == "Step 1: Setup, simulator and data":
+        setup_simulator_and_data_page()
+    elif page == "Step 2: Wave model":
+        run_legacy_app("wave_damage.py", {"TRI_HB_WORKFLOW_VIEW": "wave"})
+    elif page == "Step 3: Stress path and analysis":
+        run_legacy_app("wave_damage.py", {"TRI_HB_WORKFLOW_VIEW": "stress"})
+    elif page == "Step 4: Damage model and DEM validation":
+        run_legacy_app("wave_damage.py", {"TRI_HB_WORKFLOW_VIEW": "damage"})
