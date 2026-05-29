@@ -20,7 +20,7 @@ Author: Monash Tri-HB Group (Virtual Tri-HB v3, Streamlit edition)
 import io
 import json
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict
 
 import numpy as np
@@ -44,6 +44,19 @@ class BarProps:
 
 
 BAR = BarProps()
+
+PLOT_FONT = "STIX Two Text, Cambria, Times New Roman, serif"
+PLOT_COLORS = {
+    "blue": "#0072B2",
+    "sky": "#56B4E9",
+    "green": "#009E73",
+    "orange": "#E69F00",
+    "vermillion": "#D55E00",
+    "purple": "#7A5195",
+    "magenta": "#CC79A7",
+    "black": "#222222",
+    "gray": "#6B7280",
+}
 
 
 # =============================================================================
@@ -679,7 +692,7 @@ def build_summary_json(result: Dict) -> bytes:
         "metadata": {
             "tool": "Virtual Tri-HB Streamlit",
             "version": "v3",
-            "exported_at": datetime.utcnow().isoformat() + "Z",
+            "exported_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         },
         "configuration": result["config"],
         "summary": result["summary"],
@@ -1051,16 +1064,36 @@ tabs = st.tabs(tab_labels)
 # ---- Common plot styling ----
 def base_layout(xtitle: str, ytitle: str, height: int = 420) -> dict:
     return dict(
-        xaxis_title=xtitle,
-        yaxis_title=ytitle,
         height=height,
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#c0c8d8", family="JetBrains Mono, monospace", size=12),
-        xaxis=dict(gridcolor="rgba(80,90,110,0.3)"),
-        yaxis=dict(gridcolor="rgba(80,90,110,0.3)"),
-        margin=dict(l=60, r=20, t=20, b=50),
-        legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="#2a3348", borderwidth=1),
+        template="plotly_white",
+        plot_bgcolor="#FFFFFF",
+        paper_bgcolor="#FFFFFF",
+        font=dict(color="#222222", family=PLOT_FONT, size=13),
+        xaxis=dict(
+            title=dict(text=xtitle, font=dict(color="#222222", family=PLOT_FONT, size=14)),
+            tickfont=dict(color="#222222", family=PLOT_FONT, size=12),
+            gridcolor="#E5E7EB",
+            zeroline=False,
+            showline=True,
+            linecolor="#222222",
+            ticks="outside",
+        ),
+        yaxis=dict(
+            title=dict(text=ytitle, font=dict(color="#222222", family=PLOT_FONT, size=14)),
+            tickfont=dict(color="#222222", family=PLOT_FONT, size=12),
+            gridcolor="#E5E7EB",
+            zeroline=False,
+            showline=True,
+            linecolor="#222222",
+            ticks="outside",
+        ),
+        margin=dict(l=66, r=24, t=24, b=58),
+        legend=dict(
+            bgcolor="rgba(255,255,255,0.92)",
+            bordercolor="#D1D5DB",
+            borderwidth=1,
+            font=dict(color="#222222", family=PLOT_FONT, size=12),
+        ),
     )
 
 
@@ -1078,48 +1111,48 @@ with tabs[0]:
 
         active_axes = []
         if symmetric_axes in ("X", "XY", "XYZ"):
-            active_axes.append(("x", "X", "#00d4ff"))
+            active_axes.append(("x", "X", PLOT_COLORS["blue"]))
         if symmetric_axes in ("XY", "XYZ"):
-            active_axes.append(("y", "Y", "#06d6a0"))
+            active_axes.append(("y", "Y", PLOT_COLORS["green"]))
         if symmetric_axes == "XYZ":
-            active_axes.append(("z", "Z", "#a78bfa"))
+            active_axes.append(("z", "Z", PLOT_COLORS["purple"]))
 
         for axis_key, axis_label, color in active_axes:
             fig.add_trace(go.Scatter(
                 x=t_us,
                 y=result[f"epsI_{axis_key}_pos"] * 1e6,
-                name=f"ε_I (±{axis_label} pair)",
+                name=f"ε<sub>I</sub> (±{axis_label} pair)",
                 line=dict(color=color, width=2),
             ))
 
         reflected_styles = {
-            "x": ("#ffd166", "dash"),
-            "y": ("#ff6b9d", "dot"),
-            "z": ("#c084fc", "dashdot"),
+            "x": (PLOT_COLORS["orange"], "dash"),
+            "y": (PLOT_COLORS["vermillion"], "dot"),
+            "z": (PLOT_COLORS["magenta"], "dashdot"),
         }
         for axis_key, axis_label, _ in active_axes:
             color, dash = reflected_styles[axis_key]
             fig.add_trace(go.Scatter(
                 x=t_us,
                 y=result[f"epsR_{axis_key}_pos"] * 1e6,
-                name=f"ε_R (+{axis_label} bar)",
+                name=f"ε<sub>R</sub> (+{axis_label} bar)",
                 line=dict(color=color, width=1.5, dash=dash),
             ))
             fig.add_trace(go.Scatter(
                 x=t_us,
                 y=result[f"epsR_{axis_key}_neg"] * 1e6,
-                name=f"ε_R (−{axis_label} bar)",
+                name=f"ε<sub>R</sub> (−{axis_label} bar)",
                 line=dict(color=color, width=1.5, dash="longdash"),
             ))
     else:
         fig.add_trace(go.Scatter(x=t_us, y=result["epsI_x_pos"] * 1e6,
-                                 name="ε_I (+X incident)", line=dict(color="#00d4ff", width=2)))
+                                 name="ε<sub>I</sub> (+X incident)", line=dict(color=PLOT_COLORS["blue"], width=2.2)))
         fig.add_trace(go.Scatter(x=t_us, y=result["epsR_x_pos"] * 1e6,
-                                 name="ε_R (+X reflected)",
-                                 line=dict(color="#ffd166", width=1.5)))
+                                 name="ε<sub>R</sub> (+X reflected)",
+                                 line=dict(color=PLOT_COLORS["orange"], width=1.8)))
         fig.add_trace(go.Scatter(x=t_us, y=result["epsT_x"] * 1e6,
-                                 name="ε_T (X transmitted)",
-                                 line=dict(color="#06d6a0", width=2)))
+                                 name="ε<sub>T</sub> (X transmitted)",
+                                 line=dict(color=PLOT_COLORS["green"], width=2.2)))
         has_y_incident = np.any(np.abs(result["epsI_y_pos"]) > 0.0)
         has_y_output_signal = (
             np.any(np.abs(result["epsR_y_pos"]) > 0.0)
@@ -1128,20 +1161,20 @@ with tabs[0]:
         has_y_output = has_y_output_signal and (has_y_incident or is_gas_triaxial)
         if has_y_incident:
             fig.add_trace(go.Scatter(x=t_us, y=result["epsI_y_pos"] * 1e6,
-                                     name="ε_I (+Y incident)",
-                                     line=dict(color="#06d6a0", width=1.5, dash="dot")))
+                                     name="ε<sub>I</sub> (+Y incident)",
+                                     line=dict(color=PLOT_COLORS["green"], width=1.8, dash="dot")))
         if has_y_output:
             fig.add_trace(go.Scatter(x=t_us, y=result["epsR_y_pos"] * 1e6,
-                                     name="ε_out (Y1 output bar)",
-                                     line=dict(color="#ff6b9d", width=1.5, dash="dot")))
+                                     name="ε<sub>out</sub> (Y1 output bar)",
+                                     line=dict(color=PLOT_COLORS["vermillion"], width=1.8, dash="dot")))
             if np.any(np.abs(result["epsR_y_neg"]) > 0.0):
                 fig.add_trace(go.Scatter(x=t_us, y=result["epsR_y_neg"] * 1e6,
-                                         name="ε_out (Y2 output bar)",
-                                         line=dict(color="#ff8fab", width=1.5, dash="longdash")))
+                                         name="ε<sub>out</sub> (Y2 output bar)",
+                                         line=dict(color=PLOT_COLORS["magenta"], width=1.8, dash="longdash")))
         if np.any(np.abs(result.get("epsT_y", np.array([0.0]))) > 0.0):
             fig.add_trace(go.Scatter(x=t_us, y=result["epsT_y"] * 1e6,
-                                     name="ε_T (−Y transmitted)",
-                                     line=dict(color="#06d6a0", width=1.5, dash="dashdot")))
+                                     name="ε<sub>T</sub> (−Y transmitted)",
+                                     line=dict(color=PLOT_COLORS["green"], width=1.8, dash="dashdot")))
 
         has_z_incident = np.any(np.abs(result["epsI_z_pos"]) > 0.0)
         has_z_output_signal = (
@@ -1151,23 +1184,23 @@ with tabs[0]:
         has_z_output = has_z_output_signal and (has_z_incident or is_gas_triaxial)
         if has_z_incident:
             fig.add_trace(go.Scatter(x=t_us, y=result["epsI_z_pos"] * 1e6,
-                                     name="ε_I (+Z incident)",
-                                     line=dict(color="#a78bfa", width=1.5, dash="dot")))
+                                     name="ε<sub>I</sub> (+Z incident)",
+                                     line=dict(color=PLOT_COLORS["purple"], width=1.8, dash="dot")))
         if has_z_output:
             fig.add_trace(go.Scatter(x=t_us, y=result["epsR_z_pos"] * 1e6,
-                                     name="ε_out (Z1 output bar)",
-                                     line=dict(color="#c084fc", width=1.5, dash="dot")))
+                                     name="ε<sub>out</sub> (Z1 output bar)",
+                                     line=dict(color=PLOT_COLORS["magenta"], width=1.8, dash="dot")))
             if np.any(np.abs(result["epsR_z_neg"]) > 0.0):
                 fig.add_trace(go.Scatter(x=t_us, y=result["epsR_z_neg"] * 1e6,
-                                         name="ε_out (Z2 output bar)",
-                                         line=dict(color="#a78bfa", width=1.5, dash="longdash")))
+                                         name="ε<sub>out</sub> (Z2 output bar)",
+                                         line=dict(color=PLOT_COLORS["purple"], width=1.8, dash="longdash")))
         if np.any(np.abs(result.get("epsT_z", np.array([0.0]))) > 0.0):
             fig.add_trace(go.Scatter(x=t_us, y=result["epsT_z"] * 1e6,
-                                     name="ε_T (−Z transmitted)",
-                                     line=dict(color="#a78bfa", width=1.5, dash="dashdot")))
+                                     name="ε<sub>T</sub> (−Z transmitted)",
+                                     line=dict(color=PLOT_COLORS["purple"], width=1.8, dash="dashdot")))
 
-    fig.update_layout(**base_layout("Time (μs)", "Strain (μstrain)"))
-    st.plotly_chart(fig, use_container_width=True)
+    fig.update_layout(**base_layout("Time, t (μs)", "Bar strain, ε (με)"))
+    st.plotly_chart(fig, width="stretch")
 
     st.caption(
         "Bar gauge signals only show the **dynamic** wave component. Static "
@@ -1188,10 +1221,10 @@ with tabs[0]:
         st.markdown("**Y/Z passive output bars — dynamic stress view**")
         fig_lat = go.Figure()
         lateral_outputs = [
-            ("epsR_y_pos", "σ_y1 output", "#8b0000", "solid"),
-            ("epsR_y_neg", "σ_y2 output", "#ff4d4d", "solid"),
-            ("epsR_z_pos", "σ_z1 output", "#0645ff", "solid"),
-            ("epsR_z_neg", "σ_z2 output", "#d946ef", "solid"),
+            ("epsR_y_pos", "σ<sub>y1</sub> output", PLOT_COLORS["vermillion"], "solid"),
+            ("epsR_y_neg", "σ<sub>y2</sub> output", PLOT_COLORS["orange"], "solid"),
+            ("epsR_z_pos", "σ<sub>z1</sub> output", PLOT_COLORS["blue"], "solid"),
+            ("epsR_z_neg", "σ<sub>z2</sub> output", PLOT_COLORS["purple"], "solid"),
         ]
         for key, label, color, dash in lateral_outputs:
             if np.any(np.abs(result[key]) > 0.0):
@@ -1201,8 +1234,8 @@ with tabs[0]:
                     name=label,
                     line=dict(color=color, width=2, dash=dash),
                 ))
-        fig_lat.update_layout(**base_layout("Time (μs)", "Dynamic stress (MPa)", height=330))
-        st.plotly_chart(fig_lat, use_container_width=True)
+        fig_lat.update_layout(**base_layout("Time, t (μs)", "Dynamic stress, Δσ (MPa)", height=330))
+        st.plotly_chart(fig_lat, width="stretch")
         st.caption(
             "This separate stress-scale plot matches the experimental convention for the Y/Z output bars. "
             "The traces are delayed transient lateral waves, not static pre-stress and not cumulative lateral strain."
@@ -1213,22 +1246,22 @@ with tabs[0]:
 with tabs[1]:
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=t_us, y=result["sig_x"] / 1e6,
-                             name="σ_X (total)", line=dict(color="#00d4ff", width=2)))
+                             name="σ<sub>x</sub> (total)", line=dict(color=PLOT_COLORS["blue"], width=2.2)))
     fig.add_trace(go.Scatter(x=t_us, y=result["sig_y"] / 1e6,
-                             name="σ_Y (total)", line=dict(color="#06d6a0", width=2)))
+                             name="σ<sub>y</sub> (total)", line=dict(color=PLOT_COLORS["green"], width=2.2)))
     fig.add_trace(go.Scatter(x=t_us, y=result["sig_z"] / 1e6,
-                             name="σ_Z (total)", line=dict(color="#a78bfa", width=2)))
+                             name="σ<sub>z</sub> (total)", line=dict(color=PLOT_COLORS["purple"], width=2.2)))
     if is_symmetric:
         fig.add_trace(go.Scatter(x=t_us, y=result["pressure"] / 1e6,
                                  name="p (mean)",
-                                 line=dict(color="#ffd166", width=2.5, dash="dash")))
+                                 line=dict(color=PLOT_COLORS["black"], width=2.4, dash="dash")))
     # Bar-limit reference line
-    fig.add_hline(y=BAR.sigma_prop / 1e6, line_dash="dash", line_color="#ff6b9d",
+    fig.add_hline(y=BAR.sigma_prop / 1e6, line_dash="dash", line_color=PLOT_COLORS["vermillion"],
                   annotation_text=f"bar limit ({BAR.sigma_prop / 1e6:.0f} MPa)",
                   annotation_position="top right",
-                  annotation_font=dict(color="#ff6b9d", size=10))
-    fig.update_layout(**base_layout("Time (μs)", "Stress (MPa)"))
-    st.plotly_chart(fig, use_container_width=True)
+                  annotation_font=dict(color=PLOT_COLORS["vermillion"], size=10))
+    fig.update_layout(**base_layout("Time, t (μs)", "Stress, σ (MPa)"))
+    st.plotly_chart(fig, width="stretch")
 
     st.caption(
         f"σ_X = σ₁(static) + σ_X^dyn  (σ₁ = {conf_X} MPa). "
@@ -1262,11 +1295,11 @@ with tabs[2]:
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=ss_x, y=ss_y, mode="lines",
-            line=dict(color="#ff6b9d" if is_symmetric else "#00d4ff", width=3),
-            name="σ–ε",
+            line=dict(color=PLOT_COLORS["vermillion"] if is_symmetric else PLOT_COLORS["blue"], width=2.6),
+            name="σ-ε",
         ))
-        fig.update_layout(**base_layout("Axial Strain (%)", "Axial Stress (MPa)"))
-        st.plotly_chart(fig, use_container_width=True)
+        fig.update_layout(**base_layout("Axial strain, ε<sub>x</sub> (%)", "Axial stress, σ<sub>x</sub> (MPa)"))
+        st.plotly_chart(fig, width="stretch")
     else:
         st.info("No measurable strain accumulated (specimen unloaded). Increase pulse amplitude or duration.")
 
@@ -1283,11 +1316,11 @@ if is_symmetric:
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=result["eps_vol"] * 100, y=result["pressure"] / 1e6,
-            mode="lines", line=dict(color="#ffd166", width=3),
-            name="p–εᵥ",
+            mode="lines", line=dict(color=PLOT_COLORS["black"], width=2.6),
+            name="p-ε<sub>v</sub>",
         ))
-        fig.update_layout(**base_layout("Volumetric Strain (%)", "Mean Pressure (MPa)"))
-        st.plotly_chart(fig, use_container_width=True)
+        fig.update_layout(**base_layout("Volumetric strain, ε<sub>v</sub> (%)", "Mean pressure, p (MPa)"))
+        st.plotly_chart(fig, width="stretch")
         st.caption(
             "Compaction curve. Initial slope = bulk modulus K. Plateau = cap pressure. "
             "Under full hydrostatic loading, the deviatoric stress q ≈ 0, so the "
@@ -1475,7 +1508,7 @@ with st.expander("📋 Preview export contents"):
     with sub_b:
         st.markdown("**Signals CSV (first 8 rows):**")
         df = pd.read_csv(io.BytesIO(build_signals_csv(result)))
-        st.dataframe(df.head(8), use_container_width=True, height=280)
+        st.dataframe(df.head(8), width="stretch", height=280)
 
 
 # =============================================================================

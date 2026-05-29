@@ -22,6 +22,19 @@ import streamlit as st
 
 APP_DIR = Path(__file__).resolve().parent
 
+PLOT_FONT = "STIX Two Text, Cambria, Times New Roman, serif"
+PLOT_COLORS = {
+    "blue": "#0072B2",
+    "sky": "#56B4E9",
+    "green": "#009E73",
+    "orange": "#E69F00",
+    "vermillion": "#D55E00",
+    "purple": "#7A5195",
+    "magenta": "#CC79A7",
+    "black": "#222222",
+    "gray": "#6B7280",
+}
+
 
 st.set_page_config(
     page_title="Tri-HB Integrated",
@@ -134,6 +147,54 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+
+def publication_plot_layout(x_title: str, y_title: str, height: int = 420, right_title: str | None = None) -> dict:
+    layout = dict(
+        template="plotly_white",
+        height=height,
+        plot_bgcolor="#FFFFFF",
+        paper_bgcolor="#FFFFFF",
+        font=dict(color="#222222", family=PLOT_FONT, size=13),
+        xaxis=dict(
+            title=dict(text=x_title, font=dict(color="#222222", family=PLOT_FONT, size=14)),
+            tickfont=dict(color="#222222", family=PLOT_FONT, size=12),
+            gridcolor="#E5E7EB",
+            zeroline=False,
+            showline=True,
+            linecolor="#222222",
+            ticks="outside",
+        ),
+        yaxis=dict(
+            title=dict(text=y_title, font=dict(color="#222222", family=PLOT_FONT, size=14)),
+            tickfont=dict(color="#222222", family=PLOT_FONT, size=12),
+            gridcolor="#E5E7EB",
+            zeroline=False,
+            showline=True,
+            linecolor="#222222",
+            ticks="outside",
+        ),
+        margin=dict(l=66, r=30 if right_title is None else 66, t=24, b=58),
+        legend=dict(
+            bgcolor="rgba(255,255,255,0.92)",
+            bordercolor="#D1D5DB",
+            borderwidth=1,
+            font=dict(color="#222222", family=PLOT_FONT, size=12),
+        ),
+    )
+    if right_title is not None:
+        layout["yaxis2"] = dict(
+            title=dict(text=right_title, font=dict(color="#222222", family=PLOT_FONT, size=14)),
+            tickfont=dict(color="#222222", family=PLOT_FONT, size=12),
+            overlaying="y",
+            side="right",
+            gridcolor="#FFFFFF",
+            zeroline=False,
+            showline=True,
+            linecolor="#222222",
+            ticks="outside",
+        )
+    return layout
 
 
 def strip_page_config(source: str) -> str:
@@ -429,12 +490,12 @@ def experimental_analysis_page() -> None:
                     "strain_percent": [0, 0.08, 0.28, 0.52, 0.78, 0.95],
                 }
             )
-        st.dataframe(example, use_container_width=True)
+        st.dataframe(example, width="stretch")
         return
     else:
         df_raw = read_uploaded_table(uploaded)
         df_raw = df_raw.dropna(how="all")
-        st.dataframe(df_raw.head(20), use_container_width=True)
+        st.dataframe(df_raw.head(20), width="stretch")
 
         if df_raw.empty:
             st.error("The uploaded file did not contain any readable rows.")
@@ -581,31 +642,31 @@ def experimental_analysis_page() -> None:
                 x=100.0 * out["strain"],
                 y=out["stress_MPa"],
                 mode="lines",
-                name="stress-strain",
-                line=dict(width=3),
+                name="σ-ε",
+                line=dict(color=PLOT_COLORS["blue"], width=2.6),
             )
         )
-        fig.update_layout(
-            height=390,
-            xaxis_title="Strain (%)",
-            yaxis_title="Stress (MPa)",
-            margin=dict(l=55, r=20, t=15, b=50),
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        fig.update_layout(**publication_plot_layout("Strain, ε (%)", "Stress, σ (MPa)", height=390))
+        st.plotly_chart(fig, width="stretch")
 
     tabs = st.tabs(["Time histories", "Energy", "Export"])
     with tabs[0]:
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=out["time_us"], y=out["stress_MPa"], name="stress (MPa)"))
-        fig.add_trace(go.Scatter(x=out["time_us"], y=out["strain_rate_s-1"], name="strain rate (/s)", yaxis="y2"))
-        fig.update_layout(
-            height=430,
-            xaxis_title="Time (us)",
-            yaxis=dict(title="Stress (MPa)"),
-            yaxis2=dict(title="Strain rate (/s)", overlaying="y", side="right"),
-            margin=dict(l=55, r=55, t=20, b=50),
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        fig.add_trace(go.Scatter(
+            x=out["time_us"],
+            y=out["stress_MPa"],
+            name="σ(t)",
+            line=dict(color=PLOT_COLORS["blue"], width=2.2),
+        ))
+        fig.add_trace(go.Scatter(
+            x=out["time_us"],
+            y=out["strain_rate_s-1"],
+            name="ε̇(t)",
+            yaxis="y2",
+            line=dict(color=PLOT_COLORS["vermillion"], width=2.0, dash="dash"),
+        ))
+        fig.update_layout(**publication_plot_layout("Time, t (μs)", "Stress, σ (MPa)", height=430, right_title="Strain rate, ε̇ (s⁻¹)"))
+        st.plotly_chart(fig, width="stretch")
 
     with tabs[1]:
         if "energy_absorbed_J" not in out:
@@ -642,23 +703,18 @@ def experimental_analysis_page() -> None:
                         "and time alignment of the incident/reflected/transmitted windows."
                     )
             fig = go.Figure()
-            for col, label in [
-                ("energy_incident_J", "Incident"),
-                ("energy_reflected_J", "Reflected"),
-                ("energy_transmitted_J", "Transmitted"),
-                ("energy_absorbed_J", "Absorbed"),
+            for col, label, color in [
+                ("energy_incident_J", "W<sub>I</sub> incident", PLOT_COLORS["blue"]),
+                ("energy_reflected_J", "W<sub>R</sub> reflected", PLOT_COLORS["vermillion"]),
+                ("energy_transmitted_J", "W<sub>T</sub> transmitted", PLOT_COLORS["green"]),
+                ("energy_absorbed_J", "W<sub>abs</sub> absorbed", PLOT_COLORS["black"]),
             ]:
-                fig.add_trace(go.Scatter(x=out["time_us"], y=out[col], name=label))
-            fig.update_layout(
-                height=430,
-                xaxis_title="Time (us)",
-                yaxis_title="Energy (J)",
-                margin=dict(l=55, r=20, t=20, b=50),
-            )
-            st.plotly_chart(fig, use_container_width=True)
+                fig.add_trace(go.Scatter(x=out["time_us"], y=out[col], name=label, line=dict(color=color, width=2.2)))
+            fig.update_layout(**publication_plot_layout("Time, t (μs)", "Energy, W (J)", height=430))
+            st.plotly_chart(fig, width="stretch")
 
     with tabs[2]:
-        st.dataframe(out.head(50), use_container_width=True)
+        st.dataframe(out.head(50), width="stretch")
         st.download_button(
             "Download reduced data",
             data=out.to_csv(index=False).encode("utf-8"),
