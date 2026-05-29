@@ -3,13 +3,14 @@ Virtual Tri-HB Simulator — Streamlit version
 ============================================
 
 Streamlit workspace for Triaxial Hopkinson Bar test design and analysis.
-Five loading modes:
+Six loading modes:
 
   1. Gas-Gun uniaxial impact (classical SHPB)
-  2. Gas-Gun coupled static-dynamic triaxial impact
-  3. EM uniaxial impact (clean half-sine pulse)
-  4. EM asynchronous triaxial impact (stress-path control)
-  5. EM symmetric multidirectional impact (wave superposition)
+  2. Confinement-chamber SHPB
+  3. Monash Tri-HB true-triaxial system
+  4. EM uniaxial impact (clean half-sine pulse)
+  5. EM asynchronous triaxial impact (stress-path control)
+  6. EM symmetric multidirectional impact (wave superposition)
 
 Run with:  streamlit run virtual_tri_hb_streamlit.py
 
@@ -144,7 +145,7 @@ def em_half_sine(t: float, peak_stress: float, duration: float,
 # =============================================================================
 @dataclass
 class SimConfig:
-    mode: str                  # 'gas-gun' | 'gas-gun-triaxial' | 'em-uniaxial' | 'em-async' | 'em-symmetric'
+    mode: str                  # 'gas-gun' | 'confinement-chamber' | 'gas-gun-triaxial' | 'em-uniaxial' | 'em-async' | 'em-symmetric'
     rock_type: str
     velocity: float            # m/s, gas-gun
     peak_stress: float         # Pa, EM modes
@@ -192,7 +193,9 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
         pulse_delay_Y=pulse_delay_Y, pulse_delay_Z=pulse_delay_Z,
         symmetric_axes=symmetric_axes,
     )
-    is_gas_drive = cfg.mode in ("gas-gun", "gas-gun-triaxial")
+    is_gas_drive = cfg.mode in ("gas-gun", "confinement-chamber", "gas-gun-triaxial")
+    is_confinement_chamber = cfg.mode == "confinement-chamber"
+    is_gas_triaxial = cfg.mode == "gas-gun-triaxial"
     is_gas_uniaxial = cfg.mode == "gas-gun"
     is_symmetric = cfg.mode == "em-symmetric"
     is_async = cfg.mode == "em-async"
@@ -421,8 +424,12 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
         else:
             eps_y[i] = eps_y[i-1] + passive_lat
             eps_z[i] = eps_z[i-1] + passive_lat
-            sig_y[i] = sigY_static + lat_stiffness * (-eps_y[i])
-            sig_z[i] = sigZ_static + lat_stiffness * (-eps_z[i])
+            if is_confinement_chamber:
+                sig_y[i] = sigY_static
+                sig_z[i] = sigZ_static
+            else:
+                sig_y[i] = sigY_static + lat_stiffness * (-eps_y[i])
+                sig_z[i] = sigZ_static + lat_stiffness * (-eps_z[i])
 
         # Dynamic component on lateral bar gauges.  Static pre-stress is
         # carried by the hydraulic loading frame, so bar gauges show wave-only
@@ -473,6 +480,48 @@ def simulate(mode: str, rock_type: str, velocity: float, peak_stress: float,
             epsR_z_pos[i] = epsZ_dyn[i] if abs(inc_z_pos) < 1e-12 else (sig_z_dyn * As / (cfg.bar_E * Ab) - epsI_z_pos[i])
             epsR_z_neg[i] = 0.0
             rate_z[i] = max(0.0, (cfg.bar_C0 / Ls) * (epsI_z_pos[i] - epsR_z_pos[i]))
+
+    if is_gas_triaxial:
+        # Passive Y/Z output bars measure travelling lateral waves, not the
+        # cumulative Poisson strain. Use a delayed transient response so the
+        # synthetic traces behave like experimental output-bar stress waves.
+        axial_dyn = np.maximum(sig_x - sigX_static, 0.0)
+        axial_peak = float(np.max(axial_dyn))
+        if axial_peak > 0.0:
+            gas_tau = 2.0 * 0.5 / cfg.bar_C0
+            width = 0.36 * gas_tau
+
+            def lateral_output_pulse(peak: float, center: float, rebound_scale: float = 0.16) -> np.ndarray:
+                main = peak * np.exp(-0.5 * ((time - center) / width) ** 2)
+                shoulder = 0.22 * peak * np.exp(-0.5 * ((time - (center + 0.55 * width)) / (0.65 * width)) ** 2)
+                rebound = rebound_scale * peak * np.exp(-0.5 * ((time - (center + 1.85 * width)) / (0.45 * width)) ** 2)
+                return main + shoulder - rebound
+
+            peak_y = min(0.22 * axial_peak, 0.12 * axial_peak + 0.35 * sigY_static)
+            peak_z = min(0.24 * axial_peak, 1.05 * (0.12 * axial_peak + 0.35 * sigZ_static))
+
+            y1_dyn = lateral_output_pulse(0.94 * peak_y, 1.72 * gas_tau)
+            y2_dyn = lateral_output_pulse(1.04 * peak_y, 1.86 * gas_tau, rebound_scale=0.14)
+            z1_dyn = lateral_output_pulse(1.06 * peak_z, 1.64 * gas_tau, rebound_scale=0.18)
+            z2_dyn = lateral_output_pulse(0.98 * peak_z, 1.78 * gas_tau, rebound_scale=0.15)
+
+            epsR_y_pos = y1_dyn * As / (cfg.bar_E * Ab)
+            epsR_y_neg = y2_dyn * As / (cfg.bar_E * Ab)
+            epsR_z_pos = z1_dyn * As / (cfg.bar_E * Ab)
+            epsR_z_neg = z2_dyn * As / (cfg.bar_E * Ab)
+            epsY_dyn = 0.5 * (epsR_y_pos + epsR_y_neg)
+            epsZ_dyn = 0.5 * (epsR_z_pos + epsR_z_neg)
+
+            sig_y_dyn = 0.5 * (y1_dyn + y2_dyn)
+            sig_z_dyn = 0.5 * (z1_dyn + z2_dyn)
+            sig_y = sigY_static + sig_y_dyn
+            sig_z = sigZ_static + sig_z_dyn
+
+            lateral_modulus = max(0.45 * rock_params["E_s"], 1.0)
+            eps_y = sig_y_dyn / lateral_modulus
+            eps_z = sig_z_dyn / lateral_modulus
+            rate_y = np.gradient(eps_y, dt)
+            rate_z = np.gradient(eps_z, dt)
 
     # ---- Bar plasticity check ----
     # A strain gauge on a bar records ONE signal at any instant — incident and
@@ -724,12 +773,12 @@ st.markdown("""
 
 
 # ---- Header ----
-st.markdown('<div class="main-header">Virtual Tri-HB</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Triaxial Hopkinson Bar Simulator · Monash · v3 (Streamlit)</div>',
+st.markdown('<div class="main-header">Dynamic Triaxial Hopkinson Bar Workspace</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Test design, wave analysis, stress paths, and damage validation</div>',
             unsafe_allow_html=True)
 st.markdown(
-    "Five loading modes: gas-gun uniaxial, Monash Tri-HB system, "
-    "EM uniaxial, EM asynchronous triaxial, and EM symmetric "
+    "Six loading modes: gas-gun uniaxial, confinement-chamber triaxial, "
+    "Monash Tri-HB system, EM uniaxial, EM asynchronous triaxial, and EM symmetric "
     "multidirectional impact. Configure the test, run the simulation, and "
     "export results for further analysis."
 )
@@ -802,6 +851,7 @@ with st.sidebar:
 
     mode_label_map = {
         "Gas-Gun Uniaxial": "gas-gun",
+        "Confinement-Chamber Triaxial": "confinement-chamber",
         "Monash Tri-HB System": "gas-gun-triaxial",
         "EM Uniaxial": "em-uniaxial",
         "EM Async Triaxial": "em-async",
@@ -809,13 +859,15 @@ with st.sidebar:
     }
     mode_label = test_tab.selectbox("Loading mode", list(mode_label_map.keys()))
     mode = mode_label_map[mode_label]
-    is_gas_drive = mode in ("gas-gun", "gas-gun-triaxial")
+    is_gas_drive = mode in ("gas-gun", "confinement-chamber", "gas-gun-triaxial")
+    is_confinement_chamber = mode == "confinement-chamber"
     is_gas_triaxial = mode == "gas-gun-triaxial"
     is_symmetric = mode == "em-symmetric"
     is_async = mode == "em-async"
 
     mode_descriptions = {
         "gas-gun": "Single striker → incident bar → specimen → transmission bar (classical SHPB).",
+        "confinement-chamber": "Axisymmetric confinement-chamber triaxial mode: σ₂ = σ₃ = pc is held constant by a pressure vessel; no Y/Z output bars.",
         "gas-gun-triaxial": "Monash Tri-HB system: gas-gun X pulse after quasi-static σ₁/σ₂/σ₃ pre-stress; total stress = static preload + dynamic increment.",
         "em-uniaxial": "Single EM half-sine pulse along +X. Y/Z carry only Poisson reactions.",
         "em-async": "3 EM pulses (+X, +Y, +Z) with adjustable time delays. Stress-path-dependent.",
@@ -859,27 +911,37 @@ with st.sidebar:
     if mode == "gas-gun":
         prestress_defaults = (0, 0, 0)
         prestress_disabled = True
-        test_tab.caption("Classical gas-gun mode is unconfined. Select the Monash Tri-HB System for hydraulic triaxial pre-stress.")
+        test_tab.caption("Classical gas-gun mode is unconfined. Select Mode 2 for chamber confinement or the Monash Tri-HB System for active true-triaxial pre-stress.")
+    elif is_confinement_chamber:
+        prestress_defaults = (30, 20, 20)
+        prestress_disabled = False
+        test_tab.caption("Mode 2: a chamber holds σ₂ = σ₃ = pc constant; only the X-axis bars carry dynamic wave data.")
     elif is_gas_triaxial:
         prestress_defaults = (30, 20, 15)
         prestress_disabled = False
-        test_tab.caption("System: σ₁, σ₂, and σ₃ are applied by hydraulic cylinders before the striker fires.")
+        test_tab.caption("Monash Tri-HB System: σ₁, σ₂, and σ₃ are applied independently before the striker fires.")
     else:
-        prestress_defaults = (20, 15, 10)
+        prestress_defaults = (30, 20, 15)
         prestress_disabled = False
         test_tab.caption("Applied by hydraulic cylinders before the dynamic pulse arrives.")
 
     max_conf = 50
     conf_X = test_tab.slider("σ₁ axial (X) — MPa", 0, max_conf, prestress_defaults[0], step=1, disabled=prestress_disabled)
-    conf_Y = test_tab.slider("σ₂ confining (Y) — MPa", 0, max_conf, prestress_defaults[1], step=1, disabled=prestress_disabled)
-    conf_Z = test_tab.slider("σ₃ confining (Z) — MPa", 0, max_conf, prestress_defaults[2], step=1, disabled=prestress_disabled)
+    if is_confinement_chamber:
+        chamber_pc = test_tab.slider("p_c chamber pressure = σ₂ = σ₃ — MPa", 0, max_conf, prestress_defaults[1], step=1)
+        conf_Y = chamber_pc
+        conf_Z = chamber_pc
+    else:
+        conf_Y = test_tab.slider("σ₂ confining (Y) — MPa", 0, max_conf, prestress_defaults[1], step=1, disabled=prestress_disabled)
+        conf_Z = test_tab.slider("σ₃ confining (Z) — MPa", 0, max_conf, prestress_defaults[2], step=1, disabled=prestress_disabled)
 
-    if is_gas_triaxial:
+    if is_confinement_chamber or is_gas_triaxial:
         rate_ref = float(preset.get("epsdot_ref", 1.0))
         dif_nominal = 1.0 + float(preset["b_rate"]) * np.log10(max(150.0, rate_ref) / rate_ref)
         planned_peak = (float(material_UCS_MPa) + float(preset["k_conf"]) * max(conf_Y, conf_Z)) * dif_nominal
+        planning_label = "rock dynamic peak" if is_confinement_chamber else "rock peak"
         test_tab.caption(
-            f"Planning estimate at εdot ≈ 150 /s: rock peak ≈ {planned_peak:.0f} MPa; "
+            f"Planning estimate at εdot ≈ 150 /s: {planning_label} ≈ {planned_peak:.0f} MPa; "
             f"incident pulse ≈ {gas_peak:.0f} MPa; bar proportional limit = {BAR.sigma_prop / 1e6:.0f} MPa."
         )
 
@@ -1051,8 +1113,12 @@ with tabs[0]:
                                      line=dict(color="#06d6a0", width=1.5, dash="dot")))
         if has_y_output:
             fig.add_trace(go.Scatter(x=t_us, y=result["epsR_y_pos"] * 1e6,
-                                     name="ε_out (Y output bar)",
+                                     name="ε_out (Y1 output bar)",
                                      line=dict(color="#ff6b9d", width=1.5, dash="dot")))
+            if np.any(np.abs(result["epsR_y_neg"]) > 0.0):
+                fig.add_trace(go.Scatter(x=t_us, y=result["epsR_y_neg"] * 1e6,
+                                         name="ε_out (Y2 output bar)",
+                                         line=dict(color="#ff8fab", width=1.5, dash="longdash")))
         if np.any(np.abs(result.get("epsT_y", np.array([0.0]))) > 0.0):
             fig.add_trace(go.Scatter(x=t_us, y=result["epsT_y"] * 1e6,
                                      name="ε_T (−Y transmitted)",
@@ -1070,8 +1136,12 @@ with tabs[0]:
                                      line=dict(color="#a78bfa", width=1.5, dash="dot")))
         if has_z_output:
             fig.add_trace(go.Scatter(x=t_us, y=result["epsR_z_pos"] * 1e6,
-                                     name="ε_out (Z output bar)",
+                                     name="ε_out (Z1 output bar)",
                                      line=dict(color="#c084fc", width=1.5, dash="dot")))
+            if np.any(np.abs(result["epsR_z_neg"]) > 0.0):
+                fig.add_trace(go.Scatter(x=t_us, y=result["epsR_z_neg"] * 1e6,
+                                         name="ε_out (Z2 output bar)",
+                                         line=dict(color="#a78bfa", width=1.5, dash="longdash")))
         if np.any(np.abs(result.get("epsT_z", np.array([0.0]))) > 0.0):
             fig.add_trace(go.Scatter(x=t_us, y=result["epsT_z"] * 1e6,
                                      name="ε_T (−Z transmitted)",
@@ -1084,10 +1154,40 @@ with tabs[0]:
         "Bar gauge signals only show the **dynamic** wave component. Static "
         "pre-stress is held by the hydraulic cylinders and is added separately "
         "to the specimen stress. For the Monash Tri-HB system, Y and Z have no "
-        "incident pulse; their curves are passive output-bar measurements. In "
+        "incident pulse; their curves are passive output-bar measurements from "
+        "the opposing lateral bars used in the corrected two-bar average. In "
         "symmetric mode the ± incident traces for each axis overlap, so one "
         "incident pair trace is shown per active axis."
     )
+    if is_confinement_chamber:
+        st.info(
+            "Confinement-Chamber Triaxial has no Y/Z output bars. "
+            "The chamber holds σ₂ = σ₃ = pc, so only X-axis bar waveforms are plotted."
+        )
+
+    if is_gas_triaxial:
+        st.markdown("**Y/Z passive output bars — dynamic stress view**")
+        fig_lat = go.Figure()
+        lateral_outputs = [
+            ("epsR_y_pos", "σ_y1 output", "#8b0000", "solid"),
+            ("epsR_y_neg", "σ_y2 output", "#ff4d4d", "solid"),
+            ("epsR_z_pos", "σ_z1 output", "#0645ff", "solid"),
+            ("epsR_z_neg", "σ_z2 output", "#d946ef", "solid"),
+        ]
+        for key, label, color, dash in lateral_outputs:
+            if np.any(np.abs(result[key]) > 0.0):
+                fig_lat.add_trace(go.Scatter(
+                    x=t_us,
+                    y=result[key] * config["bar_E"] / 1e6,
+                    name=label,
+                    line=dict(color=color, width=2, dash=dash),
+                ))
+        fig_lat.update_layout(**base_layout("Time (μs)", "Dynamic stress (MPa)", height=330))
+        st.plotly_chart(fig_lat, use_container_width=True)
+        st.caption(
+            "This separate stress-scale plot matches the experimental convention for the Y/Z output bars. "
+            "The traces are delayed transient lateral waves, not static pre-stress and not cumulative lateral strain."
+        )
 
 
 # ---- Tab 2: Specimen Stresses ----
@@ -1183,20 +1283,37 @@ with tabs[-1]:
     st.markdown("**Standard one-sided drive** (gas-gun modes, EM uniaxial, EM async):")
     st.latex(r"\sigma_i^{\rm dyn}(t) = \frac{E_b A_b}{2 A_s}\left[\varepsilon_{I,i}+\varepsilon_{R,i}+\varepsilon_{T,i}\right],\qquad i\in\{X,Y,Z\}")
     st.latex(r"\dot{\varepsilon}_i(t) = \frac{C_0}{L_i}\left[\varepsilon_{I,i}-\varepsilon_{R,i}-\varepsilon_{T,i}\right]")
-    st.caption("For the classical one-sided X test, i = X. For EM async, the same dynamic equation is applied to each driven one-sided axis.")
+    st.caption("For gas-gun uniaxial, confinement-chamber, and Monash system X-axis loading, i = X. For EM async, the same dynamic equation is applied to each driven one-sided axis.")
 
-    st.markdown("**Monash Tri-HB system gas-gun coupled static-dynamic triaxial loading:**")
+    st.markdown("**Confinement-Chamber Triaxial:**")
+    st.latex(r"\sigma_I^{\rm peak}=\frac{1}{2}\rho_b C_0 V=\frac{1}{2}\frac{E_b}{C_0}V")
+    st.latex(r"\sigma_X^{\rm total}(t)=\sigma_1+\sigma_X^{\rm dyn}(t),\qquad "
+             r"\sigma_Y^{\rm total}(t)=p_c,\qquad \sigma_Z^{\rm total}(t)=p_c")
+    st.latex(r"p(t)=\frac{\sigma_X^{\rm total}(t)+2p_c}{3},\qquad "
+             r"q(t)=\left|\sigma_X^{\rm total}(t)-p_c\right|,\qquad "
+             r"\theta=0")
+    st.latex(r"\sigma_{\rm peak}^{\rm rock,dyn}=\left(\sigma_{c0}+k_{\rm conf}p_c\right)\mathrm{DIF}")
+    st.caption(
+        "The chamber mode is axisymmetric: σ2 = σ3 = pc is held by the pressure vessel, "
+        "and no lateral output-bar wave data are available. Only the X-axis incident, reflected, "
+        "and transmitted bars carry dynamic wave information."
+    )
+
+    st.markdown("**Mode 3 Monash Tri-HB system gas-gun coupled static-dynamic triaxial loading:**")
     st.latex(r"\sigma_I^{\rm peak}=\frac{1}{2}\rho_b C_0 V=\frac{1}{2}\frac{E_b}{C_0}V")
     st.latex(r"\sigma_X^{\rm total}(t)=\sigma_1+\sigma_X^{\rm dyn}(t),\quad "
              r"\sigma_Y^{\rm total}(t)=\sigma_2+\sigma_Y^{\rm dyn}(t),\quad "
              r"\sigma_Z^{\rm total}(t)=\sigma_3+\sigma_Z^{\rm dyn}(t)")
-    st.latex(r"\sigma_Y^{\rm dyn},\sigma_Z^{\rm dyn}\;\text{are Poisson-coupled lateral bar responses, approximately }\;\sigma_{\rm lat}^{\rm dyn}\approx-\nu\sigma_X^{\rm dyn}")
+    st.latex(r"\sigma_Y^{\rm dyn}(t)=\frac{E_bA_b}{2A_s}\left[\varepsilon_{y1}(t)+\varepsilon_{y2}(t)\right],\qquad "
+             r"\sigma_Z^{\rm dyn}(t)=\frac{E_bA_b}{2A_s}\left[\varepsilon_{z1}(t)+\varepsilon_{z2}(t)\right]")
+    st.latex(r"\varepsilon_Y(t)=\frac{C_0}{L_s}\int_0^t\left[\varepsilon_{y1}(\tau)+\varepsilon_{y2}(\tau)\right]d\tau,\qquad "
+             r"\varepsilon_Z(t)=\frac{C_0}{L_s}\int_0^t\left[\varepsilon_{z1}(\tau)+\varepsilon_{z2}(\tau)\right]d\tau")
     st.latex(r"\sigma_{\rm peak}^{\rm rock,dyn}=\left[\sigma_{c0}+k_{\rm conf}\max(\sigma_2,\sigma_3)\right]\mathrm{DIF}")
     st.caption(
         "The Monash Tri-HB system keeps the gas-gun X-axis wave equations unchanged. The bar gauges are baseline-subtracted "
-        "dynamic signals; the hydraulic pre-stresses are added back when plotting/reporting total stress. "
-        "In this app the confinement-strengthening term uses the static perpendicular stresses, while σ1 is "
-        "only an axial baseline."
+        "dynamic signals; the two opposing Y bars and two opposing Z bars are averaged with the 1/2 factor shown above. "
+        "The hydraulic pre-stresses are added back when plotting/reporting total stress. In this app the confinement-strengthening "
+        "term uses the static perpendicular stresses, while σ1 is only an axial baseline."
     )
 
     st.markdown("**EM asynchronous triaxial detail.** Each active axis has its own incident, "
@@ -1214,7 +1331,7 @@ with tabs[-1]:
     st.markdown("So the equations on every axis remain the standard three-wave form above; only the "
                 "damage / strain state of the specimen each pulse meets differs from the synchronous case.")
 
-    st.markdown("**Symmetric superposition** (Mode 5, opposing bars fire identically):")
+    st.markdown("**Symmetric superposition** (Mode 6, opposing bars fire identically):")
     st.latex(r"\sigma_i^{\rm dyn}(t) = \frac{E_b A_b}{2 A_s}\left[(\varepsilon_{I,i}^{+}+\varepsilon_{R,i}^{+})+(\varepsilon_{I,i}^{-}+\varepsilon_{R,i}^{-})\right],\qquad i\in\{X,Y,Z\}")
     st.latex(r"\dot{\varepsilon}_i(t) = \frac{C_0}{L_i}\left[(\varepsilon_{I,i}^{+}-\varepsilon_{R,i}^{+})+(\varepsilon_{I,i}^{-}-\varepsilon_{R,i}^{-})\right]")
     st.markdown("When the two opposing pulses in an axis are matched, this reduces to:")
@@ -1249,15 +1366,15 @@ with tabs[-1]:
         st.latex(r"\text{DIF} = 1 + b_{\text{rate}} \log_{10}\!\left(\dot{\varepsilon}/\dot{\varepsilon}_{\text{ref}}\right)")
         st.caption(
             f"For the selected {rock_type} preset, b_rate = {preset['b_rate']:.2f} "
-            f"and εdot_ref = {preset.get('epsdot_ref', 1.0):.1f} s⁻¹. "
+            f"and εdot_ref = {preset.get('epsdot_ref', 1.0):.1g} s⁻¹. "
             "They are calibration constants for the dynamic increase factor, not quantities derived from bar geometry."
         )
         st.markdown(
             "To calibrate them, run or collect tests at the same confinement but different strain rates, "
             "compute $\\mathrm{DIF}=\\sigma_{\\text{peak}}/(\\sigma_{c0}+k_{\\text{conf}}\\sigma_{\\text{conf}})$, "
             "then fit the slope of $\\mathrm{DIF}$ against $\\log_{10}(\\dot\\varepsilon/\\dot\\varepsilon_{\\text{ref}})$. "
-            "$\\dot\\varepsilon_{\\text{ref}}$ is normally the quasi-static reference rate where $\\mathrm{DIF}=1$; "
-            "this simulator uses 1 s$^{-1}$ by default."
+            "$\\dot\\varepsilon_{\\text{ref}}$ is the reference rate where $\\mathrm{DIF}=1$; "
+            "use the value associated with the fitted $b_{\\text{rate}}$ dataset."
         )
         st.markdown(
             "Pre-peak: $\\sigma = \\sigma_{\\text{peak}} \\cdot (2r - r^2)$, "

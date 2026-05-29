@@ -159,7 +159,7 @@ def experimental_analysis_page() -> None:
         st.caption("Units: $A_b\\,[\\mathrm{m}^2]\\cdot E_b\\,[\\mathrm{Pa}]\\cdot C_0\\,[\\mathrm{m/s}]"
                    "\\cdot\\int\\varepsilon^2\\,\\mathrm{d}t\\,[\\mathrm{s}]\\;=\\;\\mathrm{J}$.")
 
-        st.markdown("**Symmetric-mode (Mode 5) energy folding** — opposing bar pair contributes both incident pulses; "
+        st.markdown("**Symmetric-mode (Mode 6) energy folding** — opposing bar pair contributes both incident pulses; "
                     "both reflected bars are retained explicitly:")
         st.latex(r"W_I=E_b A_b C_0\!\int(\varepsilon_{I,+}^2+\varepsilon_{I,-}^2)\,\mathrm{d}t,\qquad "
                  r"W_R=E_b A_b C_0\!\int(\varepsilon_{R,+}^2+\varepsilon_{R,-}^2)\,\mathrm{d}t")
@@ -587,8 +587,14 @@ def overview_page() -> None:
         """
     )
 
+    st.caption(
+        "Step 1 now follows the six-mode handbook structure: Gas-Gun Uniaxial; "
+        "Confinement-Chamber Triaxial; Monash Tri-HB System; EM Uniaxial; "
+        "EM Async Triaxial; and EM Symmetric Multi-axis."
+    )
+
     c1, c2, c3 = st.columns(3)
-    c1.metric("Design modes", "5")
+    c1.metric("Design modes", "6")
     c2.metric("Workflow steps", "4")
     c3.metric("Experimental reducer", "CSV/XLSX")
 
