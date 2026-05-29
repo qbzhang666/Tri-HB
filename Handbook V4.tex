@@ -2314,16 +2314,28 @@ reducer (Chapter~\ref{ch:expdata}) and of the wave/damage/DEM module
 
 \begin{stepbox}[Local launch]
 \begin{enumerate}[leftmargin=*,itemsep=3pt]
-  \item Install Python $\ge 3.9$.
-  \item Open a terminal in the folder containing \texttt{tri\_hb\_integrated.py},
-        \texttt{Tri-HB.py}, \texttt{wave\_damage.py}, and
-        \texttt{requirements.txt}.
-  \item Install dependencies: \texttt{pip install -r requirements.txt}.
-  \item Launch: \texttt{streamlit run tri\_hb\_integrated.py}.
+  \item Install Python $\ge 3.9$; the current local test environment uses
+        Python~3.13.
+  \item Open PowerShell or a terminal in the repository folder containing
+        \texttt{tri\_hb\_integrated.py}, \texttt{Tri-HB.py},
+        \texttt{wave\_damage.py}, and \texttt{requirements.txt}.
+  \item Install dependencies on Windows:
+        \texttt{py -3.13 -m pip install -r requirements.txt}.
+  \item Launch the integrated workspace:
+        \texttt{py -3.13 -m streamlit run tri\_hb\_integrated.py --server.port 8501}.
   \item The browser opens at \texttt{http://localhost:8501}. If it does
         not, open the URL manually.
 \end{enumerate}
 \end{stepbox}
+
+\noindent The integrated file \texttt{tri\_hb\_integrated.py} is the
+recommended entry point. It loads \texttt{Tri-HB.py} for the Step~1
+configuration/simulator page and \texttt{wave\_damage.py} for the Step~2--4
+wave, stress-path, damage, energy, and validation pages. The direct command
+\texttt{streamlit run tri\_hb\_integrated.py} is equivalent when the
+\texttt{streamlit} executable is already on the system path. On macOS or
+Linux, replace \texttt{py -3.13} with the local Python launcher, commonly
+\texttt{python} or \texttt{python3}.
 
 For shared use across a class, the repository can be pushed to GitHub and
 connected via \texttt{share.streamlit.io}. Students then access the
@@ -2333,9 +2345,11 @@ integrated workspace through a public URL with no local installation.
 
 A single radio in the sidebar selects which page is active. The intent is
 to move through them in order, but jumping back is supported because each
-step reads the shared
-\texttt{tri\_hb\_latest\_config}/\texttt{tri\_hb\_latest\_result} entries
-from the Streamlit session state.
+step reads the same Streamlit session-state entries:
+\begin{center}
+  \texttt{tri\_hb\_latest\_config}\\
+  \texttt{tri\_hb\_latest\_result}
+\end{center}
 
 \begin{description}[leftmargin=2em,style=nextline]
   \item[Overview] Landing page that explains the workflow. Use it to
