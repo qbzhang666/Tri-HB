@@ -18,6 +18,45 @@ st.set_page_config(
     layout="wide",
 )
 
+PUB_COLORS = {
+    "blue": "#0072B2",
+    "sky": "#56B4E9",
+    "green": "#009E73",
+    "orange": "#E69F00",
+    "vermillion": "#D55E00",
+    "purple": "#7A5195",
+    "magenta": "#CC79A7",
+    "black": "#222222",
+    "gray": "#6B7280",
+}
+
+plt.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["STIXGeneral", "Times New Roman", "Cambria", "DejaVu Serif"],
+    "mathtext.fontset": "stix",
+    "axes.prop_cycle": plt.cycler(color=[
+        PUB_COLORS["blue"],
+        PUB_COLORS["vermillion"],
+        PUB_COLORS["green"],
+        PUB_COLORS["purple"],
+        PUB_COLORS["orange"],
+        PUB_COLORS["sky"],
+    ]),
+    "figure.facecolor": "white",
+    "axes.facecolor": "white",
+    "axes.edgecolor": "#222222",
+    "axes.labelcolor": "#222222",
+    "axes.titlecolor": "#222222",
+    "xtick.color": "#222222",
+    "ytick.color": "#222222",
+    "grid.color": "#D9DEE7",
+    "grid.linewidth": 0.55,
+    "grid.alpha": 1.0,
+    "legend.frameon": False,
+    "savefig.facecolor": "white",
+    "savefig.edgecolor": "white",
+})
+
 # =============================================================================
 # Utility functions
 # =============================================================================
@@ -105,13 +144,38 @@ def trapz_safe(y, x):
 
 def fig_to_bytes(fig, fmt="png", dpi=300):
     buf = io.BytesIO()
-    fig.savefig(buf, format=fmt, dpi=dpi, bbox_inches="tight")
+    fig.savefig(buf, format=fmt, dpi=dpi, bbox_inches="tight", facecolor="white")
     buf.seek(0)
     return buf
 
 
 def format_mpa(value):
     return f"{value:.0f} MPa"
+
+
+def apply_publication_axes(ax, title=None):
+    if title is not None:
+        ax.set_title(title, fontsize=12, fontweight="bold", pad=8)
+    ax.tick_params(axis="both", labelsize=10, direction="out", length=3.5, width=0.8)
+    ax.xaxis.label.set_size(11)
+    ax.yaxis.label.set_size(11)
+    ax.grid(True, which="major")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_linewidth(0.8)
+    ax.spines["bottom"].set_linewidth(0.8)
+    legend = ax.get_legend()
+    if legend is not None:
+        legend.set_frame_on(False)
+        for text in legend.get_texts():
+            text.set_fontsize(9.5)
+
+
+def show_publication_figure(fig):
+    for ax in fig.axes:
+        apply_publication_axes(ax)
+    fig.tight_layout()
+    st.pyplot(fig)
 
 
 # =============================================================================
