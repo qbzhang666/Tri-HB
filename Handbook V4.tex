@@ -958,7 +958,7 @@ The unit check is
 $\Ab\,[\si{m^{2}}]\cdot E_b\,[\si{Pa}]\cdot \Cz\,[\si{m/s}]\cdot\int\eps^{2}dt\,[\si{s}] = \si{J}$.
 
 \bigskip
-\noindent The next four chapters apply these foundations to the four loading
+\noindent The next six chapters apply these foundations to the six loading
 modes in turn.
 
 
@@ -970,8 +970,15 @@ The gas-gun mode is the historical reference configuration of split-Hopkinson
 testing. A projectile (the striker bar) is launched by compressed gas, impacts
 the end of the incident bar, and generates a compressive pulse that propagates
 into the specimen. The mode is treated first because its analysis is the
-simplest, and because the remaining three modes can be understood as
+simplest, and because the remaining modes can be understood as
 generalisations of it.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{figures/handbook_modes/mode_1_gas_gun_uniaxial.png}
+  \caption{Mode~1 sample run: sandstone, gas-gun uniaxial SHPB, $V=\SI{20}{m/s}$, no static confinement.}
+  \label{fig:mode-1-gas-gun-uniaxial}
+\end{figure}
 
 \section{Hardware configuration}
 
@@ -1128,6 +1135,13 @@ suited to applications where the axisymmetric stress state is adequate.
 It cannot, however, deliver independent $\sig_2$ and $\sig_3$ or probe
 non-axisymmetric stress states: the Lode angle is fixed at
 $\theta=0$ (triaxial compression) for the entire test.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{figures/handbook_modes/mode_2_confinement_chamber.png}
+  \caption{Mode~2 sample run: sandstone in a confinement chamber, $V=\SI{20}{m/s}$, $\sig_1=\SI{30}{MPa}$ and $p_c=\SI{20}{MPa}$.}
+  \label{fig:mode-2-confinement-chamber}
+\end{figure}
 
 \section{Hardware configuration}
 
@@ -1400,6 +1414,13 @@ state plus a uniaxial dynamic increment along X --- the loading regime
 representative of an in-situ rockmass struck by a blast or seismic wave
 \cite{Liu2019,Zhang2019Tri}.
 
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{figures/handbook_modes/mode_3_monash_tri_hb.png}
+  \caption{Mode~3 sample run: sandstone with independent static triaxial pre-stress and gas-gun dynamic loading, $V=\SI{20}{m/s}$.}
+  \label{fig:mode-3-monash-tri-hb}
+\end{figure}
+
 \section{Hardware configuration}
 
 The bench and bar geometry are identical to Mode~1: striker
@@ -1630,6 +1651,13 @@ incident bar. The data-reduction equations are identical to Mode~1; the
 distinguishing feature is the pulse shape and the independent control of
 amplitude and duration.
 
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{figures/handbook_modes/mode_4_em_uniaxial.png}
+  \caption{Mode~4 sample run: sandstone, single electromagnetic half-sine pulse on $+X$, $\sigpeak=\SI{400}{MPa}$ and $\tau=\SI{200}{\micro s}$.}
+  \label{fig:mode-4-em-uniaxial}
+\end{figure}
+
 \section{Hardware differences from Mode~1}
 
 \begin{itemize}[leftmargin=*,itemsep=2pt]
@@ -1763,6 +1791,13 @@ It enables the study of how the \emph{order} of multi-axis loading affects
 material failure --- a question that classical uniaxial Hopkinson testing
 cannot address.
 
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{figures/handbook_modes/mode_5_em_async_triaxial.png}
+  \caption{Mode~5 sample run: sandstone, electromagnetic pulses on $+X$, $+Y$, and $+Z$ with \SI{80}{\micro s} and \SI{160}{\micro s} inter-axis delays.}
+  \label{fig:mode-5-em-async-triaxial}
+\end{figure}
+
 \section{Hardware configuration}
 
 Three pulse generators fire on three orthogonal incident bars. The remaining
@@ -1882,6 +1917,13 @@ delivering identical pulses on the opposing bar pairs $(+X,-X)$, $(+Y,-Y)$,
 $(+Z,-Z)$. The two pulses on each axis arrive at the specimen at the same
 instant, superposing constructively in force while cancelling in momentum.
 The specimen is compressed from all sides simultaneously.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{figures/handbook_modes/mode_6_em_symmetric_xyz.png}
+  \caption{Mode~6 sample run: sandstone, full symmetric XYZ electromagnetic operation, $\sigpeak=\SI{400}{MPa}$ per single bar and $\tau=\SI{200}{\micro s}$.}
+  \label{fig:mode-6-em-symmetric-xyz}
+\end{figure}
 
 \begin{newfeature}[Why this mode is special]
 \begin{itemize}[leftmargin=*,itemsep=2pt]
@@ -2182,6 +2224,13 @@ Best application & UCS, baseline SHPB & Standard confined SHPB & In-situ confine
 reflects the current digital-twin calibration. The slider maximum is set in
 one location (\texttt{max\_conf} in \texttt{tri\_hb\_integrated.py}) and can
 be raised when the physical bench is upgraded.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{figures/handbook_modes/mode_comparison_summary.png}
+  \caption{One-sample visual comparison of the six Tri-HB loading modes, using the same sandstone reference case to show how pulse source, confinement, stress path, and damage indicators change across the apparatus configurations.}
+  \label{fig:mode-comparison-summary}
+\end{figure}
 
 \section{Mode selection: matching the question to the apparatus}
 
