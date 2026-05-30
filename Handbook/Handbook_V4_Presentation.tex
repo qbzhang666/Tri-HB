@@ -1,0 +1,1206 @@
+% ===================================================================
+% Tri-HB Handbook V4 presentation
+% Compile with XeLaTeX: xelatex Handbook_V4_Presentation.tex
+% ===================================================================
+\documentclass[11pt,aspectratio=169]{beamer}
+
+% Prefer the requested Metropolis theme; fall back gracefully if unavailable.
+\newif\ifmetropolisavailable
+\IfFileExists{beamerthememetropolis.sty}{\metropolisavailabletrue}{\metropolisavailablefalse}
+\ifmetropolisavailable
+  \usetheme[progressbar=frametitle, sectionpage=progressbar]{metropolis}
+\else
+  \usetheme{default}
+\fi
+
+\IfFileExists{appendixnumberbeamer.sty}{\usepackage{appendixnumberbeamer}}{}
+\IfFileExists{booktabs.sty}{%
+  \usepackage{booktabs}
+}{%
+  \newcommand{\toprule}{\hline}
+  \newcommand{\midrule}{\hline}
+  \newcommand{\bottomrule}{\hline}
+}
+\IfFileExists{ccicons.sty}{\usepackage[scale=2]{ccicons}}{}
+\IfFileExists{pgfplots.sty}{%
+  \usepackage{pgfplots}
+  \pgfplotsset{compat=1.18}
+  \usepgfplotslibrary{dateplot}
+}{}
+\IfFileExists{xspace.sty}{\usepackage{xspace}}{}
+\usepackage{iftex}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc}
+\usepackage{graphicx}
+\ifXeTeX
+  \IfFileExists{xeCJK.sty}{\usepackage{xeCJK}}{}
+\fi
+
+% -------------------------------------------------------------------
+% COLOR THEME
+% Monash-inspired, lighter, restrained academic version
+% -------------------------------------------------------------------
+\definecolor{TUSTnavy}{HTML}{00739D}
+\definecolor{TUSTdeep}{HTML}{505050}
+\definecolor{TUSTteal}{HTML}{006DAE}
+\definecolor{TUSTlightteal}{HTML}{6F64A9}
+\definecolor{TUSTgold}{HTML}{795548}
+\definecolor{TUSToffwhite}{HTML}{F6F6F6}
+\definecolor{TUSTlightgray}{HTML}{FFFFFF}
+\definecolor{TUSTmidgray}{HTML}{505050}
+\definecolor{TUSTbody}{HTML}{000000}
+\definecolor{TUSTalert}{HTML}{DF0021}
+\definecolor{TUSTalertbg}{HTML}{F6F6F6}
+\definecolor{TUSTgreen}{HTML}{006F29}
+\definecolor{TUSTgreenbg}{HTML}{F6F6F6}
+
+\setbeamercolor{normal text}{fg=TUSTbody, bg=TUSToffwhite}
+\setbeamercolor{background canvas}{bg=TUSToffwhite}
+\setbeamercolor{alerted text}{fg=TUSTalert}
+\setbeamercolor{frametitle}{fg=TUSTnavy, bg=TUSToffwhite}
+\setbeamercolor{title}{fg=TUSTnavy}
+\setbeamercolor{section title}{fg=TUSTnavy, bg=TUSToffwhite}
+\setbeamercolor{subtitle}{fg=TUSTmidgray}
+\setbeamercolor{author}{fg=TUSTmidgray}
+\setbeamercolor{date}{fg=TUSTmidgray}
+\setbeamercolor{institute}{fg=TUSTmidgray}
+\setbeamercolor{block title}{fg=TUSTnavy, bg=TUSToffwhite}
+\setbeamercolor{block body}{fg=TUSTbody, bg=TUSTlightgray}
+\setbeamercolor{block title alerted}{fg=white, bg=TUSTalert}
+\setbeamercolor{block body alerted}{fg=TUSTbody, bg=TUSTalertbg}
+\setbeamercolor{block title example}{fg=white, bg=TUSTgreen}
+\setbeamercolor{block body example}{fg=TUSTbody, bg=TUSTgreenbg}
+\setbeamercolor{progress bar}{fg=TUSTnavy, bg=TUSTdeep}
+\setbeamercolor{item}{fg=TUSTnavy}
+\setbeamercolor{itemize item}{fg=TUSTnavy}
+\setbeamercolor{itemize subitem}{fg=TUSTgold}
+\setbeamercolor{enumerate item}{fg=TUSTnavy}
+\setbeamercolor{enumerate subitem}{fg=TUSTgold}
+\setbeamercolor{footline}{fg=TUSTmidgray, bg=TUSToffwhite}
+\setbeamercolor{standout}{fg=TUSTnavy, bg=TUSToffwhite}
+
+\ifmetropolisavailable
+\makeatletter
+\setbeamertemplate{section page}{
+  \centering
+  \begin{minipage}{0.92\textwidth}
+    \centering
+    {\usebeamerfont{section title}\usebeamercolor[fg]{section title}\insertsectionhead\par}
+  \end{minipage}
+  \vspace{0.55em}
+  \usebeamertemplate*{progress bar in section page}
+}
+\makeatother
+\metroset{block=fill}
+\fi
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{%
+  \hfill{\scriptsize\color{TUSTmidgray}\insertframenumber/\inserttotalframenumber}\hspace{1.2em}\vspace{0.7em}
+}
+
+\newcommand{\zhsub}[1]{{\normalsize\color{TUSTmidgray} #1}}
+\newcommand{\cncue}[1]{{\footnotesize\color{TUSTmidgray} #1}}
+\newcommand{\numcard}[3]{%
+  \begin{beamercolorbox}[wd=\textwidth, rounded=true, sep=0.7ex, leftskip=0.8ex, rightskip=0.8ex]{block body}
+    {\large\textbf{\color{TUSTteal}#1.}} \textbf{#2}\\[2pt] #3
+  \end{beamercolorbox}%
+}
+\newcommand{\cmdline}[1]{{\scriptsize\ttfamily\detokenize{#1}}}
+\newcommand{\figurewithnotes}[2]{%
+  \begin{figure}
+    \centering
+    \includegraphics[width=\textwidth,height=0.65\textheight,keepaspectratio]{#1}
+  \end{figure}
+  \vspace{-0.12cm}
+  {\scriptsize
+  \begin{itemize}
+    #2
+  \end{itemize}}
+}
+
+% Overleaf names build artifacts output.*. If the same project previously
+% compiled a BibLaTeX document, stale output.aux can otherwise stop this deck.
+\makeatletter
+\providecommand{\abx@aux@read@bblrerun}{}
+\providecommand{\abx@aux@read@bbl@mdfivesum}[1]{}
+\providecommand{\abx@aux@lbx@loadrequest}[1]{}
+\providecommand{\abx@aux@locallabelwidth}[3]{}
+\providecommand{\abx@aux@cite}[2]{}
+\providecommand{\abx@aux@refcontext}[1]{}
+\providecommand{\abx@aux@biblist}[1]{}
+\providecommand{\abx@aux@number}[5]{}
+\providecommand{\abx@aux@defaultrefcontext}[3]{}
+\providecommand{\abx@aux@defaultlabelprefix}[3]{}
+\providecommand{\abx@aux@page}[2]{}
+\providecommand{\abx@aux@fnpage}[2]{}
+\providecommand{\abx@aux@refsection}[2]{}
+\providecommand{\abx@aux@category}[2]{}
+\providecommand{\abx@aux@segm}[3]{}
+\providecommand{\abx@aux@nociteall}{}
+\providecommand{\abx@aux@count}[2]{}
+\providecommand{\abx@aux@fncount}[2]{}
+\providecommand{\abx@aux@backref}[5]{}
+\providecommand{\abx@aux@bibliography}[1]{}
+\providecommand{\abx@aux@sortscheme}[1]{}
+\makeatother
+
+% -------------------------------------------------------------------
+% META
+% -------------------------------------------------------------------
+\title{Tri-HB Handbook V4}
+\subtitle{Six loading modes, Streamlit workflow, and damage-validation equations\\[4pt]
+\zhsub{Beamer presentation generated from Handbook V4}}
+\date{29 May 2026}
+\author{%
+  \Large\textbf{Qianbing Zhang}\\[4pt]
+  {\normalsize\href{mailto:qianbing.zhang@monash.edu}{\color{TUSTteal}\nolinkurl{qianbing.zhang@monash.edu}}}
+}
+\institute{%
+  Department of Civil and Environmental Engineering\\
+  \large\textbf{Monash University}\\[8pt]
+  {\tiny \color{TUSTmidgray} \copyright~2026 Qianbing Zhang. All rights reserved.}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}{Presentation Overview}
+  \setbeamertemplate{section in toc}[sections numbered]
+  \tableofcontents[hideallsubsections]
+\end{frame}
+
+% ###################################################################
+\section{Purpose and Apparatus}
+% ###################################################################
+
+\begin{frame}{Why Handbook V4 matters}
+  \begin{exampleblock}{Core purpose}
+    Handbook V4 connects the physical Tri-HB facility, the six loading modes,
+    and the Streamlit digital twin into one reproducible workflow.
+  \end{exampleblock}
+  \vspace{0.25cm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \textbf{Experimental need}\\[3pt]
+      Dynamic rock failure is rarely uniaxial. In-situ stress, blast waves,
+      seismic pulses, and excavation disturbance are multiaxial and path
+      dependent.
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Digital-twin need}\\[3pt]
+      Every calculation must be traceable from setup, through wave reduction,
+      to stress path, damage, energy density, and validation descriptors.
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Monash Tri-HB system: one platform, six modes}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.52\textwidth}
+      \begin{itemize}
+        \item X-axis gas-gun train for classical SHPB and coupled triaxial loading.
+        \item Independent Y and Z bar pairs for true triaxial static pre-stress.
+        \item Electromagnetic pulse generators for programmable amplitude,
+              duration, symmetry, and inter-axis delay.
+        \item Current digital-twin pre-stress range: 0--50 MPa per axis.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \begin{block}{Physical interpretation}
+        Modes 1--3 preserve gas-gun heritage; Modes 4--6 add clean pulse
+        control and true multidirectional timing studies.
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ###################################################################
+\section{Mechanics Backbone}
+% ###################################################################
+
+\begin{frame}{The equations reduce everything to four checks}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.49\textwidth}
+      \numcard{1}{Wave propagation}{Elastic bar-wave mechanics set the usable signal window.}
+      \vspace{0.22cm}
+      \numcard{2}{Specimen equilibrium}{The three-wave method requires transit-time and force-balance checks.}
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \numcard{3}{Stress path}{$\sigma_1,\sigma_2,\sigma_3$ are converted to $p$, $q$, and Lode angle $\theta$.}
+      \vspace{0.22cm}
+      \numcard{4}{Damage and energy}{Failure index, stiffness loss, and energy density form the validation layer.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Calibration policy carried into the Streamlit app}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{alertblock}{Updated DIF convention}
+        Handbook V4 and the simulator presets now use a literature-reference
+        strain-rate scale of
+        \[
+          \dot{\varepsilon}_{\mathrm{ref}} = 10^{-5}\ \mathrm{s}^{-1}.
+        \]
+      \end{alertblock}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Consequence}
+        Worked examples, simulator presets, and handbook equations now follow
+        the same calibration policy rather than mixing handbook and app
+        conventions.
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \[
+    \mathrm{DIF} = 1 + C\log_{10}\!\left(\frac{\dot{\varepsilon}}
+    {10^{-5}}\right), \qquad \mathrm{DIF}\le \mathrm{DIF}_{\max}.
+  \]
+  \cncue{$\dot{\varepsilon}$ is the measured strain rate; $C$ is the fitted
+  rate-sensitivity coefficient; $\mathrm{DIF}_{\max}$ caps the strength
+  amplification outside the calibrated range.}
+\end{frame}
+
+% ###################################################################
+\section{Six Loading Modes}
+% ###################################################################
+
+\begin{frame}{The six-mode comparison is the handbook's decision map}
+  \scriptsize
+  \begin{tabular}{@{}p{0.10\textwidth}p{0.18\textwidth}p{0.20\textwidth}p{0.25\textwidth}p{0.18\textwidth}@{}}
+    \toprule
+    \textbf{Mode} & \textbf{Drive} & \textbf{Boundary state} & \textbf{What changes in the result} & \textbf{Shared basis} \\
+    \midrule
+    1 & Gas-gun X & Unconfined & Axial stress--strain branch only; baseline dynamic strength & Sandstone, 50 mm specimen \\
+    2 & Gas-gun X & Chamber, $\sigma_2=\sigma_3$ & Higher mean pressure; axisymmetric $p$--$q$ path & Same gas-gun speed as Mode 1 \\
+    3 & Gas-gun X & Active true triaxial & Independent $\sigma_2,\sigma_3$ shift the Lode path & Same material and X impact \\
+    4 & EM X & Static triaxial pre-stress & Clean half-sine rate control on one driven axis & Same pre-stress as Modes 5--6 \\
+    5 & EM X/Y/Z & Timed multi-axis pulses & Stress path bends with pulse order and superposition & Same EM pulse family as Mode 4 \\
+    6 & EM $\pm$ axes & Symmetric squeeze & Near-hydrostatic compaction with force cancellation & Same EM amplitude and duration \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.32cm}
+  \begin{block}{Common default used in the figures}
+    Sandstone preset: $E=15$ GPa, UCS $=80$ MPa, $\nu=0.20$,
+    $\rho=2650$ kg\,m$^{-3}$; specimen $50\times50\times50$ mm;
+    42CrMo/steel bars with $E_b=210$ GPa and $C_0=5172$ m\,s$^{-1}$.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Six-mode result summary: similarities and differences}
+  \scriptsize
+  \begin{tabular}{@{}p{0.10\textwidth}p{0.24\textwidth}p{0.29\textwidth}p{0.27\textwidth}@{}}
+    \toprule
+    \textbf{Mode} & \textbf{Same as others} & \textbf{Different setup condition} & \textbf{Result signature} \\
+    \midrule
+    1 & Same sandstone and specimen geometry & No confinement; gas-gun X at 20 m\,s$^{-1}$ & Lowest-pressure baseline; only axial branch is meaningful \\
+    2 & Same gas-gun speed as Modes 1 and 3 & Chamber confinement, $\sigma_1=30$, $\sigma_2=\sigma_3=20$ MPa & $p$ rises while Lode state remains axisymmetric \\
+    3 & Same static X preload as Mode 2 & True triaxial pre-stress, $30/20/15$ MPa & Lode-angle effect appears through unequal lateral stresses \\
+    4 & Same $30/20/15$ MPa pre-stress as Modes 5--6 & One EM X pulse, 400 MPa peak, 200 $\mu$s & Controlled uniaxial dynamic increment on a pre-stressed state \\
+    5 & Same EM amplitude/duration as Mode 4 & Programmable X/Y/Z timing; default shown has zero Y/Z delay & Curved $p$--$q$ path shows multi-axis stress interaction \\
+    6 & Same material and EM pulse scale & Opposed symmetric pulses on $\pm X,\pm Y,\pm Z$ & Hydrostatic compaction dominates; momentum cancels by design \\
+    \bottomrule
+  \end{tabular}
+\end{frame}
+
+\begin{frame}{Mode 1: gas-gun uniaxial SHPB}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{Use when:}
+      \begin{itemize}
+        \item Baseline dynamic uniaxial strength is the target.
+        \item Published classical SHPB comparison is needed.
+        \item Confinement and Lode-angle effects are outside scope.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{block}{Main limitation}
+        Single loading axis, no active confinement.
+      \end{block}
+      \[
+        \sigma_x(t)\approx\sigma_{\mathrm{dyn}}(t), \qquad
+        \sigma_y=\sigma_z=0 .
+      \]
+      \cncue{$\sigma_x$ is axial specimen stress; $\sigma_{\mathrm{dyn}}$ is the dynamic stress inferred from bar waves.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Mode 1 setup conditions}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Material and geometry}
+        Sandstone preset: $E=15$ GPa, UCS $=80$ MPa, $\nu=0.20$,
+        $\rho=2650$ kg\,m$^{-3}$.\\[3pt]
+        Specimen: $50\times50\times50$ mm.
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{Loading setup}
+        Gas-gun impact along X; striker velocity $V=20$ m\,s$^{-1}$.\\[3pt]
+        Static pre-stress: $\sigma_x=\sigma_y=\sigma_z=0$ MPa.
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{block}{Interpretation}
+    This is the reference unconfined SHPB case used to separate pure axial
+    rate response from confinement and Lode-angle effects.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Mode 1: stress history}
+  \figurewithnotes{figures/handbook_modes/mode_1_gas_gun_uniaxial_stress_history.png}{%
+    \item Only the X-axis stress carries the dynamic pulse; lateral stresses remain zero.
+    \item Use this plot to check the baseline pulse duration and peak axial stress before adding confinement.
+  }
+\end{frame}
+
+\begin{frame}{Mode 1: axial stress--strain response}
+  \figurewithnotes{figures/handbook_modes/mode_1_gas_gun_uniaxial_stress_strain.png}{%
+    \item The loading branch gives the dynamic uniaxial strength estimate for the sandstone preset.
+    \item No confinement correction should be applied to this baseline curve.
+  }
+\end{frame}
+
+\begin{frame}{Mode 2: confinement-chamber SHPB}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{Use when:}
+      \begin{itemize}
+        \item Axisymmetric triaxial confinement is sufficient.
+        \item The specimen is cylindrical or jacketed.
+        \item The stress path can remain at $\theta=0$.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{block}{Main limitation}
+        Lateral pressure is passive; independent $\sigma_2$ and $\sigma_3$
+        cannot be imposed.
+      \end{block}
+      \[
+        \sigma_2=\sigma_3=p_c, \qquad
+        p=\frac{\sigma_1+2p_c}{3}.
+      \]
+      \cncue{$p_c$ is chamber pressure; $p$ is mean pressure; Mode~2 enforces axisymmetric confinement.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Mode 2 setup conditions}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Material and geometry}
+        Sandstone preset: $E=15$ GPa, UCS $=80$ MPa, $\nu=0.20$,
+        $\rho=2650$ kg\,m$^{-3}$.\\[3pt]
+        Specimen: $50\times50\times50$ mm.
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{Loading setup}
+        Gas-gun impact along X; striker velocity $V=20$ m\,s$^{-1}$.\\[3pt]
+        Static condition: $\sigma_x=30$ MPa, chamber pressure
+        $p_c=\sigma_y=\sigma_z=20$ MPa.
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{block}{Interpretation}
+    The chamber raises mean pressure but keeps the two lateral principal
+    stresses equal, so the stress path is axisymmetric.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Mode 2: stress history}
+  \figurewithnotes{figures/handbook_modes/mode_2_confinement_chamber_stress_history.png}{%
+    \item The X dynamic pulse rides on top of the static axial pre-stress.
+    \item The lateral stresses remain equal, representing chamber confinement rather than true triaxial control.
+  }
+\end{frame}
+
+\begin{frame}{Mode 2: stress path}
+  \figurewithnotes{figures/handbook_modes/mode_2_confinement_chamber_stress_path.png}{%
+    \item The $p$--$q$ path mainly measures confinement strengthening under $\sigma_y=\sigma_z$.
+    \item It is useful for chamber tests but cannot isolate separate Y and Z boundary effects.
+  }
+\end{frame}
+
+\begin{frame}{Mode 3: Monash gas-gun true triaxial loading}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{Use when:}
+      \begin{itemize}
+        \item In-situ pre-stress matters.
+        \item $\sigma_2$ and $\sigma_3$ must be independently controlled.
+        \item Dynamic X loading is combined with true triaxial confinement.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{exampleblock}{Signature capability}
+        Gas-gun dynamic loading plus active orthogonal bar/cylinder confinement.
+      \end{exampleblock}
+      \[
+        \sigma_x=\sigma_{x0}+\sigma_{\mathrm{dyn}}(t), \quad
+        \sigma_y=\sigma_{y0}, \quad \sigma_z=\sigma_{z0}.
+      \]
+      \cncue{$\sigma_{i0}$ denotes static pre-stress on axis $i$ before the gas-gun pulse arrives.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Mode 3 setup conditions}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Material and geometry}
+        Sandstone preset: $E=15$ GPa, UCS $=80$ MPa, $\nu=0.20$,
+        $\rho=2650$ kg\,m$^{-3}$.\\[3pt]
+        Specimen: $50\times50\times50$ mm.
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{Loading setup}
+        Gas-gun impact along X; striker velocity $V=20$ m\,s$^{-1}$.\\[3pt]
+        Static pre-stress: $\sigma_x=30$, $\sigma_y=20$,
+        $\sigma_z=15$ MPa.
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{block}{Interpretation}
+    Independent lateral confinement allows the gas-gun result to probe
+    non-axisymmetric stress paths and Lode-angle sensitivity.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Mode 3: stress history}
+  \figurewithnotes{figures/handbook_modes/mode_3_monash_tri_hb_stress_history.png}{%
+    \item The dynamic X pulse is combined with unequal static Y and Z stresses.
+    \item This separates true triaxial confinement from the chamber-style $\sigma_y=\sigma_z$ assumption.
+  }
+\end{frame}
+
+\begin{frame}{Mode 3: stress path}
+  \figurewithnotes{figures/handbook_modes/mode_3_monash_tri_hb_stress_path.png}{%
+    \item The path moves through a different Lode state because $\sigma_y$ and $\sigma_z$ are unequal.
+    \item Compare with Mode 2 to see what changes when lateral stresses are independently imposed.
+  }
+\end{frame}
+
+\begin{frame}{Mode 4: electromagnetic uniaxial impact}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{Use when:}
+      \begin{itemize}
+        \item A clean half-sine pulse is preferred.
+        \item Pulse amplitude and duration must be tuned independently.
+        \item Rate effects are the main research question.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{block}{Design advantage}
+        The EM system decouples peak stress from pulse duration.
+      \end{block}
+      \[
+        \sigma_{\mathrm{dyn}}(t)=
+        \sigma_{\mathrm{peak}}\sin\!\left(\frac{\pi t}{\tau}\right),
+        \quad 0<t<\tau .
+      \]
+      \cncue{$\sigma_{\mathrm{peak}}$ is EM pulse amplitude; $\tau$ is pulse duration.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Mode 4 setup conditions}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Material and geometry}
+        Sandstone preset: $E=15$ GPa, UCS $=80$ MPa, $\nu=0.20$,
+        $\rho=2650$ kg\,m$^{-3}$.\\[3pt]
+        Specimen: $50\times50\times50$ mm.
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{Loading setup}
+        EM half-sine pulse along X; peak $400$ MPa, duration $200~\mu$s.\\[3pt]
+        Static pre-stress: $\sigma_x=30$, $\sigma_y=20$,
+        $\sigma_z=15$ MPa; striker velocity not used.
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{block}{Interpretation}
+    The EM actuator makes pulse amplitude and duration explicit inputs, so
+    rate effects can be changed without changing a gas-gun impact speed.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Mode 4: stress history}
+  \figurewithnotes{figures/handbook_modes/mode_4_em_uniaxial_stress_history.png}{%
+    \item The X-axis stress follows the prescribed half-sine pulse shape.
+    \item Static Y and Z pre-stresses define the initial confinement but do not receive dynamic pulses.
+  }
+\end{frame}
+
+\begin{frame}{Mode 4: axial stress--strain response}
+  \figurewithnotes{figures/handbook_modes/mode_4_em_uniaxial_stress_strain.png}{%
+    \item The branch is controlled by the EM pulse amplitude and duration rather than striker velocity.
+    \item Compare with Mode 1 to separate pulse-shape effects from unconfined gas-gun loading.
+  }
+\end{frame}
+
+\begin{frame}{Mode 5: electromagnetic asynchronous triaxial impact}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{Use when:}
+      \begin{itemize}
+        \item Loading order and inter-axis delay are the physics.
+        \item Crack initiation may depend on which axis arrives first.
+        \item Step 2 delay regime and Step 3 stress path are central outputs.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{alertblock}{Interpretation warning}
+        A uniaxial constitutive fit is not meaningful for asynchronous triaxial
+        paths.
+      \end{alertblock}
+      \[
+        \sigma_i(t)=\sigma_{i0}+A_i\,g(t-\Delta t_i).
+      \]
+      \cncue{$A_i$ is axis-$i$ pulse amplitude; $g$ is the pulse shape; $\Delta t_i$ is the firing delay.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Mode 5 setup conditions}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Material and geometry}
+        Sandstone preset: $E=15$ GPa, UCS $=80$ MPa, $\nu=0.20$,
+        $\rho=2650$ kg\,m$^{-3}$.\\[3pt]
+        Specimen: $50\times50\times50$ mm.
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{Loading setup}
+        EM pulses on X/Y/Z; peak $400$ MPa, duration $200~\mu$s.\\[3pt]
+        Static pre-stress: $\sigma_x=30$, $\sigma_y=20$,
+        $\sigma_z=15$ MPa. Default figure: $\Delta t_y=\Delta t_z=0$.
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{block}{Interpretation}
+    This mode is for stress-path design: changing the pulse delays changes the
+    order in which the material sees mean pressure and deviatoric stress.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Mode 5: stress history}
+  \figurewithnotes{figures/handbook_modes/mode_5_em_async_triaxial_stress_history.png}{%
+    \item X, Y, and Z dynamic stresses are all active, so the loading state evolves in three dimensions.
+    \item The default plot uses zero Y/Z delay; non-zero delays would separate the peaks in time.
+  }
+\end{frame}
+
+\begin{frame}{Mode 5: stress path}
+  \figurewithnotes{figures/handbook_modes/mode_5_em_async_triaxial_stress_path.png}{%
+    \item The curved $p$--$q$ trajectory is the key diagnostic, not a simple axial stress--strain curve.
+    \item Peak $q$ marks the strongest deviatoric demand before the path relaxes toward high mean pressure.
+  }
+\end{frame}
+
+\begin{frame}{Mode 6: electromagnetic symmetric multidirectional impact}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{Use when:}
+      \begin{itemize}
+        \item Hydrostatic or near-hydrostatic dynamic loading is required.
+        \item Specimen stress must exceed one-sided bar limits.
+        \item Momentum cancellation is part of the design requirement.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{exampleblock}{Key idea}
+        Opposing pulses double specimen stress while keeping single-bar stress
+        unchanged.
+      \end{exampleblock}
+      \[
+        \sigma_i(t)=\sigma_{i0}+2A_i\,g(t), \qquad
+        F_i^{+}+F_i^{-}\approx0 .
+      \]
+      \cncue{The factor 2 comes from opposed equal pulses; $F_i^{+}$ and $F_i^{-}$ are opposing bar forces.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Mode 6 setup conditions}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Material and geometry}
+        Sandstone preset: $E=15$ GPa, UCS $=80$ MPa, $\nu=0.20$,
+        $\rho=2650$ kg\,m$^{-3}$.\\[3pt]
+        Specimen: $50\times50\times50$ mm.
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{Loading setup}
+        Opposed EM pulses on $\pm X,\pm Y,\pm Z$; peak $400$ MPa per bar,
+        duration $200~\mu$s.\\[3pt]
+        Static pre-stress: $\sigma_x=30$, $\sigma_y=20$, $\sigma_z=15$ MPa.
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{block}{Interpretation}
+    Symmetric opposed loading increases specimen pressure while cancelling net
+    specimen momentum, making it the closest default case to dynamic compaction.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Mode 6: stress history}
+  \figurewithnotes{figures/handbook_modes/mode_6_em_symmetric_xyz_stress_history.png}{%
+    \item Opposed pulses double the specimen-side loading contribution without exceeding the single-bar pulse scale.
+    \item The three principal stresses rise together, so deviatoric stress is reduced relative to Mode 5.
+  }
+\end{frame}
+
+\begin{frame}{Mode 6: hydrostatic compaction path}
+  \figurewithnotes{figures/handbook_modes/mode_6_em_symmetric_xyz_stress_path.png}{%
+    \item The diagnostic changes from axial strength to pressure--volumetric strain compaction.
+    \item Use this mode when hydrostatic cap response is the target rather than shear failure.
+  }
+\end{frame}
+
+\begin{frame}{Mode selection: match the apparatus to the question}
+  \small
+  \begin{tabular}{@{}p{0.18\textwidth}p{0.36\textwidth}p{0.36\textwidth}@{}}
+    \toprule
+    \textbf{Mode} & \textbf{Best question} & \textbf{Primary diagnostic} \\
+    \midrule
+    1 & Baseline dynamic strength & Three-wave equilibrium \\
+    2 & Axisymmetric confinement & Confinement correction and $\theta=0$ \\
+    3 & In-situ true triaxial pre-stress & Independent $\sigma_1,\sigma_2,\sigma_3$ \\
+    4 & Clean rate sweep & Half-sine amplitude-duration control \\
+    5 & Loading-order effects & $\Delta t^\ast$, $p$--$q$--$\theta$ path \\
+    6 & Hydrostatic cap response & Symmetric energy folding and momentum cancellation \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.35cm}
+  \begin{block}{Practical rule}
+    Choose the simplest mode that still preserves the stress state and timing
+    physics required by the research question.
+  \end{block}
+\end{frame}
+
+% ###################################################################
+\section{Integrated Streamlit Workflow}
+% ###################################################################
+
+\begin{frame}{The integrated app is the operational front door}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Recommended launch}
+        \cmdline{py -3.13 -m pip install -r requirements.txt}\\[4pt]
+        \cmdline{py -3.13 -m streamlit run}\\
+        \cmdline{tri_hb_integrated.py --server.port 8502}
+      \end{block}
+      \cncue{On macOS/Linux, replace \texttt{py -3.13} with the local launcher,
+      commonly \texttt{python} or \texttt{python3}.}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{Loaded modules}
+        \begin{itemize}
+          \item \cmdline{Tri-HB.py}: Step 1 setup, simulator, export.
+          \item \cmdline{wave_damage.py}: Steps 2--4 wave, stress path, damage,
+                energy, validation.
+        \end{itemize}
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Step 1 creates the shared experimental state}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \textbf{Inputs}
+      \begin{itemize}
+        \item material preset and specimen geometry
+        \item bar cross-section and elastic properties
+        \item loading mode, pulse source, and pre-stress
+        \item simulator or uploaded gauge data
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Session-state handoff}
+      \begin{block}{Shared keys}
+        \cmdline{tri_hb_latest_config}\\
+        \cmdline{tri_hb_latest_result}
+      \end{block}
+      These keep later steps synchronised with the current setup.
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Step 1 equations: bar signals to specimen response}
+  \scriptsize
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.49\textwidth}
+      \begin{block}{Three-wave stress}
+        \[
+          \sigma_s(t)=
+          \frac{A_bE_b}{2A_s}
+          \left[\varepsilon_I(t)+\varepsilon_R(t)+\varepsilon_T(t)\right].
+        \]
+      \end{block}
+      \begin{block}{One-wave stress}
+        \[
+          \sigma_s(t)=\frac{A_bE_b}{A_s}\,\varepsilon_T(t).
+        \]
+      \end{block}
+      \begin{block}{Definitions}
+        \begin{itemize}
+          \item $\varepsilon_I,\varepsilon_R,\varepsilon_T$: incident, reflected, transmitted bar strains.
+          \item $A_b,A_s$: bar and specimen cross-sectional areas.
+          \item $E_b$: bar Young's modulus; $\sigma_s$: specimen stress.
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \begin{exampleblock}{Strain-rate reduction}
+        \[
+          \dot{\varepsilon}_s(t)=
+          -\frac{2C_0}{L_s}\,\varepsilon_R(t),
+          \qquad
+          \varepsilon_s(t)=\int_0^t \dot{\varepsilon}_s(\tau)\,d\tau .
+        \]
+      \end{exampleblock}
+      \begin{block}{Bar-wave energy}
+        \[
+          W_i(t)=E_bA_bC_0
+          \int_0^t \varepsilon_i^2(\tau)\,d\tau .
+        \]
+      \end{block}
+      \begin{block}{Definitions}
+        \begin{itemize}
+          \item $C_0$: elastic wave speed in the bar.
+          \item $L_s$: specimen loading length.
+          \item $W_i$: energy carried by wave branch $i$.
+          \item $\tau$: dummy integration time, not pulse duration here.
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Step 2 equations: wave timing and superposition}
+  \scriptsize
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.49\textwidth}
+      \begin{block}{Elastic wave speeds}
+        \[
+          M=\frac{E(1-\nu)}{(1+\nu)(1-2\nu)},\qquad
+          c_p=\sqrt{\frac{M}{\rho}},\qquad
+          c_s=\sqrt{\frac{G}{\rho}} .
+        \]
+      \end{block}
+      \begin{block}{Timing scales}
+        \[
+          t_{\mathrm{travel}}=\frac{L_s}{c_p},\qquad
+          \Delta t^\ast=\frac{\Delta t}{t_{\mathrm{travel}}}.
+        \]
+      \end{block}
+      \begin{block}{Definitions}
+        \begin{itemize}
+          \item $E,\nu,\rho$: specimen Young's modulus, Poisson's ratio and density.
+          \item $M$: constrained P-wave modulus; $G$: shear modulus.
+          \item $c_p,c_s$: P- and S-wave speeds in the specimen.
+          \item $\Delta t^\ast$: dimensionless delay used for regime classification.
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \begin{exampleblock}{Centre superposition}
+        \[
+          \sigma_{\mathrm{centre}}(t)
+          =\sigma_{x0}+
+          \sum_i A_i\,g\!\left(t-\Delta t_i-\frac{L_s}{2c_p}\right).
+        \]
+        \[
+          \eta_{\mathrm{sup}}=
+          \frac{\max_t\sigma_{\mathrm{centre}}(t)-\sigma_{x0}}{A_x}.
+        \]
+      \end{exampleblock}
+      \begin{block}{Definitions}
+        \begin{itemize}
+          \item $A_i$: pulse amplitude on axis $i$.
+          \item $g(\cdot)$: selected pulse shape, for example half-sine or Hann.
+          \item $\Delta t_i$: firing delay for axis $i$.
+          \item $\eta_{\mathrm{sup}}$: superposition factor at specimen centre.
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Step 2: input dynamic pulses}
+  \figurewithnotes{figures/handbook_steps/step2_input_dynamic_pulses.png}{%
+    \item Pulse amplitude, duration, and delay define the wave-interaction problem before failure is evaluated.
+    \item This plot confirms whether the selected loading mode is one-axis, multi-axis, or symmetric.
+  }
+\end{frame}
+
+\begin{frame}{Step 2: centre superposition}
+  \figurewithnotes{figures/handbook_steps/step2_centre_superposition.png}{%
+    \item The centre stress is the sum of delayed wave arrivals at the specimen middle.
+    \item Peak superposition identifies the most severe instant for the later stress-path check.
+  }
+\end{frame}
+
+\begin{frame}{Step 2: delay regime map}
+  \figurewithnotes{figures/handbook_steps/step2_delay_regime_map.png}{%
+    \item Small $\Delta t^\ast$ gives overlapping pulses; large $\Delta t^\ast$ gives sequential loading.
+    \item The regime label explains whether Mode 5 behaves like simultaneous or staged triaxial impact.
+  }
+\end{frame}
+
+\begin{frame}{Step 2: timing scales}
+  \figurewithnotes{figures/handbook_steps/step2_timing_scales.png}{%
+    \item Travel time normalises the imposed pulse delay so different specimen sizes can be compared.
+    \item The plot links material wave speed, specimen length, and pulse timing in one check.
+  }
+\end{frame}
+
+\begin{frame}{Step 3 equations: stress invariants and failure index}
+  \scriptsize
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.49\textwidth}
+      \begin{block}{Stress invariants}
+        \[
+          p=\frac{\sigma_x+\sigma_y+\sigma_z}{3},
+        \]
+        \[
+          q=\sqrt{\frac{(\sigma_x-\sigma_y)^2+
+          (\sigma_y-\sigma_z)^2+(\sigma_z-\sigma_x)^2}{2}} .
+        \]
+        \[
+          \cos(3\theta)=\frac{3\sqrt{3}}{2}\frac{J_3}{J_2^{3/2}} .
+        \]
+      \end{block}
+      \begin{block}{Definitions}
+        \begin{itemize}
+          \item $\sigma_x,\sigma_y,\sigma_z$: principal stresses aligned with the bar axes.
+          \item $p$: mean pressure; $q$: deviatoric stress magnitude.
+          \item $J_2,J_3$: deviatoric stress invariants.
+          \item $\theta$: Lode angle describing compression/extension path shape.
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \begin{exampleblock}{Failure envelope}
+        \[
+          h(\theta)=1+a_\theta\left(1-\cos3\theta\right),
+        \]
+        \[
+          q_f(p,\theta)=\left(A+Bp^n\right)h(\theta),
+          \qquad
+          F(t)=\frac{q(t)}{q_f(t)} .
+        \]
+      \end{exampleblock}
+      \begin{block}{Equivalent strain rate}
+        \[
+          \dot{\varepsilon}_{\mathrm{eq}}=
+          \sqrt{\frac{2}{3}\cdot\frac{1}{2}
+          \left[
+          (\dot{\varepsilon}_x-\dot{\varepsilon}_y)^2+
+          (\dot{\varepsilon}_y-\dot{\varepsilon}_z)^2+
+          (\dot{\varepsilon}_z-\dot{\varepsilon}_x)^2
+          \right]} .
+        \]
+      \end{block}
+      \begin{block}{Definitions}
+        \begin{itemize}
+          \item $A,B,n,a_\theta$: calibrated failure-envelope parameters.
+          \item $q_f$: available deviatoric strength at the current $p,\theta$.
+          \item $F$: failure index; $F>1$ activates damage in Step~4.
+          \item $\dot{\varepsilon}_{\mathrm{eq}}$: scalar deviatoric strain-rate indicator.
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Step 3: total stresses and invariants}
+  \figurewithnotes{figures/handbook_steps/step3_total_stresses_invariants.png}{%
+    \item Total stresses include both static pre-stress and dynamic pulse contributions.
+    \item The derived $p$, $q$, and $\theta$ histories are the bridge from apparatus loading to failure analysis.
+  }
+\end{frame}
+
+\begin{frame}{Step 3: p-q trajectory}
+  \figurewithnotes{figures/handbook_steps/step3_pq_trajectory.png}{%
+    \item The trajectory shows whether loading is mostly confinement increase, shear increase, or both.
+    \item Peak $q$ is the critical point for comparing the stress path with the failure envelope.
+  }
+\end{frame}
+
+\begin{frame}{Step 3: failure surface comparison}
+  \figurewithnotes{figures/handbook_steps/step3_failure_surface_comparison.png}{%
+    \item The path is judged against $q_f(p,\theta)$ rather than a single uniaxial strength value.
+    \item Lode-angle correction changes the allowable deviatoric stress for the same mean pressure.
+  }
+\end{frame}
+
+\begin{frame}{Step 3: failure index and strain rate}
+  \figurewithnotes{figures/handbook_steps/step3_failure_index_strain_rate.png}{%
+    \item Damage is only allowed to grow when $F=q/q_f$ exceeds one.
+    \item The strain-rate history controls how rapidly overstress is converted into damage in Step 4.
+  }
+\end{frame}
+
+\begin{frame}{Step 4 equations: damage evolution}
+  \scriptsize
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{alertblock}{Damage trigger}
+        Damage grows only when the stress state leaves the failure envelope:
+        \[
+          F(t)=\frac{q(t)}{q_f(t)}>1,\qquad
+          \langle x\rangle=\max(x,0).
+        \]
+      \end{alertblock}
+      \begin{block}{Definitions}
+        \begin{itemize}
+          \item $F=q/q_f$: demand/capacity ratio from Step~3.
+          \item $q$: current deviatoric stress; $q_f$: failure-envelope value.
+          \item $\langle x\rangle$: Macaulay bracket, so negative overstress gives zero damage growth.
+          \item $D$: scalar damage variable, from intact ($0$) to failed ($1$).
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \begin{exampleblock}{Rate-sensitive law}
+        \[
+          \dot{D}=\frac{(1-D)^\alpha}{\tau_D}
+          \,R_F\,R_{\dot{\varepsilon}},
+        \]
+        \[
+          R_F=\left\langle\frac{F-1}{F_0}\right\rangle^m,
+          \qquad
+          R_{\dot{\varepsilon}}=
+          \left(\frac{|\dot{\varepsilon}_{\mathrm{eq}}|}
+          {\dot{\varepsilon}_0}\right)^\beta .
+        \]
+        \[
+          E(D)=E_0(1-D),\qquad
+          c_p(D)=c_{p0}\sqrt{\max(1-D,0)}.
+        \]
+      \end{exampleblock}
+      \begin{block}{Definitions}
+        \begin{itemize}
+          \item $\tau_D$: damage time scale; $\alpha$: saturation exponent.
+          \item $F_0,m$: overstress normalisation and exponent.
+          \item $\dot{\varepsilon}_0,\beta$: reference rate and rate sensitivity.
+          \item $E(D),c_p(D)$: degraded stiffness and P-wave speed.
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Step 4: damage trigger}
+  \figurewithnotes{figures/handbook_steps/step4_damage_trigger.png}{%
+    \item The horizontal line at $F=1$ is the onset threshold for damage evolution.
+    \item Time spent above the threshold, not only the peak value, controls the accumulated damage.
+  }
+\end{frame}
+
+\begin{frame}{Step 4: cumulative damage}
+  \figurewithnotes{figures/handbook_steps/step4_cumulative_damage.png}{%
+    \item Damage grows during the overstress window and then saturates as stiffness is lost.
+    \item The final value provides the scalar damage state used by the validation descriptors.
+  }
+\end{frame}
+
+\begin{frame}{Step 4: stiffness and wave-speed loss}
+  \figurewithnotes{figures/handbook_steps/step4_stiffness_wave_speed.png}{%
+    \item $E(D)$ and $c_p(D)$ translate scalar damage into measurable stiffness and wave-speed degradation.
+    \item These curves are useful for comparing simulated damage with ultrasonic or post-test measurements.
+  }
+\end{frame}
+
+\begin{frame}{Step 4: damage profile descriptors}
+  \figurewithnotes{figures/handbook_steps/step4_damage_profile.png}{%
+    \item The profile distinguishes central damage from end effects and boundary artefacts.
+    \item Symmetry indicators help identify whether asynchronous loading biased the failure zone.
+  }
+\end{frame}
+
+\begin{frame}{Step 4 equations: energy and validation descriptors}
+  \scriptsize
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.52\textwidth}
+      \begin{block}{Energy density}
+        \[
+          \begin{aligned}
+          W_{\mathrm{el}} &=
+          \frac{1}{2E}\Big[
+          \sigma_x^2+\sigma_y^2+\sigma_z^2 \\
+          &\quad -2\nu(\sigma_x\sigma_y+\sigma_y\sigma_z+\sigma_z\sigma_x)
+          \Big],\\
+          W_{\mathrm{input}}(t)&=
+          \int_0^t
+          \left(\sigma_x\dot{\varepsilon}_x+
+          \sigma_y\dot{\varepsilon}_y+
+          \sigma_z\dot{\varepsilon}_z\right)d\tau .
+          \end{aligned}
+        \]
+      \end{block}
+      \begin{block}{Definitions}
+        \begin{itemize}
+          \item $W_{\mathrm{el}}$: recoverable elastic energy density.
+          \item $W_{\mathrm{input}}$: cumulative mechanical work density.
+          \item $\sigma_i\dot{\varepsilon}_i$: power density contribution from axis $i$.
+          \item Units are MJ\,m$^{-3}$ when stresses are MPa and strains are dimensionless.
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{exampleblock}{Damage descriptors}
+        \[
+          D_c=\frac{\int_{\mathrm{centre}}D(x)\,dx}
+          {\int_0^{L_s}D(x)\,dx},
+        \]
+        \[
+          S_x=1-
+          \frac{|D_{\mathrm{left}}-D_{\mathrm{right}}|}
+          {D_{\mathrm{left}}+D_{\mathrm{right}}}.
+        \]
+      \end{exampleblock}
+      \begin{block}{Definitions}
+        \begin{itemize}
+          \item $D(x)$: estimated damage profile along specimen length.
+          \item $D_c$: fraction of total damage in the central region.
+          \item $D_{\mathrm{left}},D_{\mathrm{right}}$: integrated damage on each half.
+          \item $S_x=1$ means left/right damage symmetry; smaller values mean localisation bias.
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Step 4: energy-density histories}
+  \figurewithnotes{figures/handbook_steps/step4_energy_density_histories.png}{%
+    \item Input work, recoverable energy, and dissipated energy should evolve consistently with the damage law.
+    \item A large dissipated fraction indicates irreversible cracking or compaction rather than elastic storage.
+  }
+\end{frame}
+
+\begin{frame}{Step 4: power density}
+  \figurewithnotes{figures/handbook_steps/step4_power_density.png}{%
+    \item Power density identifies the short time window where mechanical work is injected most rapidly.
+    \item Compare the peak with the damage-onset time to check whether failure is rate-driven.
+  }
+\end{frame}
+
+\begin{frame}{Step 4: validation descriptors}
+  \figurewithnotes{figures/handbook_steps/step4_validation_descriptors.png}{%
+    \item The descriptors compress a spatial damage field into centre concentration and left/right symmetry.
+    \item They are intended for comparison with DEM fracture maps or recovered specimen observations.
+  }
+\end{frame}
+
+\begin{frame}{Step 4: delay-sensitivity indicators}
+  \figurewithnotes{figures/handbook_steps/step4_delay_sensitivity_indicators.png}{%
+    \item Delay sensitivity links Step 2 timing to the final damage pattern and energy dissipation.
+    \item Use it to choose whether a multi-axis test should be simultaneous or intentionally staggered.
+  }
+\end{frame}
+
+\begin{frame}{Outputs connect the handbook to experiments}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{Exportable data}
+        \begin{itemize}
+          \item stress--strain histories
+          \item strain-rate histories
+          \item incident/reflected/transmitted energies
+          \item Step 2--4 CSV/XLSX summaries
+        \end{itemize}
+      \end{exampleblock}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Validation targets}
+        \begin{itemize}
+          \item bar gauge amplitude and delay
+          \item DIC localisation
+          \item CT damage volume and crack orientation
+          \item DEM bond breakage and dissipated energy
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ###################################################################
+\section{Handbook V4 Deliverable}
+% ###################################################################
+
+\begin{frame}{What is new in this presentation-ready V4}
+  \begin{itemize}
+    \item Simulator presets and handbook equations are aligned around
+          $\dot{\varepsilon}_{\mathrm{ref}}=10^{-5}\ \mathrm{s}^{-1}$.
+    \item Six-mode figures are inserted into the corresponding apparatus
+          chapters.
+    \item Step 2--4 figures now document wave timing, stress path, damage,
+          energy density, and validation descriptors.
+    \item The launch instructions use the tested Windows launcher:
+          \cmdline{py -3.13 -m streamlit}.
+    \item Long inline code keys were reformatted to avoid PDF margin overflow.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Recommended use in teaching and research}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \textbf{Teaching sequence}
+      \begin{enumerate}
+        \item start with Mode 1 wave reduction
+        \item add confinement through Modes 2--3
+        \item move to EM pulse control in Modes 4--6
+        \item finish with Step 2--4 damage validation
+      \end{enumerate}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Research sequence}
+      \begin{enumerate}
+        \item choose mode from the stress-path question
+        \item check bar plasticity and equilibrium
+        \item export reduced histories
+        \item calibrate damage and DEM descriptors
+      \end{enumerate}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Closing}
+  \begin{center}
+    \Large Handbook V4 is now a linked system.\\[6pt]
+    \normalsize Apparatus modes, equations, Streamlit workflow, figures, and
+    validation outputs all point to the same calibration story.
+  \end{center}
+\end{frame}
+
+\end{document}

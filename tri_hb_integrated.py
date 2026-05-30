@@ -744,7 +744,7 @@ def overview_page() -> None:
         1. **Test setup, simulator and data analysis** defines the shared material, specimen, bar, loading mode, and experimental data source.
         2. **Wave model** checks pulse timing, wave travel, equilibrium, and interaction regime.
         3. **Stress path and analysis** reviews p-q-theta paths, stress histories, and reduced-data comparison.
-        4. **Damage model and DEM validation** evaluates damage evolution, energy indicators, DEM descriptors, and exports.
+        4. **Damage model and validation** evaluates damage evolution, energy indicators, DEM descriptors, and exports.
         """
     )
 
@@ -785,7 +785,7 @@ page = st.sidebar.radio(
         "Step 1: Setup, simulator and data",
         "Step 2: Wave model",
         "Step 3: Stress path and analysis",
-        "Step 4: Damage model and DEM validation",
+        "Step 4: Damage model and validation",
     ],
     key="tri_hb_workspace_page",
 )
@@ -804,5 +804,5 @@ with page_slot.container():
         run_legacy_app("wave_damage.py", {"TRI_HB_WORKFLOW_VIEW": "wave"})
     elif page == "Step 3: Stress path and analysis":
         run_legacy_app("wave_damage.py", {"TRI_HB_WORKFLOW_VIEW": "stress"})
-    elif page == "Step 4: Damage model and DEM validation":
+    elif page == "Step 4: Damage model and validation":
         run_legacy_app("wave_damage.py", {"TRI_HB_WORKFLOW_VIEW": "damage"})

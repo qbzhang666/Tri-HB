@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import matplotlib
@@ -9,11 +8,48 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT_DIR = ROOT / "figures" / "handbook_steps"
+OUT_DIR = ROOT / "Handbook" / "figures" / "handbook_steps"
+PUB_COLORS = {
+    "blue": "#0072B2",
+    "vermillion": "#D55E00",
+    "green": "#009E73",
+    "orange": "#E69F00",
+    "purple": "#7B3FE4",
+    "sky": "#56B4E9",
+    "magenta": "#CC79A7",
+    "black": "#222222",
+    "gray": "#6B7280",
+}
+
+plt.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["STIXGeneral", "Times New Roman", "Cambria", "DejaVu Serif"],
+    "mathtext.fontset": "stix",
+    "axes.prop_cycle": plt.cycler(color=[
+        PUB_COLORS["blue"],
+        PUB_COLORS["vermillion"],
+        PUB_COLORS["green"],
+        PUB_COLORS["purple"],
+        PUB_COLORS["orange"],
+        PUB_COLORS["sky"],
+    ]),
+    "figure.facecolor": "white",
+    "axes.facecolor": "white",
+    "axes.edgecolor": PUB_COLORS["black"],
+    "axes.labelcolor": PUB_COLORS["black"],
+    "axes.titlecolor": PUB_COLORS["black"],
+    "xtick.color": PUB_COLORS["black"],
+    "ytick.color": PUB_COLORS["black"],
+    "grid.color": "#D9DEE7",
+    "grid.linewidth": 0.55,
+    "grid.alpha": 1.0,
+    "legend.frameon": False,
+    "savefig.facecolor": "white",
+    "savefig.edgecolor": "white",
+})
 
 
 def half_sine_window(t, td):
@@ -210,50 +246,71 @@ def compute_case():
     return locals()
 
 
-def style_axes(ax):
-    ax.grid(True, alpha=0.25)
-    for spine in ("top", "right"):
-        ax.spines[spine].set_visible(False)
+def style_axes(ax, title=None):
+    if title is not None:
+        ax.set_title(title, fontsize=17, fontweight="normal", pad=8)
+    right_label = ax.yaxis.get_label_position() == "right"
+    ax.tick_params(axis="both", labelsize=13, direction="out", length=4.2, width=0.9)
+    ax.xaxis.label.set_size(15)
+    ax.yaxis.label.set_size(15)
+    ax.grid(True, which="major")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(right_label)
+    ax.spines["left"].set_visible(not right_label)
+    ax.spines["left"].set_linewidth(0.9)
+    ax.spines["right"].set_linewidth(0.9)
+    ax.spines["bottom"].set_linewidth(0.9)
+    legend = ax.get_legend()
+    if legend is not None:
+        legend.set_frame_on(False)
+        for text in legend.get_texts():
+            text.set_fontsize(12.5)
+
+
+def save_panel(fig, ax, filename, title):
+    style_axes(ax, title)
+    fig.tight_layout()
+    fig.savefig(OUT_DIR / filename, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
 
 
 def plot_step2(data):
     t_us = data["t_us"]
-    fig, axes = plt.subplots(2, 2, figsize=(11.5, 7.2), dpi=220)
-    fig.suptitle("Step 2: wave timing and interaction regime", fontsize=14, fontweight="bold")
 
-    axes[0, 0].plot(t_us, data["x_left"], label="X pulse", color="#0f6fb6", linewidth=1.9)
-    axes[0, 0].plot(t_us, data["y_drive"], label="Y pulse", color="#059669", linewidth=1.7)
-    axes[0, 0].plot(t_us, data["z_drive"], label="Z pulse", color="#7c3aed", linewidth=1.7)
-    axes[0, 0].axvspan(data["t_eq_low"] * 1e6, data["t_eq_high"] * 1e6, color="#f59e0b", alpha=0.15, label="3-5 travel times")
-    axes[0, 0].axvline(data["delay_y"] * 1e6, color="#059669", linestyle=":", linewidth=1.2)
-    axes[0, 0].axvline(data["delay_z"] * 1e6, color="#7c3aed", linestyle=":", linewidth=1.2)
-    axes[0, 0].set_title("Input dynamic pulses")
-    axes[0, 0].set_xlabel("Time (us)")
-    axes[0, 0].set_ylabel("Stress increment (MPa)")
-    axes[0, 0].legend(fontsize=7, frameon=False)
-    style_axes(axes[0, 0])
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(t_us, data["x_left"], label=r"X pulse", color=PUB_COLORS["blue"], linewidth=2.05)
+    ax.plot(t_us, data["y_drive"], label=r"Y pulse", color=PUB_COLORS["green"], linewidth=2.05)
+    ax.plot(t_us, data["z_drive"], label=r"Z pulse", color=PUB_COLORS["purple"], linewidth=2.05)
+    ax.axvspan(data["t_eq_low"] * 1e6, data["t_eq_high"] * 1e6, color=PUB_COLORS["orange"], alpha=0.14, label=r"$3$--$5$ travel times")
+    ax.axvline(data["delay_y"] * 1e6, color=PUB_COLORS["green"], linestyle=":", linewidth=1.5)
+    ax.axvline(data["delay_z"] * 1e6, color=PUB_COLORS["purple"], linestyle=":", linewidth=1.5)
+    ax.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax.set_ylabel(r"Stress increment, $\Delta\sigma$ (MPa)")
+    ax.legend(loc="upper right")
+    save_panel(fig, ax, "step2_input_dynamic_pulses.png", "Input pulse timing")
 
-    axes[0, 1].plot(t_us, data["sigma_centre"], color="#334155", linewidth=1.9)
-    axes[0, 1].set_title(f"Centre superposition factor eta = {data['eta_sup']:.2f}")
-    axes[0, 1].set_xlabel("Time (us)")
-    axes[0, 1].set_ylabel("Centre stress indicator (MPa)")
-    style_axes(axes[0, 1])
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(t_us, data["sigma_centre"], color=PUB_COLORS["blue"], linewidth=2.1, label=r"$\sigma_{\mathrm{centre}}(t)$")
+    ax.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax.set_ylabel(r"Centre stress indicator (MPa)")
+    ax.legend(loc="upper right")
+    save_panel(fig, ax, "step2_centre_superposition.png", r"Specimen-centre superposition, $\eta_{\mathrm{sup}}=%.2f$" % data["eta_sup"])
 
     dt_grid = np.linspace(0.0, 20.0, 400)
     wave_control = np.exp(-(dt_grid / 1.2) ** 2)
     damage_control = 1.0 / (1.0 + np.exp(-(dt_grid - 5.0) / 1.3))
-    axes[1, 0].plot(dt_grid, wave_control, label="Wave-interaction control", color="#0f6fb6")
-    axes[1, 0].plot(dt_grid, damage_control, label="Damage-memory control", color="#dc2626")
-    axes[1, 0].axvline(data["dt_star"], linestyle="--", color="#111827", label="sample dt*")
-    axes[1, 0].axvspan(0, 1, alpha=0.10, color="#60a5fa")
-    axes[1, 0].axvspan(1, 3, alpha=0.10, color="#34d399")
-    axes[1, 0].axvspan(3, 10, alpha=0.08, color="#f59e0b")
-    axes[1, 0].axvspan(10, 20, alpha=0.08, color="#f87171")
-    axes[1, 0].set_title("Normalised delay regime map")
-    axes[1, 0].set_xlabel("dt* = delay / travel time")
-    axes[1, 0].set_ylabel("Control indicator")
-    axes[1, 0].legend(fontsize=7, frameon=False)
-    style_axes(axes[1, 0])
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(dt_grid, wave_control, label="Wave-interaction control", color=PUB_COLORS["blue"], linewidth=2.0)
+    ax.plot(dt_grid, damage_control, label="Damage-memory control", color=PUB_COLORS["vermillion"], linewidth=2.0)
+    ax.axvline(data["dt_star"], linestyle="--", color=PUB_COLORS["black"], linewidth=1.25, label=r"sample $\Delta t^*$")
+    ax.axvspan(0, 1, alpha=0.09, color=PUB_COLORS["sky"])
+    ax.axvspan(1, 3, alpha=0.09, color=PUB_COLORS["green"])
+    ax.axvspan(3, 10, alpha=0.07, color=PUB_COLORS["orange"])
+    ax.axvspan(10, 20, alpha=0.07, color=PUB_COLORS["vermillion"])
+    ax.set_xlabel(r"Normalised delay, $\Delta t^*$")
+    ax.set_ylabel("Control indicator")
+    ax.legend(loc="center right")
+    save_panel(fig, ax, "step2_delay_regime_map.png", "Delay-regime interaction")
 
     labels = ["travel time", "eq low", "eq high", "Y delay", "Z delay"]
     values = [
@@ -263,206 +320,138 @@ def plot_step2(data):
         data["delay_y"] * 1e6,
         data["delay_z"] * 1e6,
     ]
-    axes[1, 1].bar(labels, values, color=["#64748b", "#fbbf24", "#f59e0b", "#059669", "#7c3aed"])
-    axes[1, 1].set_title("Timing scales")
-    axes[1, 1].set_ylabel("Time (us)")
-    axes[1, 1].tick_params(axis="x", rotation=20)
-    style_axes(axes[1, 1])
-
-    fig.tight_layout(rect=[0, 0, 1, 0.94])
-    fig.savefig(OUT_DIR / "step2_wave_timing_regime.png", bbox_inches="tight")
-    plt.close(fig)
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.bar(labels, values, color=[PUB_COLORS["gray"], PUB_COLORS["orange"], PUB_COLORS["vermillion"], PUB_COLORS["green"], PUB_COLORS["purple"]])
+    ax.set_ylabel(r"Time, $t$ ($\mu$s)")
+    ax.tick_params(axis="x", rotation=20)
+    save_panel(fig, ax, "step2_timing_scales.png", "Timing-scale hierarchy")
 
 
 def plot_step3(data):
     t_us = data["t_us"]
-    fig, axes = plt.subplots(2, 2, figsize=(11.5, 7.2), dpi=220)
-    fig.suptitle("Step 3: stress path and failure index", fontsize=14, fontweight="bold")
 
-    axes[0, 0].plot(t_us, data["sx"], label="sigma_x", color="#0f6fb6")
-    axes[0, 0].plot(t_us, data["sy"], label="sigma_y", color="#059669")
-    axes[0, 0].plot(t_us, data["sz"], label="sigma_z", color="#7c3aed")
-    axes[0, 0].plot(t_us, data["p"], label="p", color="#f59e0b", linestyle="--")
-    axes[0, 0].plot(t_us, data["q"], label="q", color="#334155", linestyle=":")
-    axes[0, 0].set_title("Total stresses and invariants")
-    axes[0, 0].set_xlabel("Time (us)")
-    axes[0, 0].set_ylabel("MPa")
-    axes[0, 0].legend(fontsize=7, ncol=3, frameon=False)
-    style_axes(axes[0, 0])
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(t_us, data["sx"], label=r"$\sigma_x$", color=PUB_COLORS["blue"], linewidth=2.0)
+    ax.plot(t_us, data["sy"], label=r"$\sigma_y$", color=PUB_COLORS["green"], linewidth=2.0)
+    ax.plot(t_us, data["sz"], label=r"$\sigma_z$", color=PUB_COLORS["purple"], linewidth=2.0)
+    ax.plot(t_us, data["p"], label=r"$p$", color=PUB_COLORS["orange"], linestyle="--", linewidth=1.8)
+    ax.plot(t_us, data["q"], label=r"$q$", color=PUB_COLORS["black"], linestyle=":", linewidth=2.0)
+    ax.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax.set_ylabel(r"Stress (MPa)")
+    ax.legend(ncol=3, loc="upper right")
+    save_panel(fig, ax, "step3_total_stresses_invariants.png", "Stress-invariant history")
 
-    sc = axes[0, 1].scatter(data["p"], data["q"], c=t_us, s=7, cmap="viridis")
-    axes[0, 1].set_title("p-q trajectory")
-    axes[0, 1].set_xlabel("Mean pressure p (MPa)")
-    axes[0, 1].set_ylabel("Deviatoric stress q (MPa)")
-    style_axes(axes[0, 1])
-    cb = fig.colorbar(sc, ax=axes[0, 1])
-    cb.set_label("Time (us)")
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    sc = ax.scatter(data["p"], data["q"], c=t_us, s=7, cmap="viridis")
+    ax.set_xlabel(r"Mean pressure, $p$ (MPa)")
+    ax.set_ylabel(r"Deviatoric stress, $q$ (MPa)")
+    cb = fig.colorbar(sc, ax=ax)
+    cb.set_label(r"Time, $t$ ($\mu$s)", fontsize=13)
+    cb.ax.tick_params(labelsize=11)
+    save_panel(fig, ax, "step3_pq_trajectory.png", r"$p$--$q$ stress trajectory")
 
-    axes[1, 0].plot(t_us, data["q"], label="q", color="#334155")
-    axes[1, 0].plot(t_us, data["qf"], label="qf", color="#dc2626", linestyle="--")
-    axes[1, 0].set_title("Failure surface comparison")
-    axes[1, 0].set_xlabel("Time (us)")
-    axes[1, 0].set_ylabel("MPa")
-    axes[1, 0].legend(fontsize=7, frameon=False)
-    style_axes(axes[1, 0])
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(t_us, data["q"], label=r"$q(t)$", color=PUB_COLORS["blue"], linewidth=2.05)
+    ax.plot(t_us, data["qf"], label=r"$q_f(p,\theta)$", color=PUB_COLORS["vermillion"], linestyle="--", linewidth=1.85)
+    ax.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax.set_ylabel(r"Stress (MPa)")
+    ax.legend(loc="upper right")
+    save_panel(fig, ax, "step3_failure_surface_comparison.png", "Failure-surface comparison")
 
-    axes[1, 1].plot(t_us, data["F_index"], label="F=q/qf", color="#dc2626")
-    axes[1, 1].plot(t_us, data["epsdot_eq"] / 100.0, label="eq. strain rate / 100", color="#0f6fb6", alpha=0.75)
-    axes[1, 1].axhline(1.0, color="#111827", linestyle=":", linewidth=1.2)
-    axes[1, 1].set_title("Failure index and equivalent strain rate")
-    axes[1, 1].set_xlabel("Time (us)")
-    axes[1, 1].set_ylabel("Index / scaled rate")
-    axes[1, 1].legend(fontsize=7, frameon=False)
-    style_axes(axes[1, 1])
-
-    fig.tight_layout(rect=[0, 0, 1, 0.94])
-    fig.savefig(OUT_DIR / "step3_stress_path_failure.png", bbox_inches="tight")
-    plt.close(fig)
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(t_us, data["F_index"], label=r"Failure index, $F(t)$", color=PUB_COLORS["blue"], linewidth=2.15)
+    ax.plot(t_us, data["epsdot_eq"] / 100.0, label=r"$\dot{\varepsilon}_{\mathrm{eq}}/100$", color=PUB_COLORS["green"], alpha=0.82, linewidth=1.9)
+    ax.axhline(1.0, color=PUB_COLORS["vermillion"], linestyle="--", linewidth=1.6, label=r"$F=1$")
+    ax.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax.set_ylabel(r"Index / scaled rate")
+    ax.legend(loc="upper right")
+    save_panel(fig, ax, "step3_failure_index_strain_rate.png", "Failure-index interaction")
 
 
 def plot_step4_damage(data):
     t_us = data["t_us"]
     Ddot_norm = data["Ddot"] / max(float(np.max(data["Ddot"])), 1e-12)
-    fig, axes = plt.subplots(2, 2, figsize=(11.5, 7.2), dpi=220)
-    fig.suptitle("Step 4: damage evolution and stiffness degradation", fontsize=14, fontweight="bold")
 
-    axes[0, 0].plot(t_us, data["F_index"], color="#dc2626", label="F(t)")
-    axes[0, 0].axhline(1.0, color="#111827", linestyle=":", label="damage threshold")
-    axes[0, 0].set_title("Damage trigger")
-    axes[0, 0].set_xlabel("Time (us)")
-    axes[0, 0].set_ylabel("Failure index")
-    axes[0, 0].legend(fontsize=7, frameon=False)
-    style_axes(axes[0, 0])
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(t_us, data["F_index"], color=PUB_COLORS["blue"], linewidth=2.15, label=r"Failure index, $F(t)$")
+    ax.axhline(1.0, color=PUB_COLORS["vermillion"], linestyle="--", linewidth=1.6, label=r"$F=1$")
+    ax.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax.set_ylabel(r"$F=q/q_f$")
+    ax.legend(loc="upper right")
+    save_panel(fig, ax, "step4_damage_trigger.png", "Failure-envelope interaction")
 
-    axes[0, 1].plot(t_us, data["D"], label="D(t)", color="#0f6fb6")
-    axes[0, 1].plot(t_us, Ddot_norm, label="normalised Ddot", color="#f59e0b", linestyle="--")
-    axes[0, 1].set_title(f"Cumulative damage, final D={data['D'][-1]:.2f}")
-    axes[0, 1].set_xlabel("Time (us)")
-    axes[0, 1].set_ylabel("Damage variable")
-    axes[0, 1].legend(fontsize=7, frameon=False)
-    style_axes(axes[0, 1])
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(t_us, data["D"], label=r"$D(t)$", color=PUB_COLORS["blue"], linewidth=2.15)
+    ax.plot(t_us, Ddot_norm, label=r"normalised $\dot{D}$", color=PUB_COLORS["vermillion"], linestyle="--", linewidth=1.8)
+    ax.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax.set_ylabel(r"Damage variable")
+    ax.legend(loc="upper right")
+    save_panel(fig, ax, "step4_cumulative_damage.png", r"Damage accumulation")
 
-    axes[1, 0].plot(t_us, data["E_D"], color="#059669", label="E(D)")
-    ax2 = axes[1, 0].twinx()
-    ax2.plot(t_us, data["cp_D"], color="#7c3aed", linestyle="--", label="cp(D)")
-    axes[1, 0].set_title("Stiffness and P-wave speed loss")
-    axes[1, 0].set_xlabel("Time (us)")
-    axes[1, 0].set_ylabel("E(D) (GPa)")
-    ax2.set_ylabel("cp(D) (m/s)")
-    style_axes(axes[1, 0])
-
-    axes[1, 1].plot(data["x"], data["damage_profile"], color="#334155", linewidth=2)
-    axes[1, 1].axvspan(0.35, 0.65, color="#f59e0b", alpha=0.15, label="central region")
-    axes[1, 1].set_title(f"Damage profile: Dc={data['D_c']:.2f}, Sx={data['S_x']:.2f}")
-    axes[1, 1].set_xlabel("Normalised specimen position")
-    axes[1, 1].set_ylabel("D(x)")
-    axes[1, 1].legend(fontsize=7, frameon=False)
-    style_axes(axes[1, 1])
-
-    fig.tight_layout(rect=[0, 0, 1, 0.94])
-    fig.savefig(OUT_DIR / "step4_damage_evolution.png", bbox_inches="tight")
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(t_us, data["E_D"], color=PUB_COLORS["green"], linewidth=2.1, label=r"$E(D)$")
+    ax2 = ax.twinx()
+    ax2.plot(t_us, data["cp_D"], color=PUB_COLORS["purple"], linestyle="--", linewidth=1.9, label=r"$c_p(D)$")
+    ax.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax.set_ylabel(r"$E(D)$ (GPa)")
+    ax2.set_ylabel(r"$c_p(D)$ (m/s)")
+    style_axes(ax, "Stiffness and wave-speed degradation")
+    style_axes(ax2)
+    lines, labels = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax.legend(lines + lines2, labels + labels2, loc="upper right")
+    fig.tight_layout()
+    fig.savefig(OUT_DIR / "step4_stiffness_wave_speed.png", bbox_inches="tight", facecolor="white")
     plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(data["x"], data["damage_profile"], color=PUB_COLORS["blue"], linewidth=2.15, label=r"$D(x)$")
+    ax.axvspan(0.35, 0.65, color=PUB_COLORS["orange"], alpha=0.14, label="central region")
+    ax.set_xlabel(r"Normalised specimen position, $x/L_s$")
+    ax.set_ylabel(r"Damage profile, $D(x)$")
+    ax.legend(loc="upper right")
+    save_panel(fig, ax, "step4_damage_profile.png", r"Damage-profile descriptors, $D_c=%.2f$, $S_x=%.2f$" % (data["D_c"], data["S_x"]))
 
 
 def plot_step4_energy(data):
     t_us = data["t_us"]
-    fig, axes = plt.subplots(2, 2, figsize=(11.5, 7.2), dpi=220)
-    fig.suptitle("Step 4: energy-density and validation indicators", fontsize=14, fontweight="bold")
 
-    axes[0, 0].plot(t_us, data["W_input"], label="W_input", color="#0f6fb6")
-    axes[0, 0].plot(t_us, data["W_el"], label="W_el", color="#059669")
-    axes[0, 0].plot(t_us, data["W_diss"], label="W_diss estimate", color="#dc2626")
-    axes[0, 0].set_title("Energy density histories")
-    axes[0, 0].set_xlabel("Time (us)")
-    axes[0, 0].set_ylabel("MJ/m^3")
-    axes[0, 0].legend(fontsize=7, frameon=False)
-    style_axes(axes[0, 0])
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(t_us, data["W_input"], label=r"$W_{\mathrm{input}}$", color=PUB_COLORS["blue"], linewidth=2.05)
+    ax.plot(t_us, data["W_el"], label=r"$W_{\mathrm{el}}$", color=PUB_COLORS["green"], linewidth=2.0)
+    ax.plot(t_us, data["W_diss"], label=r"$W_{\mathrm{diss}}$", color=PUB_COLORS["vermillion"], linewidth=2.0)
+    ax.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax.set_ylabel(r"Energy density (MJ m$^{-3}$)")
+    ax.legend(loc="upper right")
+    save_panel(fig, ax, "step4_energy_density_histories.png", "Energy-density partition")
 
-    axes[0, 1].plot(t_us, data["power"], color="#7c3aed")
-    axes[0, 1].set_title("Instantaneous power density")
-    axes[0, 1].set_xlabel("Time (us)")
-    axes[0, 1].set_ylabel("MJ m^-3 s^-1")
-    style_axes(axes[0, 1])
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(t_us, data["power"], color=PUB_COLORS["purple"], linewidth=2.15)
+    ax.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax.set_ylabel(r"Power density (MJ m$^{-3}$ s$^{-1}$)")
+    save_panel(fig, ax, "step4_power_density.png", "Instantaneous power density")
 
     labels = ["Final D", "Dc", "Sx", "eta"]
     values = [data["D"][-1], data["D_c"], data["S_x"], min(data["eta_sup"] / 3.0, 1.0)]
-    axes[1, 0].bar(labels, values, color=["#0f6fb6", "#f59e0b", "#059669", "#7c3aed"])
-    axes[1, 0].set_ylim(0, 1.05)
-    axes[1, 0].set_title("Validation descriptors")
-    axes[1, 0].set_ylabel("Normalised value")
-    style_axes(axes[1, 0])
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.bar(labels, values, color=[PUB_COLORS["blue"], PUB_COLORS["orange"], PUB_COLORS["green"], PUB_COLORS["purple"]])
+    ax.set_ylim(0, 1.05)
+    ax.set_ylabel("Normalised value")
+    save_panel(fig, ax, "step4_validation_descriptors.png", "Validation descriptors")
 
     dt_grid = np.linspace(0.0, 20.0, 400)
     wave_control = np.exp(-(dt_grid / 1.2) ** 2)
     damage_control = 1.0 / (1.0 + np.exp(-(dt_grid - 5.0) / 1.3))
     I_final = np.clip(0.15 + 0.35 * wave_control + 0.25 * damage_control, 0.0, 1.0)
     I_central = np.clip(0.75 * wave_control + 0.25 * (1.0 - damage_control), 0.0, 1.0)
-    axes[1, 1].plot(dt_grid, I_final, label="final damage trend", color="#dc2626")
-    axes[1, 1].plot(dt_grid, I_central, label="central damage trend", color="#0f6fb6")
-    axes[1, 1].axvline(data["dt_star"], color="#111827", linestyle="--", label="sample dt*")
-    axes[1, 1].set_title("Delay-sensitivity indicators")
-    axes[1, 1].set_xlabel("dt*")
-    axes[1, 1].set_ylabel("Indicator")
-    axes[1, 1].legend(fontsize=7, frameon=False)
-    style_axes(axes[1, 1])
-
-    fig.tight_layout(rect=[0, 0, 1, 0.94])
-    fig.savefig(OUT_DIR / "step4_energy_density_validation.png", bbox_inches="tight")
-    plt.close(fig)
-
-
-def write_summary(data):
-    rows = {
-        "sample": "Sandstone asynchronous XYZ, Ax=Ay=Az=400 MPa, td=200 us, delays 80/160 us",
-        "t_travel_us": data["t_travel"] * 1e6,
-        "dt_star_y": data["dt_star"],
-        "eta_sup": data["eta_sup"],
-        "peak_p_MPa": float(np.max(data["p"])),
-        "peak_q_MPa": float(np.max(data["q"])),
-        "peak_failure_index": float(np.max(data["F_index"])),
-        "final_D": float(data["D"][-1]),
-        "central_damage_fraction": data["D_c"],
-        "symmetry_index": data["S_x"],
-        "final_W_input_MJ_m3": float(data["W_input"][-1]),
-        "final_W_elastic_MJ_m3": float(data["W_el"][-1]),
-        "final_W_diss_MJ_m3": float(data["W_diss"][-1]),
-    }
-    (OUT_DIR / "step_analysis_summary.json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
-    pd.DataFrame([rows]).to_csv(OUT_DIR / "step_analysis_summary.csv", index=False)
-
-
-def write_latex_snippets():
-    snippets = r"""% Handbook Step 2-4 figure snippets generated by scripts/export_handbook_step_figures.py
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\linewidth]{figures/handbook_steps/step2_wave_timing_regime.png}
-  \caption{Step 2 sample wave model for the asynchronous XYZ case: input pulse timing, specimen-centre superposition, normalised delay regime map, and the travel-time/equilibrium scales used by the Streamlit workflow.}
-  \label{fig:step2-wave-timing-regime}
-\end{figure}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\linewidth]{figures/handbook_steps/step3_stress_path_failure.png}
-  \caption{Step 3 sample stress-path analysis: total principal stresses, $p$--$q$ trajectory, comparison of $q$ with the pressure- and Lode-angle-dependent failure surface $q_f$, and the resulting failure index $F=q/q_f$.}
-  \label{fig:step3-stress-path-failure}
-\end{figure}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\linewidth]{figures/handbook_steps/step4_damage_evolution.png}
-  \caption{Step 4 sample damage analysis: failure-index trigger, cumulative damage and damage rate, stiffness and P-wave-speed degradation, and the synthetic damage-profile descriptors used for DEM/experimental comparison.}
-  \label{fig:step4-damage-evolution}
-\end{figure}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\linewidth]{figures/handbook_steps/step4_energy_density_validation.png}
-  \caption{Step 4 sample energy-density and validation view: input, recoverable elastic, and dissipated energy-density estimates, instantaneous power density, scalar validation descriptors, and delay-sensitivity guide curves.}
-  \label{fig:step4-energy-density-validation}
-\end{figure}
-"""
-    (OUT_DIR / "latex_include_snippets.tex").write_text(snippets, encoding="utf-8")
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(dt_grid, I_final, label="Final damage trend", color=PUB_COLORS["vermillion"], linewidth=2.05)
+    ax.plot(dt_grid, I_central, label=r"Central fraction, $D_c$", color=PUB_COLORS["blue"], linewidth=2.05)
+    ax.axvline(data["dt_star"], color=PUB_COLORS["black"], linestyle="--", linewidth=1.25, label=r"sample $\Delta t^*$")
+    ax.set_xlabel(r"Normalised delay, $\Delta t^*$")
+    ax.set_ylabel("Indicator")
+    ax.legend(loc="upper right")
+    save_panel(fig, ax, "step4_delay_sensitivity_indicators.png", "Delay-sensitivity indicators")
 
 
 def main():
@@ -472,8 +461,6 @@ def main():
     plot_step3(data)
     plot_step4_damage(data)
     plot_step4_energy(data)
-    write_summary(data)
-    write_latex_snippets()
     print(f"Wrote Step 2-4 handbook figures to {OUT_DIR}")
 
 

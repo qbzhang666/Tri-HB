@@ -269,7 +269,7 @@ view_titles = {
     "combined": "Stress waves, damage and DEM validation",
     "wave": "Step 2 - Wave model",
     "stress": "Step 3 - Stress path and analysis",
-    "damage": "Step 4 - Damage model and DEM validation",
+    "damage": "Step 4 - Damage model and validation",
 }
 view_captions = {
     "combined": (
