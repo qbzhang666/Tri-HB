@@ -11,9 +11,17 @@ py -3.13 -m pip install -r requirements.txt
 py -3.13 -m streamlit run tri_hb_integrated.py
 ```
 
-Then open the URL Streamlit prints in your browser. See
-[`docs/local_setup.md`](docs/local_setup.md) for the long-form setup notes,
-PowerShell snippets, and alternate-port launch commands.
+Then open the URL Streamlit prints in your browser.
+
+For a second instance on port 8502 (useful when port 8501 is busy), run
+the included PowerShell launcher:
+
+```powershell
+.\launch_8502.ps1
+```
+
+See [`docs/local_setup.md`](docs/local_setup.md) for the long-form setup
+notes, PowerShell snippets, and alternate-port launch commands.
 
 ## What the app does
 
@@ -43,6 +51,7 @@ hydrostatic ±X±Y±Z).
 ├── Tri-HB.py                 # loaded for Step 1 (simulator)
 ├── wave_damage.py            # loaded for Steps 2, 3, 4
 ├── requirements.txt          # pip install -r requirements.txt
+├── launch_8502.ps1           # PowerShell launcher (alt port 8502)
 ├── README.md                 # this file
 ├── .gitignore
 │
