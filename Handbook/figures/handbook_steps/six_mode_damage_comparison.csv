@@ -1,0 +1,7 @@
+mode,condition,peak_p_MPa,peak_q_MPa,peak_failure_index,damage_onset_us,final_damage,central_damage_fraction,damage_symmetry_index
+Mode 1,V=20 m/s; no pre-static stress,165.1,235.7,2.97,9.0,1.00,0.21,0.18
+Mode 2,V=20 m/s; 30/20/20 MPa pre-static stress,146.9,380.6,5.45,6.0,1.00,0.29,0.40
+Mode 3,V=20 m/s; 30/20/15 MPa pre-static stress,145.4,382.9,5.52,6.0,1.00,0.38,0.69
+Mode 4,"A=400 MPa, tau=200 us; 30/20/15 MPa",163.3,336.9,4.59,10.0,1.00,0.25,0.24
+Mode 5,"A=400 MPa, tau=200 us on X/Y/Z; Y/Z delays 80/160 us; 30/20/15 MPa",367.7,364.7,5.39,10.0,1.00,0.37,0.87
+Mode 6,"A=400 MPa, tau=200 us per opposed bar; 30/20/15 MPa",1164.2,0.0,0.00,,0.00,0.00,1.00

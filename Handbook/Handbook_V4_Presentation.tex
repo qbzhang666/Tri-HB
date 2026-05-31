@@ -150,10 +150,11 @@
 % -------------------------------------------------------------------
 % META
 % -------------------------------------------------------------------
-\title{Tri-HB Handbook V4}
-\subtitle{Six loading modes, Streamlit workflow, and damage-validation equations\\[4pt]
-\zhsub{Beamer presentation generated from Handbook V4}}
-\date{29 May 2026}
+\title{Rock Dynamic Lab Testing}
+\subtitle{Dynamic rock failure under uniaxial loading, in-situ stress, blast waves,
+seismic pulses, and excavation disturbance\\[4pt]
+\zhsub{Multiaxial and path-dependent Hopkinson-bar experiments}}
+\date{30 May 2026}
 \author{%
   \Large\textbf{Qianbing Zhang}\\[4pt]
   {\normalsize\href{mailto:qianbing.zhang@monash.edu}{\color{TUSTteal}\nolinkurl{qianbing.zhang@monash.edu}}}
@@ -169,18 +170,26 @@
 \maketitle
 
 \begin{frame}{Presentation Overview}
+  \scriptsize
   \setbeamertemplate{section in toc}[sections numbered]
-  \tableofcontents[hideallsubsections]
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \tableofcontents[hideallsubsections,sections={1-4}]
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \tableofcontents[hideallsubsections,sections={5-8}]
+    \end{column}
+  \end{columns}
 \end{frame}
 
 % ###################################################################
-\section{Purpose and Apparatus}
+\section{Dynamic Rock-Failure Motivation}
 % ###################################################################
 
-\begin{frame}{Why Handbook V4 matters}
+\begin{frame}{Why dynamic rock testing needs more than UCS}
   \begin{exampleblock}{Core purpose}
-    Handbook V4 connects the physical Tri-HB facility, the six loading modes,
-    and the Streamlit digital twin into one reproducible workflow.
+    Link classical Hopkinson-bar theory, six laboratory loading modes,
+    controlled experiments, and damage-model validation in one clear sequence.
   \end{exampleblock}
   \vspace{0.25cm}
   \begin{columns}[T,onlytextwidth]
@@ -191,14 +200,14 @@
       dependent.
     \end{column}
     \begin{column}{0.48\textwidth}
-      \textbf{Digital-twin need}\\[3pt]
+      \textbf{Analysis need}\\[3pt]
       Every calculation must be traceable from setup, through wave reduction,
       to stress path, damage, energy density, and validation descriptors.
     \end{column}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Monash Tri-HB system: one platform, six modes}
+\begin{frame}{One laboratory platform, six loading modes}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.52\textwidth}
       \begin{itemize}
@@ -219,7 +228,7 @@
 \end{frame}
 
 % ###################################################################
-\section{Mechanics Backbone}
+\section{Classical Hopkinson-Bar Theory}
 % ###################################################################
 
 \begin{frame}{The equations reduce everything to four checks}
@@ -238,13 +247,12 @@
   \end{columns}
 \end{frame}
 
-\begin{frame}{Calibration policy carried into the Streamlit app}
+\begin{frame}{Rate calibration used across the experiments}
   \small
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.48\textwidth}
       \begin{alertblock}{Updated DIF convention}
-        Handbook V4 and the simulator presets now use a literature-reference
-        strain-rate scale of
+        The analysis presets use a literature-reference strain-rate scale of
         \[
           \dot{\varepsilon}_{\mathrm{ref}} = 10^{-5}\ \mathrm{s}^{-1}.
         \]
@@ -252,9 +260,8 @@
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{block}{Consequence}
-        Worked examples, simulator presets, and handbook equations now follow
-        the same calibration policy rather than mixing handbook and app
-        conventions.
+        Worked examples, reduced data, and model comparisons follow the same
+        calibration policy rather than mixing independent strength conventions.
       \end{block}
     \end{column}
   \end{columns}
@@ -268,46 +275,23 @@
   amplification outside the calibrated range.}
 \end{frame}
 
-% ###################################################################
-\section{Six Loading Modes}
-% ###################################################################
-
-\begin{frame}{The six-mode comparison is the handbook's decision map}
+\begin{frame}{How the classical Hopkinson bar is modified}
   \scriptsize
-  \begin{tabular}{@{}p{0.10\textwidth}p{0.18\textwidth}p{0.20\textwidth}p{0.25\textwidth}p{0.18\textwidth}@{}}
+  \begin{tabular}{@{}p{0.12\textwidth}p{0.28\textwidth}p{0.28\textwidth}p{0.22\textwidth}@{}}
     \toprule
-    \textbf{Mode} & \textbf{Drive} & \textbf{Boundary state} & \textbf{What changes in the result} & \textbf{Shared basis} \\
+    \textbf{Mode family} & \textbf{Classical assumption} & \textbf{Laboratory modification} & \textbf{New physics exposed} \\
     \midrule
-    1 & Gas-gun X & Unconfined & Axial stress--strain branch only; baseline dynamic strength & Sandstone, 50 mm specimen \\
-    2 & Gas-gun X & Chamber, $\sigma_2=\sigma_3$ & Higher mean pressure; axisymmetric $p$--$q$ path & Same gas-gun speed as Mode 1 \\
-    3 & Gas-gun X & Active true triaxial & Independent $\sigma_2,\sigma_3$ shift the Lode path & Same material and X impact \\
-    4 & EM X & Static triaxial pre-stress & Clean half-sine rate control on one driven axis & Same pre-stress as Modes 5--6 \\
-    5 & EM X/Y/Z & Timed multi-axis pulses & Stress path bends with pulse order and superposition & Same EM pulse family as Mode 4 \\
-    6 & EM $\pm$ axes & Symmetric squeeze & Near-hydrostatic compaction with force cancellation & Same EM amplitude and duration \\
+    Mode 1 & One-dimensional X-bar impact & No modification; reference SHPB reduction & Baseline dynamic strength \\
+    Mode 2 & One driven axis with passive confinement & Traditional confinement chamber, $\sigma_2=\sigma_3=p_c$ & Pressure strengthening at fixed Lode state \\
+    Mode 3 & One driven axis plus independent boundaries & Active true-triaxial Y/Z confinement & In-situ stress and Lode-angle effects \\
+    Modes 4--6 & Gas-gun pulse tied to striker speed and length & Electromagnetic half-sine waves with controlled amplitude, duration, timing, and symmetry & Blast/seismic pulse shape, path dependence, and compaction \\
     \bottomrule
   \end{tabular}
-  \vspace{0.32cm}
-  \begin{block}{Common default used in the figures}
-    Sandstone preset: $E=15$ GPa, UCS $=80$ MPa, $\nu=0.20$,
-    $\rho=2650$ kg\,m$^{-3}$; specimen $50\times50\times50$ mm;
-    42CrMo/steel bars with $E_b=210$ GPa and $C_0=5172$ m\,s$^{-1}$.
+  \vspace{0.25cm}
+  \begin{block}{Narrative order}
+    Start from the classical SHPB equations, then add confinement, true
+    triaxiality, and finally programmable electromagnetic wave loading.
   \end{block}
-\end{frame}
-
-\begin{frame}{Six-mode result summary: similarities and differences}
-  \scriptsize
-  \begin{tabular}{@{}p{0.10\textwidth}p{0.24\textwidth}p{0.29\textwidth}p{0.27\textwidth}@{}}
-    \toprule
-    \textbf{Mode} & \textbf{Same as others} & \textbf{Different setup condition} & \textbf{Result signature} \\
-    \midrule
-    1 & Same sandstone and specimen geometry & No confinement; gas-gun X at 20 m\,s$^{-1}$ & Lowest-pressure baseline; only axial branch is meaningful \\
-    2 & Same gas-gun speed as Modes 1 and 3 & Chamber confinement, $\sigma_1=30$, $\sigma_2=\sigma_3=20$ MPa & $p$ rises while Lode state remains axisymmetric \\
-    3 & Same static X preload as Mode 2 & True triaxial pre-stress, $30/20/15$ MPa & Lode-angle effect appears through unequal lateral stresses \\
-    4 & Same $30/20/15$ MPa pre-stress as Modes 5--6 & One EM X pulse, 400 MPa peak, 200 $\mu$s & Controlled uniaxial dynamic increment on a pre-stressed state \\
-    5 & Same EM amplitude/duration as Mode 4 & Programmable X/Y/Z timing; default shown has zero Y/Z delay & Curved $p$--$q$ path shows multi-axis stress interaction \\
-    6 & Same material and EM pulse scale & Opposed symmetric pulses on $\pm X,\pm Y,\pm Z$ & Hydrostatic compaction dominates; momentum cancels by design \\
-    \bottomrule
-  \end{tabular}
 \end{frame}
 
 \begin{frame}{Mode 1: gas-gun uniaxial SHPB}
@@ -370,6 +354,8 @@
     \item No confinement correction should be applied to this baseline curve.
   }
 \end{frame}
+
+\section{Modified Gas-Gun Hopkinson-Bar Modes}
 
 \begin{frame}{Mode 2: confinement-chamber SHPB}
   \begin{columns}[T,onlytextwidth]
@@ -496,6 +482,8 @@
   }
 \end{frame}
 
+\section{Electromagnetic Loading Modes}
+
 \begin{frame}{Mode 4: electromagnetic uniaxial impact}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.50\textwidth}
@@ -596,7 +584,8 @@
       \begin{exampleblock}{Loading setup}
         EM pulses on X/Y/Z; peak $400$ MPa, duration $200~\mu$s.\\[3pt]
         Static pre-stress: $\sigma_x=30$, $\sigma_y=20$,
-        $\sigma_z=15$ MPa. Default figure: $\Delta t_y=\Delta t_z=0$.
+        $\sigma_z=15$ MPa. Delays are programmable; the six-mode damage
+        comparison uses $\Delta t_y=80~\mu$s and $\Delta t_z=160~\mu$s.
       \end{exampleblock}
     \end{column}
   \end{columns}
@@ -610,7 +599,7 @@
 \begin{frame}{Mode 5: stress history}
   \figurewithnotes{figures/handbook_modes/mode_5_em_async_triaxial_stress_history.png}{%
     \item X, Y, and Z dynamic stresses are all active, so the loading state evolves in three dimensions.
-    \item The default plot uses zero Y/Z delay; non-zero delays would separate the peaks in time.
+    \item This setup can be run synchronously or with non-zero Y/Z delays to separate the peaks in time.
   }
 \end{frame}
 
@@ -684,6 +673,73 @@
   }
 \end{frame}
 
+\section{Six-Mode Similarities and Differences}
+
+\begin{frame}{Six-mode comparison: what is shared and what changes}
+  \tiny
+  \begin{tabular}{@{}p{0.08\textwidth}p{0.13\textwidth}p{0.21\textwidth}p{0.25\textwidth}p{0.17\textwidth}@{}}
+    \toprule
+    \textbf{Mode} & \textbf{Drive} & \textbf{Boundary state} & \textbf{What changes in the result} & \textbf{Shared basis} \\
+    \midrule
+    1 & Gas X & Unconfined & Baseline axial strength & Sandstone, 50 mm \\
+    2 & Gas X & Chamber, $\sigma_2=\sigma_3$ & Axisymmetric pressure strengthening & Same gas speed as Mode 1 \\
+    3 & Gas X & Active true triaxial & Independent lateral stresses shift Lode path & Same X impact family \\
+    4 & EM X & Static triaxial pre-stress & Half-sine amplitude-duration control & Same pre-stress as Modes 5--6 \\
+    5 & EM X/Y/Z & Timed multi-axis pulses & Loading order bends the stress path & Same EM $A,\tau$ as Mode 4 \\
+    6 & EM $\pm$ axes & Symmetric squeeze & Hydrostatic compaction and force cancellation & Same EM $A,\tau$ \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.16cm}
+  \cncue{Common experimental basis: sandstone preset
+  $E=15$ GPa, UCS $=80$ MPa, $\nu=0.20$, $\rho=2650$ kg\,m$^{-3}$;
+  specimen $50\times50\times50$ mm.}
+\end{frame}
+
+\begin{frame}{Six-mode result summary: similarities and differences}
+  \scriptsize
+  \begin{tabular}{@{}p{0.10\textwidth}p{0.24\textwidth}p{0.29\textwidth}p{0.27\textwidth}@{}}
+    \toprule
+    \textbf{Mode} & \textbf{Same as others} & \textbf{Different setup condition} & \textbf{Result signature} \\
+    \midrule
+    1 & Same sandstone and specimen geometry & No confinement; gas-gun X at 20 m\,s$^{-1}$ & Lowest-pressure baseline; only axial branch is meaningful \\
+    2 & Same gas-gun speed as Modes 1 and 3 & Chamber confinement, $\sigma_1=30$, $\sigma_2=\sigma_3=20$ MPa & Axisymmetric confinement strengthens the specimen \\
+    3 & Same X impact family as Mode 2 & True triaxial pre-stress, $30/20/15$ MPa & Lode-angle effect appears through unequal lateral stresses \\
+    4 & Same $30/20/15$ MPa pre-stress as Modes 5--6 & One EM X pulse, 400 MPa peak, 200 $\mu$s & Pulse amplitude and duration are explicit inputs \\
+    5 & Same EM amplitude/duration as Modes 4 and 6 & Programmable X/Y/Z timing & Curved path shows loading-order and path dependence \\
+    6 & Same EM pulse scale as Modes 4 and 5 & Opposed symmetric pulses on $\pm X,\pm Y,\pm Z$ & Hydrostatic compaction dominates; momentum cancels \\
+    \bottomrule
+  \end{tabular}
+\end{frame}
+
+\begin{frame}{Focused comparison: traditional, true-triaxial, and symmetric loading}
+  \tiny
+  \begin{block}{Normalised input for the focused comparison}
+    Same sandstone specimen, same static pre-stress
+    $\sigma_{x0}/\sigma_{y0}/\sigma_{z0}=30/20/20$ MPa, and the same
+    half-sine stress-wave scale $A=400$ MPa, $\tau=200~\mu$s.
+  \end{block}
+  \vspace{0.10cm}
+  \begin{tabular}{@{}p{0.08\textwidth}p{0.24\textwidth}p{0.11\textwidth}p{0.11\textwidth}p{0.10\textwidth}p{0.19\textwidth}@{}}
+    \toprule
+    \textbf{Mode} & \textbf{Controlled boundary condition} & \textbf{Peak $p$} & \textbf{Peak $q$} & \textbf{Peak $F$} & \textbf{Step 4 result} \\
+    \midrule
+    2 & Locked Y/Z chamber & 156.7 MPa & 410.0 MPa & 5.65 & $D_f=1.00$, $D_c=0.29$ \\
+    3 & True-triaxial lateral response & 208.9 MPa & 333.1 MPa & 3.89 & $D_f=1.00$, $D_c=0.38$ \\
+    6 & Symmetric XYZ doubled & 823.3 MPa & 10.0 MPa & 0.35 & $D_f=0.00$ in shear law \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.18cm}
+  \cncue{Here $F=q/q_f$ is the Step~3 failure index used by the Step~4 scalar damage law. Mode~6 stores much more volumetric energy, but it does not activate this deviatoric damage trigger.}
+\end{frame}
+
+\begin{frame}{Focused comparison: stress-path data}
+  \figurewithnotes{figures/handbook_steps/mode236_controlled_stress_comparison.png}{%
+    \item Mode~2 gives the largest deviatoric demand because the lateral stresses are fixed while X rises.
+    \item Mode~3 reduces $q$ by allowing a true-triaxial lateral response under the same X pulse.
+    \item Mode~6 drives pressure strongly but keeps $q$ small, so it should be interpreted as a cap/compaction case.
+  }
+\end{frame}
+
 \begin{frame}{Mode selection: match the apparatus to the question}
   \small
   \begin{tabular}{@{}p{0.18\textwidth}p{0.36\textwidth}p{0.36\textwidth}@{}}
@@ -706,33 +762,31 @@
 \end{frame}
 
 % ###################################################################
-\section{Integrated Streamlit Workflow}
+\section{Experimental Workflow and Stress-Path Reduction}
 % ###################################################################
 
-\begin{frame}{The integrated app is the operational front door}
+\begin{frame}{Experimental workflow: same sample, comparable inputs}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.48\textwidth}
-      \begin{block}{Recommended launch}
-        \cmdline{py -3.13 -m pip install -r requirements.txt}\\[4pt]
-        \cmdline{py -3.13 -m streamlit run}\\
-        \cmdline{tri_hb_integrated.py --server.port 8502}
+      \begin{block}{Controlled experiment rule}
+        Use the same sandstone sample geometry and material constants in all
+        six modes. When a mode has pre-static stress, use the default
+        laboratory values from the integrated analysis setup.
       \end{block}
-      \cncue{On macOS/Linux, replace \texttt{py -3.13} with the local launcher,
-      commonly \texttt{python} or \texttt{python3}.}
     \end{column}
     \begin{column}{0.48\textwidth}
-      \begin{exampleblock}{Loaded modules}
+      \begin{exampleblock}{Wave-input rule}
         \begin{itemize}
-          \item \cmdline{Tri-HB.py}: Step 1 setup, simulator, export.
-          \item \cmdline{wave_damage.py}: Steps 2--4 wave, stress path, damage,
-                energy, validation.
+          \item Gas-gun modes use the same reference striker condition.
+          \item EM modes use the same half-sine amplitude and duration.
+          \item Mode~5 may change delay to expose path dependence.
         \end{itemize}
       \end{exampleblock}
     \end{column}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Step 1 creates the shared experimental state}
+\begin{frame}{Step 1 defines the shared experimental state}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.48\textwidth}
       \textbf{Inputs}
@@ -744,10 +798,10 @@
       \end{itemize}
     \end{column}
     \begin{column}{0.48\textwidth}
-      \textbf{Session-state handoff}
+      \textbf{Data handoff}
       \begin{block}{Shared keys}
-        \cmdline{tri_hb_latest_config}\\
-        \cmdline{tri_hb_latest_result}
+        setup conditions\\
+        reduced stress and wave histories
       \end{block}
       These keep later steps synchronised with the current setup.
     \end{column}
@@ -970,6 +1024,8 @@
   }
 \end{frame}
 
+\section{Damage-Model Results and Validation}
+
 \begin{frame}{Step 4 equations: damage evolution}
   \scriptsize
   \begin{columns}[T,onlytextwidth]
@@ -1032,6 +1088,34 @@
     \item Damage grows during the overstress window and then saturates as stiffness is lost.
     \item The final value provides the scalar damage state used by the validation descriptors.
   }
+\end{frame}
+
+\begin{frame}{Step 4: Modes 2, 3, and 6 damage-model comparison}
+  \figurewithnotes{figures/handbook_steps/step4_mode236_damage_model_comparison.png}{%
+    \item With the same pre-stress and pulse scale, Modes~2 and~3 both exceed $F=1$ and saturate the scalar shear-damage law.
+    \item Mode~3 has a lower peak failure index than Mode~2 because lateral dynamic response reduces the deviatoric contrast.
+    \item Mode~6 remains below the deviatoric trigger; use cap, compaction, or pore-collapse descriptors to validate its damage state.
+  }
+\end{frame}
+
+\begin{frame}{Step 4: controlled damage descriptors}
+  \tiny
+  \begin{tabular}{@{}p{0.08\textwidth}p{0.24\textwidth}p{0.13\textwidth}p{0.12\textwidth}p{0.12\textwidth}p{0.12\textwidth}@{}}
+    \toprule
+    \textbf{Mode} & \textbf{Damage driver} & \textbf{Onset time} & \textbf{Final $D_f$} & \textbf{$D_c$} & \textbf{$S_x$} \\
+    \midrule
+    2 & Axial deviatoric overstress & 3.5 $\mu$s & 1.00 & 0.29 & 0.40 \\
+    3 & Deviatoric overstress plus lateral response & 3.5 $\mu$s & 1.00 & 0.38 & 0.78 \\
+    6 & Hydrostatic/cap response; shear trigger inactive & -- & 0.00 & 0.00 & 1.00 \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.25cm}
+  \begin{block}{Interpretation}
+    The same Step~4 scalar law is appropriate for Modes~2--3 shear failure
+    comparison. Mode~6 needs an additional volumetric cap-damage measure
+    because high $p$ with low $q$ can crush pores or compact grains without
+    crossing the deviatoric envelope.
+  \end{block}
 \end{frame}
 
 \begin{frame}{Step 4: stiffness and wave-speed loss}
@@ -1129,7 +1213,37 @@
   }
 \end{frame}
 
-\begin{frame}{Outputs connect the handbook to experiments}
+\begin{frame}{Step 4: six-mode damage-model result}
+  \figurewithnotes{figures/handbook_steps/step4_six_mode_damage_model_comparison.png}{%
+    \item Modes~1--5 activate the deviatoric shear-damage law under the controlled examples.
+    \item Mode~5 uses the same EM amplitude and duration as Modes~4 and~6, but delayed Y/Z pulses show path dependence.
+    \item Mode~6 is nearly hydrostatic, so the shear-damage trigger stays inactive and a cap/compaction descriptor is needed.
+  }
+\end{frame}
+
+\begin{frame}{Step 4: six-mode damage descriptors}
+  \tiny
+  \begin{tabular}{@{}p{0.08\textwidth}p{0.34\textwidth}p{0.11\textwidth}p{0.11\textwidth}p{0.09\textwidth}p{0.09\textwidth}@{}}
+    \toprule
+    \textbf{Mode} & \textbf{Controlled experimental input} & \textbf{Peak $F$} & \textbf{Onset} & \textbf{$D_f$} & \textbf{$D_c$} \\
+    \midrule
+    1 & $V=20$ m\,s$^{-1}$; no static pre-stress & 2.97 & 9.0 $\mu$s & 1.00 & 0.21 \\
+    2 & $V=20$ m\,s$^{-1}$; $30/20/20$ MPa & 5.45 & 6.0 $\mu$s & 1.00 & 0.29 \\
+    3 & $V=20$ m\,s$^{-1}$; $30/20/15$ MPa & 5.52 & 6.0 $\mu$s & 1.00 & 0.38 \\
+    4 & EM X; $A=400$ MPa, $\tau=200~\mu$s; $30/20/15$ MPa & 4.59 & 10.0 $\mu$s & 1.00 & 0.25 \\
+    5 & EM XYZ; same $A,\tau$; Y/Z delays $80/160~\mu$s & 5.39 & 10.0 $\mu$s & 1.00 & 0.37 \\
+    6 & EM $\pm$XYZ; same $A,\tau$ per opposed bar & 0.00 & -- & 0.00 & 0.00 \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.22cm}
+  \begin{block}{Main message}
+    The six modes use comparable material inputs, but they do not create the
+    same failure mechanism: Modes~1--5 drive shear failure, while Mode~6
+    requires volumetric compaction validation.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Outputs connect the model to experiments}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.48\textwidth}
       \begin{exampleblock}{Exportable data}
@@ -1155,20 +1269,19 @@
 \end{frame}
 
 % ###################################################################
-\section{Handbook V4 Deliverable}
+\section{Closing: What The Lab Can Demonstrate}
 % ###################################################################
 
-\begin{frame}{What is new in this presentation-ready V4}
+\begin{frame}{What this reorganised presentation now demonstrates}
   \begin{itemize}
-    \item Simulator presets and handbook equations are aligned around
+    \item Classical SHPB theory is introduced before the modified apparatus modes.
+    \item Mode~2 is presented as the traditional confinement-chamber extension.
+    \item Mode~3 is presented as the true-triaxial, in-situ stress extension.
+    \item Modes~4--6 are grouped as electromagnetic loading for controlled
+          amplitude, duration, timing, and symmetry.
+    \item The comparison and damage results use the same rock sample basis and
+          aligned calibration around
           $\dot{\varepsilon}_{\mathrm{ref}}=10^{-5}\ \mathrm{s}^{-1}$.
-    \item Six-mode figures are inserted into the corresponding apparatus
-          chapters.
-    \item Step 2--4 figures now document wave timing, stress path, damage,
-          energy density, and validation descriptors.
-    \item The launch instructions use the tested Windows launcher:
-          \cmdline{py -3.13 -m streamlit}.
-    \item Long inline code keys were reformatted to avoid PDF margin overflow.
   \end{itemize}
 \end{frame}
 
@@ -1197,9 +1310,10 @@
 
 \begin{frame}{Closing}
   \begin{center}
-    \Large Handbook V4 is now a linked system.\\[6pt]
-    \normalsize Apparatus modes, equations, Streamlit workflow, figures, and
-    validation outputs all point to the same calibration story.
+    \Large Rock dynamic testing becomes a stress-path problem.\\[6pt]
+    \normalsize The six modes turn uniaxial strength, in-situ stress,
+    blast-like pulses, seismic timing, and excavation disturbance into
+    comparable laboratory evidence.
   \end{center}
 \end{frame}
 
