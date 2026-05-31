@@ -24,7 +24,14 @@ Default port (8501):
 py -3.13 -m streamlit run tri_hb_integrated.py
 ```
 
-A second instance on port 8502 (useful when port 8501 is busy):
+A second instance on port 8502 (useful when port 8501 is busy) — either run
+the included launcher,
+
+```powershell
+.\launch_8502.ps1
+```
+
+or invoke Streamlit directly:
 
 ```powershell
 py -3.13 -m streamlit run tri_hb_integrated.py --server.port 8502
