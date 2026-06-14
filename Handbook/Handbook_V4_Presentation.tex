@@ -188,8 +188,9 @@ seismic pulses, and excavation disturbance\\[4pt]
 
 \begin{frame}{Why dynamic rock testing needs more than UCS}
   \begin{exampleblock}{Core purpose}
-    Link classical Hopkinson-bar theory, six laboratory loading modes,
-    controlled experiments, and damage-model validation in one clear sequence.
+    Link classical Hopkinson-bar theory, six physics branches, four app
+    loading families, controlled experiments, and damage-model validation in
+    one clear sequence.
   \end{exampleblock}
   \vspace{0.25cm}
   \begin{columns}[T,onlytextwidth]
@@ -207,7 +208,7 @@ seismic pulses, and excavation disturbance\\[4pt]
   \end{columns}
 \end{frame}
 
-\begin{frame}{One laboratory platform, six loading modes}
+\begin{frame}{One platform, four UI families, six physics branches}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.52\textwidth}
       \begin{itemize}
@@ -215,13 +216,15 @@ seismic pulses, and excavation disturbance\\[4pt]
         \item Independent Y and Z bar pairs for true triaxial static pre-stress.
         \item Electromagnetic pulse generators for programmable amplitude,
               duration, symmetry, and inter-axis delay.
-        \item Current digital-twin pre-stress range: 0--50 MPa per axis.
+        \item Current digital-twin pre-stress range: 0--50 MPa; full
+              symmetric XYZ uses one hydrostatic $p_0$ control.
       \end{itemize}
     \end{column}
     \begin{column}{0.42\textwidth}
       \begin{block}{Physical interpretation}
-        Modes 1--3 preserve gas-gun heritage; Modes 4--6 add clean pulse
-        control and true multidirectional timing studies.
+        The app shows four top-level families. Modes 4--6 are grouped under
+        \emph{Electromagnetic programmable loading} and selected by EM
+        topology: single-axis, multi-axis one-sided, or symmetric pairs.
       \end{block}
     \end{column}
   \end{columns}
@@ -582,10 +585,12 @@ seismic pulses, and excavation disturbance\\[4pt]
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{exampleblock}{Loading setup}
-        EM pulses on X/Y/Z; peak $400$ MPa, duration $200~\mu$s.\\[3pt]
+        EM pulses on X, X+Y, or X+Y+Z; per-axis amplitudes, duration
+        $200~\mu$s.\\[3pt]
         Static pre-stress: $\sigma_x=30$, $\sigma_y=20$,
-        $\sigma_z=15$ MPa. Delays are programmable; the six-mode damage
-        comparison uses $\Delta t_y=80~\mu$s and $\Delta t_z=160~\mu$s.
+        $\sigma_z=15$ MPa. Y/Z delays are programmable from 0--500 $\mu$s;
+        the six-branch damage comparison uses $\Delta t_y=80~\mu$s and
+        $\Delta t_z=160~\mu$s.
       \end{exampleblock}
     \end{column}
   \end{columns}
@@ -648,7 +653,8 @@ seismic pulses, and excavation disturbance\\[4pt]
       \begin{exampleblock}{Loading setup}
         Opposed EM pulses on $\pm X,\pm Y,\pm Z$; peak $400$ MPa per bar,
         duration $200~\mu$s.\\[3pt]
-        Static pre-stress: $\sigma_x=30$, $\sigma_y=20$, $\sigma_z=15$ MPa.
+        Full XYZ hydrostatic pre-stress: $p_0=\sigma_x=\sigma_y=\sigma_z$
+        (default example $p_0=30$ MPa).
       \end{exampleblock}
     \end{column}
   \end{columns}
@@ -673,9 +679,9 @@ seismic pulses, and excavation disturbance\\[4pt]
   }
 \end{frame}
 
-\section{Six-Mode Similarities and Differences}
+\section{Six-Branch Similarities and Differences}
 
-\begin{frame}{Six-mode comparison: what is shared and what changes}
+\begin{frame}{Six-branch comparison: what is shared and what changes}
   \tiny
   \begin{tabular}{@{}p{0.08\textwidth}p{0.13\textwidth}p{0.21\textwidth}p{0.25\textwidth}p{0.17\textwidth}@{}}
     \toprule
@@ -684,9 +690,9 @@ seismic pulses, and excavation disturbance\\[4pt]
     1 & Gas X & Unconfined & Baseline axial strength & Sandstone, 50 mm \\
     2 & Gas X & Chamber, $\sigma_2=\sigma_3$ & Axisymmetric pressure strengthening & Same gas speed as Mode 1 \\
     3 & Gas X & Active true triaxial & Independent lateral stresses shift Lode path & Same X impact family \\
-    4 & EM X & Static triaxial pre-stress & Half-sine amplitude-duration control & Same pre-stress as Modes 5--6 \\
-    5 & EM X/Y/Z & Timed multi-axis pulses & Loading order bends the stress path & Same EM $A,\tau$ as Mode 4 \\
-    6 & EM $\pm$ axes & Symmetric squeeze & Hydrostatic compaction and force cancellation & Same EM $A,\tau$ \\
+    4 & EM X & Static triaxial pre-stress & Half-sine amplitude-duration control & EM family, topology branch \\
+    5 & EM X/Y/Z & Timed one-sided multi-axis pulses & Loading order bends the stress path & Same EM $A,\tau$ basis as Mode 4 \\
+    6 & EM $\pm$ axes & Symmetric squeeze; linked $p_0$ for full XYZ & Hydrostatic compaction and force cancellation & Same EM $A,\tau$ basis \\
     \bottomrule
   \end{tabular}
   \vspace{0.16cm}
@@ -695,7 +701,7 @@ seismic pulses, and excavation disturbance\\[4pt]
   specimen $50\times50\times50$ mm.}
 \end{frame}
 
-\begin{frame}{Six-mode result summary: similarities and differences}
+\begin{frame}{Six-branch result summary: similarities and differences}
   \scriptsize
   \begin{tabular}{@{}p{0.10\textwidth}p{0.24\textwidth}p{0.29\textwidth}p{0.27\textwidth}@{}}
     \toprule
@@ -704,9 +710,9 @@ seismic pulses, and excavation disturbance\\[4pt]
     1 & Same sandstone and specimen geometry & No confinement; gas-gun X at 20 m\,s$^{-1}$ & Lowest-pressure baseline; only axial branch is meaningful \\
     2 & Same gas-gun speed as Modes 1 and 3 & Chamber confinement, $\sigma_1=30$, $\sigma_2=\sigma_3=20$ MPa & Axisymmetric confinement strengthens the specimen \\
     3 & Same X impact family as Mode 2 & True triaxial pre-stress, $30/20/15$ MPa & Lode-angle effect appears through unequal lateral stresses \\
-    4 & Same $30/20/15$ MPa pre-stress as Modes 5--6 & One EM X pulse, 400 MPa peak, 200 $\mu$s & Pulse amplitude and duration are explicit inputs \\
-    5 & Same EM amplitude/duration as Modes 4 and 6 & Programmable X/Y/Z timing & Curved path shows loading-order and path dependence \\
-    6 & Same EM pulse scale as Modes 4 and 5 & Opposed symmetric pulses on $\pm X,\pm Y,\pm Z$ & Hydrostatic compaction dominates; momentum cancels \\
+    4 & Same EM family as Modes 5 and 6 & One EM X pulse, 400 MPa peak, 200 $\mu$s; $30/20/15$ MPa & Pulse amplitude and duration are explicit inputs \\
+    5 & Same one-sided EM reduction basis as Mode 4 & Programmable X/Y/Z amplitudes and Y/Z timing & Curved path shows loading-order and path dependence \\
+    6 & Same EM pulse scale as Modes 4 and 5 & Opposed symmetric pulses; full XYZ uses hydrostatic $p_0$ & Hydrostatic compaction dominates; momentum cancels \\
     \bottomrule
   \end{tabular}
 \end{frame}
@@ -714,9 +720,9 @@ seismic pulses, and excavation disturbance\\[4pt]
 \begin{frame}{Focused comparison: traditional, true-triaxial, and symmetric loading}
   \tiny
   \begin{block}{Normalised input for the focused comparison}
-    Same sandstone specimen, same static pre-stress
-    $\sigma_{x0}/\sigma_{y0}/\sigma_{z0}=30/20/20$ MPa, and the same
-    half-sine stress-wave scale $A=400$ MPa, $\tau=200~\mu$s.
+    Same sandstone specimen and half-sine stress-wave scale
+    $A=400$ MPa, $\tau=200~\mu$s. Mode~6 full XYZ uses a hydrostatic
+    $p_0$ pre-stress, while Modes~2--3 keep their chamber/Tri-HB baselines.
   \end{block}
   \vspace{0.10cm}
   \begin{tabular}{@{}p{0.08\textwidth}p{0.24\textwidth}p{0.11\textwidth}p{0.11\textwidth}p{0.10\textwidth}p{0.19\textwidth}@{}}
@@ -769,17 +775,17 @@ seismic pulses, and excavation disturbance\\[4pt]
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.48\textwidth}
       \begin{block}{Controlled experiment rule}
-        Use the same sandstone sample geometry and material constants in all
-        six modes. When a mode has pre-static stress, use the default
-        laboratory values from the integrated analysis setup.
+        Use the same sandstone sample geometry and material constants across
+        the six physics branches. When a branch has pre-static stress, use the
+        default laboratory values from the integrated analysis setup.
       \end{block}
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{exampleblock}{Wave-input rule}
         \begin{itemize}
           \item Gas-gun modes use the same reference striker condition.
-          \item EM modes use the same half-sine amplitude and duration.
-          \item Mode~5 may change delay to expose path dependence.
+          \item EM branches use the same half-sine amplitude-duration concept.
+          \item Mode~5 may change Y/Z delay up to 500 $\mu$s to expose path dependence.
         \end{itemize}
       \end{exampleblock}
     \end{column}
@@ -793,7 +799,7 @@ seismic pulses, and excavation disturbance\\[4pt]
       \begin{itemize}
         \item material preset and specimen geometry
         \item bar cross-section and elastic properties
-        \item loading mode, pulse source, and pre-stress
+        \item loading family, EM topology, pulse source, and pre-stress
         \item simulator or uploaded gauge data
       \end{itemize}
     \end{column}
@@ -808,7 +814,7 @@ seismic pulses, and excavation disturbance\\[4pt]
   \end{columns}
 \end{frame}
 
-\begin{frame}{Step 1 equations: bar signals to specimen response}
+\begin{frame}[shrink=5]{Step 1 equations: bar signals to specimen response}
   \scriptsize
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.49\textwidth}
@@ -826,9 +832,9 @@ seismic pulses, and excavation disturbance\\[4pt]
       \end{block}
       \begin{block}{Definitions}
         \begin{itemize}
-          \item $\varepsilon_I,\varepsilon_R,\varepsilon_T$: incident, reflected, transmitted bar strains.
-          \item $A_b,A_s$: bar and specimen cross-sectional areas.
-          \item $E_b$: bar Young's modulus; $\sigma_s$: specimen stress.
+          \item $\varepsilon_I,\varepsilon_R,\varepsilon_T$: incident, reflected, transmitted strains.
+          \item Raw gauge time preserves travel delays; aligned time feeds reduction.
+          \item $A_b,A_s,E_b,\sigma_s$: areas, bar modulus, specimen stress.
         \end{itemize}
       \end{block}
     \end{column}
@@ -912,7 +918,7 @@ seismic pulses, and excavation disturbance\\[4pt]
 \begin{frame}{Step 2: input dynamic pulses}
   \figurewithnotes{figures/handbook_steps/step2_input_dynamic_pulses.png}{%
     \item Pulse amplitude, duration, and delay define the wave-interaction problem before failure is evaluated.
-    \item This plot confirms whether the selected loading mode is one-axis, multi-axis, or symmetric.
+    \item This plot confirms whether the selected family/topology is one-axis, multi-axis, or symmetric.
   }
 \end{frame}
 
@@ -1213,7 +1219,7 @@ seismic pulses, and excavation disturbance\\[4pt]
   }
 \end{frame}
 
-\begin{frame}{Step 4: six-mode damage-model result}
+\begin{frame}{Step 4: six-branch damage-model result}
   \figurewithnotes{figures/handbook_steps/step4_six_mode_damage_model_comparison.png}{%
     \item Modes~1--5 activate the deviatoric shear-damage law under the controlled examples.
     \item Mode~5 uses the same EM amplitude and duration as Modes~4 and~6, but delayed Y/Z pulses show path dependence.
@@ -1221,7 +1227,7 @@ seismic pulses, and excavation disturbance\\[4pt]
   }
 \end{frame}
 
-\begin{frame}{Step 4: six-mode damage descriptors}
+\begin{frame}{Step 4: six-branch damage descriptors}
   \tiny
   \begin{tabular}{@{}p{0.08\textwidth}p{0.34\textwidth}p{0.11\textwidth}p{0.11\textwidth}p{0.09\textwidth}p{0.09\textwidth}@{}}
     \toprule
@@ -1232,13 +1238,13 @@ seismic pulses, and excavation disturbance\\[4pt]
     3 & $V=20$ m\,s$^{-1}$; $30/20/15$ MPa & 5.52 & 6.0 $\mu$s & 1.00 & 0.38 \\
     4 & EM X; $A=400$ MPa, $\tau=200~\mu$s; $30/20/15$ MPa & 4.59 & 10.0 $\mu$s & 1.00 & 0.25 \\
     5 & EM XYZ; same $A,\tau$; Y/Z delays $80/160~\mu$s & 5.39 & 10.0 $\mu$s & 1.00 & 0.37 \\
-    6 & EM $\pm$XYZ; same $A,\tau$ per opposed bar & 0.00 & -- & 0.00 & 0.00 \\
+    6 & EM $\pm$XYZ; same $A,\tau$ per opposed bar; hydrostatic $p_0$ & 0.00 & -- & 0.00 & 0.00 \\
     \bottomrule
   \end{tabular}
   \vspace{0.22cm}
   \begin{block}{Main message}
-    The six modes use comparable material inputs, but they do not create the
-    same failure mechanism: Modes~1--5 drive shear failure, while Mode~6
+    The six physics branches use comparable material inputs, but they do not
+    create the same failure mechanism: Modes~1--5 drive shear failure, while Mode~6
     requires volumetric compaction validation.
   \end{block}
 \end{frame}
@@ -1299,7 +1305,7 @@ seismic pulses, and excavation disturbance\\[4pt]
     \begin{column}{0.48\textwidth}
       \textbf{Research sequence}
       \begin{enumerate}
-        \item choose mode from the stress-path question
+        \item choose loading family/topology from the stress-path question
         \item check bar plasticity and equilibrium
         \item export reduced histories
         \item calibrate damage and DEM descriptors
@@ -1311,7 +1317,7 @@ seismic pulses, and excavation disturbance\\[4pt]
 \begin{frame}{Closing}
   \begin{center}
     \Large Rock dynamic testing becomes a stress-path problem.\\[6pt]
-    \normalsize The six modes turn uniaxial strength, in-situ stress,
+    \normalsize The six physics branches turn uniaxial strength, in-situ stress,
     blast-like pulses, seismic timing, and excavation disturbance into
     comparable laboratory evidence.
   \end{center}

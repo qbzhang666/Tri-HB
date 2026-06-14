@@ -1,8 +1,12 @@
 # Local setup — running the Tri-HB integrated app
 
-The integrated app is a single Streamlit script that loads two helper modules
-(`Tri-HB.py` and `wave_damage.py`) from the same folder. There are no other
-runtime dependencies inside the repo.
+The integrated app is the entry-point script `tri_hb_integrated.py`. It must be
+run from a folder that also contains `Tri-HB.py` and `wave_damage.py`, because
+those two files hold most of the app — the Step 1 simulator lives in
+`Tri-HB.py`, and the Step 2/3/4 wave, stress-path, and damage pages live in
+`wave_damage.py`. `tri_hb_integrated.py` loads them at runtime; on its own it
+only provides the Overview page and the experimental data reducer. There are no
+other runtime dependencies inside the repo.
 
 ## One-time install
 

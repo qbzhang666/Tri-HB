@@ -261,7 +261,7 @@ and~\ref{ch:foundations}) develops the theoretical foundations common to all
 modes: the one-dimensional wave equation in elastic bars, force and velocity
 continuity at specimen faces, the three-wave method, and the algebra of
 acoustic impedance. Part~II (Chapters~\ref{ch:mode1}--\ref{ch:comparison})
-treats each of the six loading modes in turn, deriving the relevant wave
+treats each of the six physics branches in turn, deriving the relevant wave
 equations from first principles and presenting worked numerical examples.
 Part~III (Chapters~\ref{ch:integrated}--\ref{ch:wavedamage}) documents the
 integrated computational workspace, its data-reduction routines, and the
@@ -452,13 +452,15 @@ in which three pairs of orthogonal bars apply independently controlled dynamic
 pulses on a cubic specimen held under independently controlled triaxial
 pre-stress.
 
-The Tri-HB facility documented in this handbook supports six loading modes:
+The Tri-HB facility documented in this handbook supports six physics branches:
 
 \begin{enumerate}[leftmargin=2.4em,itemsep=4pt]
 \item \textbf{Mode 1 -- Gas-gun uniaxial} (classical SHPB). A pneumatically
-      launched striker bar strikes the incident bar, producing a roughly
-      trapezoidal pulse shaped by a copper or rubber pulse shaper. The
-      specimen is loaded along a single axis, with no active confining
+      launched striker bar strikes the incident bar; a copper or rubber pulse
+      shaper smooths the otherwise near-rectangular striker pulse into a
+      half-sine incident wave, which the digital twin models directly as a
+      half-sine of the same peak amplitude and striker round-trip duration.
+      The specimen is loaded along a single axis, with no active confining
       pressure.
 \item \textbf{Mode 2 -- Confinement-chamber SHPB}. A cylindrical specimen
       is held inside a pressurised confining chamber (oil-filled vessel or
@@ -488,18 +490,34 @@ The Tri-HB facility documented in this handbook supports six loading modes:
       specimen stress without exceeding the bar elastic limit \cite{xie2021}.
 \end{enumerate}
 
-\noindent All six modes permit independent static pre-stress on the three
-principal axes (axisymmetric in Mode~2; fully independent in Modes~3--6),
-in the range \SIrange{0}{50}{MPa} per axis for the current Monash digital
-twin.
+\noindent In the current Streamlit interface these six physics branches are
+presented as four top-level loading families:
+\emph{Gas-gun uniaxial SHPB}, \emph{Confinement-chamber SHPB},
+\emph{Gas-gun Tri-HB static--dynamic loading}, and
+\emph{Electromagnetic programmable loading}.  The electromagnetic family
+then exposes a secondary topology selector: \emph{single-axis, one-sided}
+(legacy Mode~4), \emph{multi-axis, one-sided} (legacy Mode~5), and
+\emph{symmetric opposing pairs} (legacy Mode~6).  The exported
+configuration retains the machine-readable fields
+\texttt{loading\_family}, \texttt{em\_topology}, \texttt{active\_axes},
+and \texttt{legacy\_mode}, so the cleaner interface remains traceable to
+the handbook equations.
+
+\noindent All branches permit static pre-stress in the range
+\SIrange{0}{50}{MPa} for the current Monash digital twin.  The stress
+components are independent in the true-triaxial branches, linked as
+$\sig_2=\sig_3=p_c$ in the confinement-chamber branch, and tied to a
+single hydrostatic value $p_0=\sig_1=\sig_2=\sig_3$ when the full
+symmetric $\pm X\pm Y\pm Z$ hydrostatic topology is selected.
 
 The handbook is intended to be read in conjunction with the
 \emph{Virtual Tri-HB Integrated Workspace}, a Streamlit-based digital twin
-(file \texttt{tri\_hb\_integrated.py}) that bundles four analysis steps into
+(file \texttt{tri\_hb\_integrated.py}) that bundles five analysis steps into
 one shared experimental setup: (1) configuration and simulation or reduction
 of bar-gauge data; (2) wave propagation modelling and equilibrium analysis;
-(3) stress-path and invariant analysis; and (4) damage evolution and DEM/
-experimental validation. The workspace is described in detail in
+(3) stress-path and invariant analysis; (4) damage evolution and DEM/
+experimental validation; and (5) a publication-ready summary of all results.
+The workspace is described in detail in
 Chapters~\ref{ch:integrated}--\ref{ch:wavedamage}.
 
 \section{The Monash Tri-HB system}\label{sec:monash-trihb}
@@ -530,7 +548,7 @@ cylinders and one vertical hydraulic cylinder, while the dynamic load is
 delivered by launching the striker bar from the gas gun. This arrangement
 realises triaxial static--dynamic coupled loading, allowing the influence of
 the triaxial quasi-static pre-stress on the dynamic behaviour of rocks to be
-investigated systematically. The six loading modes described above are
+investigated systematically. The six physics branches described above are
 realised on this physical platform (Modes~1--3, with the cylindrical
 specimen of Mode~2 and the cubic specimen of Mode~3) and on its
 electromagnetic extension and digital twin (Modes~4--6).
@@ -567,7 +585,7 @@ clarity. Strain rates are in s\textsuperscript{-1}.
 \chapter{Theoretical foundations}\label{ch:foundations}
 %==============================================================================
 
-This chapter develops the equations common to all six loading modes. The
+This chapter develops the equations common to all six physics branches. The
 treatment follows the classical exposition of Kolsky \cite{Kolsky1949,Kolsky1963}
 with notational alignment to the modern SHPB literature
 \cite{ChenSong2011,GrayHandbook}.
@@ -659,12 +677,13 @@ where $\Phi$ is computed from the lowest root of the Pochhammer--Chree
 characteristic equation, and $\nu_b$ is the bar Poisson's ratio. For
 $ka \lesssim 0.1$, $\Phi \approx 1$ to within a fraction of one percent; for
 $ka \sim 1$, $\Phi$ decreases by typically \SI{5}{\percent}, depending on
-$\nu_b$. The simulator's default of an unshaped rectangular pulse contains
-arbitrarily high $ka$ harmonics and is therefore prone to spurious
-oscillations as the pulse propagates; the half-sine pulse of the
-electromagnetic mode and the trapezoidal shape of the pulse-shaped gas-gun
-mode both concentrate energy at $ka \ll 1$ and are essentially
-dispersion-free for the geometries used here.
+$\nu_b$. An unshaped rectangular pulse contains arbitrarily high $ka$
+harmonics and is therefore prone to spurious oscillations as the pulse
+propagates; the half-sine pulse of the electromagnetic modes and the
+pulse-shaped (half-sine) gas-gun modes both concentrate energy at
+$ka \ll 1$ and are essentially dispersion-free for the geometries used here.
+This is the reason the digital twin represents every loading mode, including
+the gas-gun modes, with a smooth half-sine incident wave.
 
 A working rule is that bar dispersion is negligible provided
 \begin{equation}
@@ -1045,8 +1064,8 @@ The pulse duration is set by the round-trip time within the striker bar:
   \tau     &\;=\; \frac{2\times\SI{0.5}{m}}{\SI{5172}{m/s}}
               \;\approx\; \SI{193}{\micro s}.
 \end{align*}
-A $\SI{20}{m/s}$ impact thus produces an approximately rectangular pulse of
-\SI{406}{MPa} amplitude lasting \SI{193}{\micro s}.
+A $\SI{20}{m/s}$ impact thus produces a pulse-shaped (half-sine) incident wave
+of \SI{406}{MPa} peak amplitude lasting \SI{193}{\micro s}.
 \end{stepbox}
 
 \begin{figure}[htbp]
@@ -1066,8 +1085,12 @@ high-frequency content responsible for Pochhammer--Chree oscillations
 (\S\ref{sec:dispersion}), and (ii) gives the specimen time to reach dynamic
 stress equilibrium before failure. Design rules for pulse shapers are
 discussed by Frew \& Forrestal \cite{FrewForrestal2002}. The digital twin
-approximates the shaped pulse with a trapezoidal envelope having
-\SI{20}{\micro s} rise/fall and a flat plateau between.
+represents the shaped pulse directly as a half-sine,
+$\sigma_I(t)=\sigpeak\sin(\pi t/\tau)$, with the same peak amplitude
+$\sigpeak=\tfrac12(E_b/\Cz)V$ and the same striker round-trip duration
+$\tau=2L_{\text{striker}}/\Cz$ as the unshaped pulse. This matches the
+pulse-shaper behaviour in real SHPB tests and gives the same smooth,
+dispersion-free incident wave used by the electromagnetic modes.
 
 \section{Pulse propagation and specimen response}
 
@@ -1734,9 +1757,10 @@ rate \cite{Liu2019}.
 The electromagnetic uniaxial mode replaces the gas gun and striker bar with
 a capacitor-bank-driven coil that produces a Lorentz force on a flyer plate
 (or directly on the bar end), launching a stress pulse into a single
-incident bar. The data-reduction equations are identical to Mode~1; the
-distinguishing feature is the pulse shape and the independent control of
-amplitude and duration.
+incident bar. The data-reduction equations are identical to Mode~1, and the
+pulse shape is the same smooth half-sine; the distinguishing feature is the
+\emph{independent} control of pulse amplitude and duration, which the
+gas-gun drive cannot provide.
 
 \section{Hardware differences from Mode~1}
 
@@ -1751,14 +1775,18 @@ amplitude and duration.
 
 \section{The half-sine pulse}\label{sec:halfsine}
 
-Where the gas-gun pulse is trapezoidal, the electromagnetic generator
-produces a clean half-sine pulse:
+Both the pulse-shaped gas-gun modes and the electromagnetic generator produce
+a clean half-sine pulse:
 \begin{empheq}[box=\fbox]{equation}
   \sig_I(t) \;=\; \sigpeak\,\sin\!\left(\frac{\pi t}{\tau}\right),
   \qquad 0\le t\le\tau.
   \label{eq:halfsine}
 \end{empheq}
-The peak amplitude $\sigpeak$ and duration $\tau$ are \emph{independently}
+The difference between the two drives is not the pulse \emph{shape} but the
+control of its parameters. In the gas-gun modes the peak amplitude
+$\sigpeak=\tfrac12(E_b/\Cz)V$ and the duration $\tau=2L_{\text{striker}}/\Cz$
+are both fixed by the striker velocity and geometry. In the electromagnetic
+modes the peak amplitude $\sigpeak$ and duration $\tau$ are \emph{independently}
 tuneable through the capacitor charging voltage and the circuit inductance,
 respectively. This decoupling is the chief advantage of the electromagnetic
 system: students can sweep the strain-rate axis by varying $\tau$ alone,
@@ -1893,11 +1921,12 @@ dynamic peak.
 \chapter{Mode 5: Electromagnetic asynchronous triaxial impact}\label{ch:mode5}
 %==============================================================================
 
-This mode uses three of the six electromagnetic generators to apply pulses
-along the $+X$, $+Y$, and $+Z$ axes, each with an independent time delay.
-It enables the study of how the \emph{order} of multi-axis loading affects
-material failure --- a question that classical uniaxial Hopkinson testing
-cannot address.
+This mode uses one, two, or three of the positive-axis electromagnetic
+generators to apply one-sided pulses along $+X$, $+Y$, and $+Z$. In the full
+triaxial setting each active axis has an independently specified amplitude,
+and the Y and Z pulses can be delayed relative to X. It enables the study of
+how the \emph{order} of multi-axis loading affects material failure --- a
+question that classical uniaxial Hopkinson testing cannot address.
 
 \section{Hardware configuration}
 
@@ -1907,11 +1936,15 @@ and remain passive. In this mode, each of the three positive-axis directions
 hosts its own three-wave problem; the negative-axis directions show
 transmitted signals only.
 
+In the Streamlit interface the active-axis selector exposes X, X+Y, and
+X+Y+Z. The synchronous shortcut sets $\Delta t_y=\Delta t_z=0$, while the
+asynchronous controls allow Y/Z delays from \SIrange{0}{500}{\micro s}.
+
 \section{The time-delay concept}
 
 Let pulse $i\in\{x,y,z\}$ be
 \begin{equation}
-  \sig_{I,i}(t) \;=\; \sigpeak\,\sin\!\left(\frac{\pi(t-\Delta t_i)}{\tau}\right),
+  \sig_{I,i}(t) \;=\; A_i\,\sin\!\left(\frac{\pi(t-\Delta t_i)}{\tau}\right),
   \qquad \Delta t_i \le t \le \Delta t_i+\tau.
   \label{eq:async-pulse}
 \end{equation}
@@ -1988,12 +2021,15 @@ dynamic event.
 \begin{enumerate}[leftmargin=*,itemsep=3pt]
   \item Apply static pre-stress $\sig_1^{0}$, $\sig_2^{0}$, $\sig_3^{0}$.
         Record baselines.
-  \item Choose pulse delays $\Delta t_y$, $\Delta t_z$ relative to
-        $\Delta t_x=0$. Typical values: $\Delta t=0$ (synchronous, ground
-        truth), $\Delta t=\tau/4$ (mild asynchrony), $\Delta t=\tau/2$
-        (strong asynchrony).
-  \item Charge all three capacitor banks to identical voltages for equal
-        $\sigpeak$ on each axis.
+  \item Choose active axes X, X+Y, or X+Y+Z. For any active Y/Z pulse,
+        choose delays $\Delta t_y$, $\Delta t_z$ relative to
+        $\Delta t_x=0$. Typical values are $\Delta t=0$ (synchronous,
+        ground truth), $\Delta t=\tau/4$ (mild asynchrony), and
+        $\Delta t=\tau/2$ (strong asynchrony), with the app slider allowing
+        values up to \SI{500}{\micro s}.
+  \item Set capacitor-bank voltages for the requested per-axis amplitudes
+        $A_x$, $A_y$, and $A_z$; equal voltages are a special synchronous
+        calibration case rather than a requirement.
   \item Trigger generators with the programmed delays. Synchronisation
         jitter must be much less than $\tau$; aim for $<\SI{1}{\micro s}$
         on a \SI{200}{\micro s} pulse.
@@ -2041,11 +2077,11 @@ dynamic event.
 %==============================================================================
 
 This is the most powerful and most physically distinctive mode of the Tri-HB
-facility. All six electromagnetic generators fire \emph{simultaneously},
-delivering identical pulses on the opposing bar pairs $(+X,-X)$, $(+Y,-Y)$,
-$(+Z,-Z)$. The two pulses on each axis arrive at the specimen at the same
-instant, superposing constructively in force while cancelling in momentum.
-The specimen is compressed from all sides simultaneously.
+facility. Opposing electromagnetic generators fire \emph{simultaneously} on
+each active bar pair. In the full hydrostatic setting this means all six bars
+fire as matched pairs $(+X,-X)$, $(+Y,-Y)$, and $(+Z,-Z)$. The two pulses on
+each active axis arrive at the specimen at the same instant, superposing
+constructively in force while cancelling in momentum.
 
 \begin{newfeature}[Why this mode is special]
 \begin{itemize}[leftmargin=*,itemsep=2pt]
@@ -2058,7 +2094,9 @@ The specimen is compressed from all sides simultaneously.
         which is a profound advantage for high-stress testing.
   \item Pure hydrostatic loading is possible when all six bars fire equally:
         the deviatoric stress $q\to 0$ and the specimen probes its
-        volumetric (cap) response.
+        volumetric (cap) response. In the current app this full-XYZ
+        topology also links the static pre-stress through one hydrostatic
+        slider $p_0=\sig_1=\sig_2=\sig_3$.
 \end{itemize}
 \end{newfeature}
 
@@ -2192,7 +2230,7 @@ Strain rate
 Active bars
   & $\eps_I,\eps_R,\eps_T$ (three)
   & $\eps_I^{\pm},\eps_R^{\pm}$ (two pairs)\\
-Effective drive
+Ideal paired incident drive
   & $\sig_{\text{drive}}=\sigpeak$
   & $\sig_{\text{drive}}=2\sigpeak$\\
 Max bar stress
@@ -2234,7 +2272,10 @@ The digital twin offers three configurations:
     cannot fail by shear yielding. Instead it deforms volumetrically along
     its compaction cap. This probes the pressure--volume response captured
     by the curve $p(\eps_v)$ with $p=\tfrac{1}{3}(\sig_x+\sig_y+\sig_z)$
-    and $\eps_v=\eps_x+\eps_y+\eps_z$.
+    and $\eps_v=\eps_x+\eps_y+\eps_z$. The app treats this as the
+    hydrostatic topology and therefore exposes one static pre-stress
+    control $p_0$ rather than three independent $\sig_1,\sig_2,\sig_3$
+    sliders.
 \end{description}
 
 \section{Pressure--volume response under hydrostatic loading}
@@ -2269,8 +2310,9 @@ the full-hydrostatic sub-mode is selected.
 
 \begin{stepbox}[Mode~6 procedure]
 \begin{enumerate}[leftmargin=*,itemsep=3pt]
-  \item Apply static pre-stress: set $\sig_1^{0}=\sig_2^{0}=\sig_3^{0}$ for
-        the hydrostatic sub-mode, or independent values otherwise.
+  \item Apply static pre-stress: set one hydrostatic value
+        $p_0=\sig_1^{0}=\sig_2^{0}=\sig_3^{0}$ for the full hydrostatic
+        sub-mode, or the relevant active-axis values otherwise.
   \item Choose $\sigpeak$ (single-bar peak amplitude). Remember the specimen
         will experience $2\sigpeak$ on each active axis. Verify
         $\sigpeak<\sigprop=\SI{1000}{MPa}$.
@@ -2340,7 +2382,7 @@ respected.
 
 
 %==============================================================================
-\chapter{Comparison of the six loading modes}\label{ch:comparison}
+\chapter{Comparison of the six physics branches}\label{ch:comparison}
 %==============================================================================
 
 \section{Side-by-side comparison}
@@ -2352,19 +2394,19 @@ respected.
 \toprule
 \textbf{Property} & \textbf{Mode 1} \par Gas-gun & \textbf{Mode 2} \par Conf.\ chamber & \textbf{Mode 3} \par Monash Tri-HB & \textbf{Mode 4} \par EM uniaxial & \textbf{Mode 5} \par EM async & \textbf{Mode 6} \par EM sym.\\
 \midrule
-Pulse shape & Trap.\ (shaped) & Trap.\ (shaped) & Trap.\ (shaped) & Half-sine & Half-sine $\times 3$ & Half-sine $\times 6$ \\
+Pulse shape & Half-sine (shaped) & Half-sine (shaped) & Half-sine (shaped) & Half-sine & Half-sine $\times 3$ & Half-sine $\times 6$ \\
 Pulse source & Striker bar & Striker bar & Striker bar & EM coil & EM coil $\times 3$ & EM coil $\times 6$ \\
 Specimen shape & Cylindrical / cubic & Cylindrical & Cubic & Cubic & Cubic & Cubic \\
-Active dynamic bars & 1 (X) & 1 (X) & 1 (X) & 1 (X) & 3 ($+X,+Y,+Z$) & Up to 6 ($\pm$XYZ) \\
-Lateral architecture & None & Pressure chamber & 4 output bars & 4 output bars & 4 output bars & 4 output bars \\
-Confining stress & None & $\sig_2{=}\sig_3{=}p_c$ axisym. & $\sig_2,\sig_3$ indep.\ & $\sig_2,\sig_3$ indep.\ & $\sig_2,\sig_3$ indep.\ & $\sig_2,\sig_3$ indep.\ \\
-Default $\sig_1,\sig_2,\sig_3$ & 0, 0, 0 & 30, 20, 20 & 30, 20, 15 & 30, 20, 15 & 30, 20, 15 & 30, 20, 15 \\
+Active dynamic bars & 1 (X) & 1 (X) & 1 (X) & 1 (X) & 1--3 ($+X/+Y/+Z$) & 2--6 ($\pm$ pairs) \\
+Lateral architecture & None & Pressure chamber & 4 output bars & 4 output bars & T/output bars on active axes & Reflected bars on active pairs \\
+Confining stress & None & $\sig_2{=}\sig_3{=}p_c$ axisym. & $\sig_2,\sig_3$ indep.\ & $\sig_2,\sig_3$ indep.\ & $\sig_2,\sig_3$ indep.\ & Linked $p_0$ for full XYZ \\
+Default $\sig_1,\sig_2,\sig_3$ & 0, 0, 0 & 30, 20, 20 & 30, 20, 15 & 30, 20, 15 & 30, 20, 15 & 30, 30, 30 for full XYZ \\
 Pre-stress range & 0--50 MPa axial & 0--50 MPa each & 0--50 MPa each & 0--50 MPa each & 0--50 MPa each & 0--50 MPa each \\
 Pulse independence & $\sigpeak{\propto}V$, $\tau{\propto}L$ & $\sigpeak{\propto}V$, $\tau{\propto}L$ & $\sigpeak{\propto}V$, $\tau{\propto}L$ & Indep. & Indep. & Indep. \\
 Specimen $\sig_{\max}$ & ${\sim}\sigpeak$ & ${\sim}\sigpeak{+}\sig_1$ & ${\sim}\sigpeak{+}\sig_1$ & ${\sim}\sigpeak$ & ${\sim}\sigpeak$ each axis & ${\sim}2\sigpeak$ each axis \\
-Lode angle reach & $\theta=0$ & $\theta=0$ fixed & $\theta\in[0°,60°]$ & $\theta=0$ & $\theta\in[0°,60°]$ & $\theta\in[0°,60°]$ \\
-Stress-path control & Uniaxial only & Static triax.\ (axisym.) & Static triax.\ + dyn.\ axial & Uniaxial only & Yes (async) & Hydrostatic / biaxial \\
-Pure hydrostatic? & No & No & No & No & Approx.\ if $\Delta t{=}0$ & Yes \\
+Lode angle reach & $\theta=0$ & $\theta=0$ fixed & $\theta\in[0^\circ,60^\circ]$ & $\theta=0$ & $\theta\in[0^\circ,60^\circ]$ & $\theta\in[0^\circ,60^\circ]$ \\
+Stress-path control & Uniaxial only & Static triax.\ (axisym.) & Static triax.\ + dyn.\ axial & Uniaxial only & Yes (async) & Hydrostatic / biaxial / uniaxial sym. \\
+Pure hydrostatic? & No & No & No & No & Approx.\ if equal and synchronous & Full XYZ only \\
 Best application & UCS, baseline SHPB & Standard confined SHPB & In-situ confined rock dyn. & Clean rate-dependence & Path-dependent failure & Cap mechanics, high stress \\
 \bottomrule
 \end{tabular}
@@ -2425,7 +2467,7 @@ be raised when the physical bench is upgraded.
         high-amplitude pulse delivers high $\epsdot$ but possibly
         insufficient total strain to fail the specimen. Both metrics must
         be checked in the summary panel.
-  \item \textbf{Mode-3 misinterpretation.} A uniaxial constitutive model
+  \item \textbf{Multi-axis misinterpretation.} A uniaxial constitutive model
         cannot be fitted to data from Mode~5. Use a 3D stress-path-aware
         model (Drucker--Prager with cap, Mohr--Coulomb with non-associated
         flow). The Step~3 $p$--$q$--$\theta$ diagnostics identify the
@@ -2446,7 +2488,7 @@ be raised when the physical bench is upgraded.
 %==============================================================================
 
 The Virtual Tri-HB is delivered as a single integrated Streamlit
-application, \texttt{tri\_hb\_integrated.py}, that bundles four analysis
+application, \texttt{tri\_hb\_integrated.py}, that bundles five analysis
 steps under one shared experimental setup. This chapter documents the
 launch procedure, the navigation structure, and the export pipeline. The
 two chapters that follow document the equations of the experimental
@@ -2474,7 +2516,8 @@ reducer (Chapter~\ref{ch:expdata}) and of the wave/damage/DEM module
 \noindent The integrated file \texttt{tri\_hb\_integrated.py} is the
 recommended entry point. It loads \texttt{Tri-HB.py} for the Step~1
 configuration/simulator page and \texttt{wave\_damage.py} for the Step~2--4
-wave, stress-path, damage, energy, and validation pages. The direct command
+wave, stress-path, damage, energy, and validation pages; the Step~5 summary
+is rendered by the integrated file itself. The direct command
 \texttt{streamlit run tri\_hb\_integrated.py} is equivalent when the
 \texttt{streamlit} executable is already on the system path. On macOS or
 Linux, replace \texttt{py -3.13} with the local Python launcher, commonly
@@ -2514,6 +2557,16 @@ from the Streamlit session state.
     Damage evolution, stiffness and wave-speed degradation, energy
     balance, DEM/experimental descriptors, parametric study, and export.
     Same module, ``Damage evolution'' tab first.
+  \item[Step 5: Summary of Results]
+    A publication-ready summary that collects every prior step's key figure
+    in one view. Each figure is rendered at \SI{600}{dpi}, placed beside a
+    short plain-language reading guide and an expandable panel of its
+    governing equations, with a per-figure PNG download and a one-click ZIP
+    of the whole set plus a metrics table. The page reads the shared session
+    state, so it shows results for whichever steps have been run; a readiness
+    row at the top indicates whether the Step~1 simulator, optional
+    experimental reducer, Steps~2--3 wave/stress module, and Step~4 damage
+    module are populated.
 \end{description}
 
 \section{Step 1 sidebar: the two tabs}
@@ -2529,14 +2582,21 @@ mirroring the operational separation a real test team uses.
     Defaults match the 42CrMo square \SI{50}{mm}$\times$\SI{50}{mm}
     bench; every value is editable.
   \item[Test loading]
-    Loading mode (6 modes), symmetric-axis selector (Mode~6), pulse
-    settings (striker velocity for the gas gun; $\sigpeak$ and $\tau$ for
-    EM), static pre-stress sliders for $\sig_1,\sig_2,\sig_3$, and the
-    asynchronous timing sliders if Mode~5 is active.
+    Loading family selector, and when the electromagnetic family is active,
+    an EM topology selector. The four top-level families are gas-gun
+    uniaxial SHPB, confinement-chamber SHPB, gas-gun Tri-HB
+    static--dynamic loading, and electromagnetic programmable loading. The
+    EM topology then chooses single-axis one-sided, multi-axis one-sided, or
+    symmetric opposing pairs. Pulse controls expose striker velocity for the
+    gas-gun families, per-axis EM amplitudes and duration for one-sided EM,
+    per-bar amplitude and duration for symmetric EM, active axes/pairs, and
+    Y/Z asynchronous timing where applicable. In the current app the
+    one-sided EM Y/Z delay sliders span \SIrange{0}{500}{\micro s}; ticking
+    the synchronous shortcut sets both delays to zero.
 
     \medskip\noindent
     \textbf{Default pre-stress values} (which the sliders populate when
-    the loading mode is changed):
+    the loading family or EM topology is changed):
     \begin{itemize}[leftmargin=1.5em,itemsep=2pt]
       \item Mode~1 (Gas-gun, unconfined):
             $\sig_1=\sig_2=\sig_3=\SI{0}{MPa}$.
@@ -2547,9 +2607,16 @@ mirroring the operational separation a real test team uses.
       \item Mode~3 (Monash Tri-HB):
             $\sig_1=\SI{30}{MPa}$, $\sig_2=\SI{20}{MPa}$,
             $\sig_3=\SI{15}{MPa}$ (three independent sliders).
-      \item Modes~4--6 (electromagnetic): same independent defaults as
-            Mode~3, $\sig_1=\SI{30}{MPa}$, $\sig_2=\SI{20}{MPa}$,
+      \item EM single-axis and EM multi-axis one-sided (legacy Modes~4--5):
+            same independent defaults as Mode~3,
+            $\sig_1=\SI{30}{MPa}$, $\sig_2=\SI{20}{MPa}$,
             $\sig_3=\SI{15}{MPa}$.
+      \item EM symmetric opposing pairs (legacy Mode~6): the $\pm X$ and
+            $\pm X\pm Y$ sub-modes use the active-pair stress controls
+            appropriate to the selected dimensionality, while the full
+            hydrostatic $\pm X\pm Y\pm Z$ sub-mode exposes one hydrostatic
+            pre-stress slider $p_0$ and enforces
+            $\sig_1=\sig_2=\sig_3=p_0$.
     \end{itemize}
 \end{description}
 
@@ -2560,13 +2627,19 @@ Chapter~\ref{ch:expdata}.
 
 \section{Main panel tabs in the Step~1 simulator}
 
-The main panel updates live as inputs change. Five tabs are available;
-the fourth ($p$--$\eps_v$) appears only in symmetric mode.
+The main panel updates live as inputs change. Five tabs are available; the
+fourth ($p$--$\eps_v$) appears only for the full symmetric
+$\pm X\pm Y\pm Z$ hydrostatic EM topology.
 
 \begin{description}[leftmargin=2em,style=nextline]
   \item[Bar waveforms] Time-history of all strain-gauge signals. The
-    X-axis traces $\eps_I,\eps_R,\eps_T$ are always shown when the
-    loading mode places dynamic load on X. For Mode~3 (Monash Tri-HB),
+    default view is \emph{raw gauge time}, so the incident, reflected, and
+    transmitted/output pulses retain their acquisition-time travel delays
+    exactly as a bar-gauge record would. The \emph{aligned reduction time}
+    option is the next analysis step: it shifts each wave to a common
+    specimen-face time origin for stress and strain reduction. The X-axis
+    traces $\eps_I,\eps_R,\eps_T$ are always shown when the loading family
+    places dynamic load on X. For Mode~3 (Monash Tri-HB),
     two additional passive lateral output-bar traces are plotted
     alongside the X-axis traces: $\eps_{\text{out}}$ (Y output bar) and
     $\eps_{\text{out}}$ (Z output bar), each representing the averaged
@@ -2575,20 +2648,22 @@ the fourth ($p$--$\eps_v$) appears only in symmetric mode.
     the experimental record of the specimen's Poisson-coupled lateral
     expansion, and serve as the diagnostic for damage-induced dilation.
     For Mode~2 (Confinement-chamber) the lateral output bars are absent
-    and only the X-axis traces appear. For Mode~5 (asynchronous
-    triaxial), three pairs of $\eps_I,\eps_R,\eps_T$ are plotted, one
-    pair per active axis. For Mode~6 (symmetric), both $\eps_I^{+}$ and
-    $\eps_I^{-}$ are plotted to verify synchronisation.
+    and only the X-axis traces appear. For one-sided multi-axis EM, the
+    active-axis selector permits X, X+Y, or X+Y+Z, and each active axis is
+    displayed as its own $\eps_I,\eps_R,\eps_T$ three-wave record. For
+    symmetric opposing pairs, there is no transmission bar on an active
+    axis; the plotted incident and reflected $\pm$ traces are used to check
+    matched timing and amplitude.
   \item[Specimen stresses] Total $\sig_X,\sig_Y,\sig_Z$ on the specimen.
-    In symmetric mode the mean pressure $p(t)$ is overlaid as a dashed
-    reference. A horizontal dashed line at \SI{1000}{MPa} indicates the
-    bar proportional limit.
+    In the full symmetric hydrostatic topology the mean pressure $p(t)$ is
+    overlaid as a dashed reference. A horizontal dashed line at
+    \SI{1000}{MPa} indicates the bar proportional limit.
   \item[$\sig$--$\eps$ curve] Loading branch only. The curve traces from
     the start of the pulse through peak strength and post-peak softening,
     stopping when strain plateaus.
-  \item[$p$--$\eps_v$] Visible only in symmetric mode. The compaction
-    curve shows the initial bulk-modulus slope followed by the cap
-    plateau.
+  \item[$p$--$\eps_v$] Visible only for the full symmetric
+    $\pm X\pm Y\pm Z$ hydrostatic topology. The compaction curve shows the
+    initial bulk-modulus slope followed by the cap plateau.
   \item[Equations] Reference card showing the wave-analysis equations
     used by the active mode, including the standard three-wave method
     and the symmetric-mode variant.
@@ -2625,7 +2700,10 @@ parameters produces uniquely-named files for batch comparison.
 \textbf{Button} & \textbf{Format} & \textbf{Contents} \\
 \midrule
 All Signals & CSV &
-  Time-series: all bar gauge strains
+  Time-series: aligned reduction time, raw gauge/acquisition-time columns
+  (\texttt{time\_aligned\_us}, \texttt{time\_gauge\_incident\_us},
+  \texttt{time\_gauge\_reflected\_us}, and
+  \texttt{time\_gauge\_transmitted\_us} where available), all bar gauge strains
   ($\eps_I^{\pm},\eps_R^{\pm},\eps_T,\eps_Y,\eps_Z$ as available),
   specimen stresses ($\sig_X,\sig_Y,\sig_Z$), strains, pressure,
   volumetric strain, axial strain rate. \\
@@ -2634,7 +2712,10 @@ $\sig$--$\eps$ curve & CSV &
   volumetric strain. \\
 Configuration & JSON &
   Full input configuration, summary metrics, bar/rock properties,
-  warning state, ISO~8601 export timestamp. Provides full provenance. \\
+  warning state, time-basis/gauge-location metadata, EM fields
+  \texttt{loading\_family}, \texttt{em\_topology}, \texttt{active\_axes},
+  \texttt{legacy\_mode}, per-axis amplitudes, and ISO~8601 export
+  timestamp. Provides full provenance. \\
 Full workbook & XLSX &
   Multi-sheet Excel: Sheet~1 Signals, Sheet~2 Stress-Strain,
   Sheet~3 Configuration. \\
@@ -2666,11 +2747,13 @@ For coursework and research projects:
         keep auto-filled $E$, UCS, $\nu$. Specimen cross-section
         \emph{Square/cube}, side \SI{50}{mm}, $\Ls=\SI{50}{mm}$. Leave bar
         settings at default.
-  \item \emph{Test loading} tab: \emph{Loading mode = EM Symmetric
-        Multi-axis}; pick \emph{Full hydrostatic
+  \item \emph{Test loading} tab: set \emph{Loading family =
+        Electromagnetic programmable loading}; set \emph{EM topology =
+        Symmetric opposing pairs}; pick \emph{Full hydrostatic
         ($\pm X\pm Y\pm Z$)}.
-  \item $\sigpeak=\SI{400}{MPa}$, $\tau=\SI{200}{\micro s}$,
-        $\sig_1=\sig_2=\sig_3=\SI{50}{MPa}$.
+  \item Per-bar pulse amplitude $A=\SI{400}{MPa}$,
+        $\tau=\SI{200}{\micro s}$, and hydrostatic static pre-stress
+        $p_0=\sig_1=\sig_2=\sig_3=\SI{50}{MPa}$.
   \item Inspect the warning banner. If it shows ``Caution'' or above,
         reduce $\sigpeak$ until the banner is clear.
   \item Open the $p$--$\eps_v$ tab. Read the slope at low $\eps_v$ (dynamic
@@ -2948,14 +3031,34 @@ from triaxial extension ($\theta=60^{\circ}$) and from pure shear
 
 \subsection{Failure surface and failure index}
 
-The failure surface is taken in the Hoek--Brown-like form
+The failure surface is taken in the pressure- and Lode-angle-dependent form
 \begin{align}
   h(\theta) &\;=\; 1 + a_\theta\bigl(1-\cos 3\theta\bigr), \\
   q_f(p,\theta) &\;=\; \bigl(A + B\,p^{n}\bigr)\,h(\theta), \\
   F(t) &\;=\; \frac{q(t)}{q_f(t)}.
 \end{align}
 The failure index $F$ is dimensionless; $F>1$ means the stress state lies
-outside the static failure surface and damage is allowed to grow.
+outside the failure surface and damage is allowed to grow.
+
+\paragraph{Consistency with the Step-1 strength.} To keep the Step-3 failure
+index consistent with the Step-1 axial strength
+$\sig_1^{\text{peak}}=(\sig_{c0}+k_{\text{conf}}\sig_{\text{conf}})\,\text{DIF}$,
+the surface constants are \emph{derived} from the same strength model rather
+than set independently. For triaxial compression ($\theta=0$, $h=1$,
+$\sig_2=\sig_3=\sig_{\text{conf}}$) one has $q=\sig_1-\sig_{\text{conf}}$ and
+$p=(\sig_1+2\sig_{\text{conf}})/3$; eliminating $\sig_{\text{conf}}$ gives the
+linear Mohr--Coulomb form
+\begin{equation}
+  q_f \;=\; A + B\,p, \qquad
+  A=\frac{3\,\text{UCS}_{\text{eff}}}{k_{\text{conf}}+2}, \quad
+  B=\frac{3\,(k_{\text{conf}}-1)}{k_{\text{conf}}+2}, \quad n=1,
+  \label{eq:qf-derived}
+\end{equation}
+with $\text{UCS}_{\text{eff}}=\text{UCS}\cdot\text{DIF}$. This reproduces the
+Step-1 failure point exactly ($F=1$ at peak) for every preset and confinement.
+The integrated workspace computes \eqref{eq:qf-derived} automatically from the
+Step-1 material; Advanced mode allows $A,B,n,a_\theta$ to be overridden with
+independently calibrated values when fitting true-triaxial data.
 
 \subsection{Equivalent (deviatoric) strain rate}
 
@@ -3001,17 +3104,29 @@ used as a regime tag, not as a constitutive strain rate.
 \subsection{Damage evolution}
 
 A Perzyna-type, saturating, rate-sensitive damage law is adopted
-\cite{Perzyna1966,Murakami2012}:
+\cite{Perzyna1966,Murakami2012}. Damage is driven by the \emph{effective}
+failure index, i.e.\ the stress carried by the intact material fraction,
+\begin{equation}
+  F_{\text{eff}}(t) \;=\; \bigl(1-D\bigr)\,F(t),
+  \qquad F=q/q_f,
+  \label{eq:Feff}
+\end{equation}
+so that the rate law reads
 \begin{equation}
   \dot D \;=\; \frac{(1-D)^{\alpha}}{\tau_D}\,
-              \left\langle\frac{F-1}{F_0}\right\rangle^{m}
+              \left\langle\frac{F_{\text{eff}}-1}{F_0}\right\rangle^{m}
               \left(\frac{|\epsdot_{\text{eq}}|}{\epsdot_0}\right)^{\beta},
   \qquad D\in[0,1],
   \label{eq:damage-evol}
 \end{equation}
 where $\langle\cdot\rangle$ denotes the Macaulay bracket (damage grows
-only when $F>1$). The exponents and time scale are tabulated in
-Appendix~\ref{app:tables}.
+only when $F_{\text{eff}}>1$). The factor $(1-D)$ in \eqref{eq:Feff} is a
+load-shedding feedback: as the material softens it carries less of the
+applied deviatoric stress, so the effective overstress falls back toward
+unity and the damage rate self-limits. The damage variable therefore rises
+smoothly and saturates near $1-1/F_{\max}$, rather than jumping abruptly to
+$D=1$ once the failure surface is first crossed. The exponents and time
+scale are tabulated in Appendix~\ref{app:tables}.
 
 \subsection{Stiffness and wave-speed degradation}
 \begin{equation}
@@ -3053,10 +3168,19 @@ Appendix~\ref{app:tables}.
   W_{\text{el}} &\;=\; \frac{1}{2E}\Bigl[\sig_x^{2}+\sig_y^{2}+\sig_z^{2}
                   -2\nu(\sig_x\sig_y+\sig_y\sig_z+\sig_z\sig_x)\Bigr], \\
   W_{\text{input}}(t) &\;=\; \int_{0}^{t}\!\bigl(\sig_x\epsdot_x+\sig_y\epsdot_y+\sig_z\epsdot_z\bigr)\,d\tau, \\
-  W_{\text{diss}} &\;\approx\; W_{\text{input}} - W_{\text{el}} + W_{\text{el}}(0).
+  W_{\text{diss}}(t) &\;=\; \int_{0}^{t} Y\,\dot D\,d\tau,
+                  \qquad Y \;=\; W_{\text{el}}.
+  \label{eq:Wdiss}
 \end{align}
-With stresses in MPa and dimensionless strains, $W$ is in
-MJ\,m\textsuperscript{-3}.
+The dissipated energy \eqref{eq:Wdiss} is the continuum-damage-mechanics
+form: $Y=W_{\text{el}}$ is the energy-release rate (the elastic energy
+released as the modulus degrades), so $W_{\text{diss}}$ is non-negative,
+remains zero until damage grows, and then increases monotonically. This is
+preferred to the earlier elastic-cancellation estimate
+$W_{\text{input}}-W_{\text{el}}$, which is near zero by construction for a
+reversible elastic stress--strain field and therefore does not represent
+the irreversible damage work. With stresses in MPa and dimensionless
+strains, $W$ is in MJ\,m\textsuperscript{-3}.
 
 \subsection{Synthetic DEM/experimental descriptors}
 
@@ -3185,9 +3309,9 @@ model.
 \toprule
 \textbf{Symbol} & \textbf{Meaning} & \textbf{Default} \\
 \midrule
-$A$ & Failure-surface intercept & \SI{15}{MPa} \\
-$B$ & Failure-surface pressure coefficient & 1.3 \\
-$n$ & Failure-surface pressure exponent & 0.75 \\
+$A$ & Failure-surface intercept & $3\,\text{UCS}_{\text{eff}}/(k_{\text{conf}}+2)$ \\
+$B$ & Failure-surface pressure coefficient & $3(k_{\text{conf}}-1)/(k_{\text{conf}}+2)$ \\
+$n$ & Failure-surface pressure exponent & 1 \\
 $a_\theta$ & Lode-angle amplitude & 0.10 \\
 $\tau_D$ & Damage time scale & \SI{30}{\micro s} \\
 $\alpha$ & Saturation exponent & 1.0 \\

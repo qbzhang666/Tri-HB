@@ -28,7 +28,7 @@ notes, PowerShell snippets, and alternate-port launch commands.
 The integrated app navigates four steps under one shared experimental setup:
 
 1. **Setup, simulator and data** — material, specimen, bar, and loading
-   configuration; run the four-mode dynamic simulator; **or** reduce uploaded
+   configuration; run the four-family dynamic simulator; **or** reduce uploaded
    bar-gauge / direct stress-strain data with the same setup.
 2. **Wave model** — pulse timing, travel time, equilibrium window,
    wave-superposition factor, and a wave-vs.-damage regime classifier.
@@ -38,10 +38,11 @@ The integrated app navigates four steps under one shared experimental setup:
    stiffness and wave-speed degradation, energy balance, DEM/experimental
    descriptors, and CSV export.
 
-Loading modes covered by the Step 1 simulator: gas-gun uniaxial, EM uniaxial,
-EM asynchronous triaxial (with full per-axis three-wave analysis on each of
-the three driven axes), and EM symmetric multidirectional (±X, ±X±Y, full
-hydrostatic ±X±Y±Z).
+Loading families covered by the Step 1 simulator: gas-gun uniaxial SHPB,
+confinement-chamber SHPB, gas-gun Tri-HB static-dynamic loading, and
+electromagnetic programmable loading. The EM family keeps three machine-readable
+topologies internally: single-axis one-sided, multi-axis one-sided (X, XY, XYZ),
+and symmetric opposing pairs (±X, ±X±Y, full hydrostatic ±X±Y±Z).
 
 ## Repository layout
 

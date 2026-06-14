@@ -1,0 +1,4 @@
+mode,controlled_condition,model_note,peak_sigma_x_MPa,peak_sigma_y_MPa,peak_sigma_z_MPa,peak_p_MPa,peak_q_MPa,theta_at_peak_q_deg,peak_failure_index,damage_onset_us,final_damage,central_damage_fraction,damage_symmetry_index,max_dissipated_energy_MJ_m3
+Mode 2,sigma0=30/20/20 MPa; A=400 MPa; tau=200 us; half-sine,axisymmetric chamber; lateral stresses locked,430.0,20.0,20.0,156.7,410.0,0.0,5.65,3.5,1.00,0.29,0.40,0.21
+Mode 3,sigma0=30/20/20 MPa; A=400 MPa; tau=200 us; half-sine,true-triaxial bars; lateral response included,430.0,108.0,92.0,208.9,333.1,2.6,3.89,3.5,1.00,0.38,0.78,1.24
+Mode 6,sigma0=30/20/20 MPa; A=400 MPa; tau=200 us; half-sine,symmetric XYZ; opposed pulses double each axis,830.0,820.0,820.0,823.3,10.0,0.0,0.35,,0.00,0.00,1.00,27.09

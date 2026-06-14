@@ -142,7 +142,10 @@ def trapz_safe(y, x):
     return float(np.sum(0.5 * (y[1:] + y[:-1]) * np.diff(x)))
 
 
-def fig_to_bytes(fig, fmt="png", dpi=300):
+PUB_DPI = 600  # downloaded / bundled PNGs render at this resolution
+
+
+def fig_to_bytes(fig, fmt="png", dpi=PUB_DPI):
     buf = io.BytesIO()
     fig.savefig(buf, format=fmt, dpi=dpi, bbox_inches="tight", facecolor="white")
     buf.seek(0)
@@ -179,6 +182,81 @@ def show_publication_figure(fig):
         apply_publication_axes(ax)
     fig.tight_layout()
     st.pyplot(fig)
+
+
+def show_step_figure(fig, filename, notes=None, equations=None, caption=None):
+    """Step-5 style layout for a Steps 2-4 figure.
+
+    Left column: the publication figure (fills the column) with a 600 dpi PNG
+    download beneath it. Right column: a short plain-language "What it shows"
+    guide. Full width below: an expandable "Governing equations" panel.
+
+    Parameters
+    ----------
+    fig : matplotlib Figure (already drawn)
+    filename : download name for the 600 dpi PNG
+    notes : optional markdown shown to the right of the figure
+    equations : optional list of LaTeX strings rendered in the equations expander
+    caption : optional caption shown directly under the figure
+    """
+    for ax in fig.axes:
+        apply_publication_axes(ax)
+    fig.tight_layout()
+    png = fig_to_bytes(fig).getvalue()
+
+    fig_col, note_col = st.columns([1.05, 0.95], gap="large")
+    with fig_col:
+        st.pyplot(fig)
+        if caption:
+            st.caption(caption)
+        st.download_button(
+            f"Download {filename} (600 dpi)",
+            data=png,
+            file_name=filename,
+            mime="image/png",
+            key=f"dl_{filename}",
+        )
+    with note_col:
+        if notes:
+            st.markdown(notes)
+    if equations:
+        with st.expander("Governing equations", expanded=False):
+            for eq in equations:
+                st.latex(eq)
+    plt.close(fig)
+
+
+def annotate_path_direction(ax, xs, ys):
+    """Make a time-coloured stress path readable as an out-and-back trajectory.
+
+    Overlays a faded connecting line (so the loading and unloading legs are seen
+    as one retraced path), explicit start / peak / end markers, and a small
+    arrow showing the loading direction. This removes the visual ambiguity where
+    the start point gets overpainted by late-time points at the same location.
+    """
+    xs = np.asarray(xs, dtype=float)
+    ys = np.asarray(ys, dtype=float)
+    if xs.size < 2:
+        return
+    # faded path line under the coloured scatter
+    ax.plot(xs, ys, color="#888888", linewidth=0.8, alpha=0.45, zorder=1)
+    # peak point = furthest from the start in (x, y)
+    i_peak = int(np.argmax((xs - xs[0]) ** 2 + (ys - ys[0]) ** 2))
+    ax.scatter([xs[0]], [ys[0]], s=70, facecolor="white", edgecolor="#1f3864",
+               linewidth=1.6, zorder=6, label="start (t=0)")
+    ax.scatter([xs[i_peak]], [ys[i_peak]], s=70, marker="^", facecolor="white",
+               edgecolor="#c0392b", linewidth=1.6, zorder=6, label="peak")
+    ax.scatter([xs[-1]], [ys[-1]], s=80, marker="X", facecolor="white",
+               edgecolor="#117a3d", linewidth=1.6, zorder=6, label="end")
+    # loading-direction arrow on the first quarter of the rising leg
+    j = max(1, i_peak // 4)
+    if j < i_peak:
+        ax.annotate(
+            "", xy=(xs[j + 1], ys[j + 1]), xytext=(xs[j], ys[j]),
+            arrowprops=dict(arrowstyle="-|>", color="#1f3864", lw=1.6),
+            zorder=6,
+        )
+    ax.legend(loc="best", fontsize=8, framealpha=0.9)
 
 
 # =============================================================================
@@ -325,17 +403,60 @@ default_sz0 = float(linked_cfg.get("confinement_Z", 10e6)) / 1e6
 default_td_us = float(linked_cfg.get("pulse_duration", 60e-6)) * 1e6
 default_tmax_us = max(250.0, default_td_us * 1.30)
 
+# ---------------------------------------------------------------------------
+# Consistent failure surface derived from the Step-1 strength model.
+#
+# Step 1 uses an axial dynamic strength
+#     sigma_1^peak = (UCS + k_conf * sigma_conf) * DIF
+# for triaxial compression with sigma_2 = sigma_3 = sigma_conf.  In invariant
+# space (theta = 0, h(theta) = 1) this is q = sigma_1 - sigma_conf and
+# p = (sigma_1 + 2 sigma_conf)/3.  Eliminating sigma_conf gives a LINEAR
+# Mohr-Coulomb-type surface that reproduces the Step-1 strength exactly:
+#     q_f = A + B p,   with   A = 3 UCS_eff/(k_conf+2),  B = 3(k_conf-1)/(k_conf+2),  n = 1,
+# where UCS_eff = UCS * DIF carries the same rate hardening as Step 1.  Using
+# these derived defaults keeps the Step-3 failure index F = q/q_f consistent
+# with the Step-1 stress-strain strength instead of an unrelated hardcoded set.
+# Advanced mode still lets the user override A, B, n, a_theta for calibration.
+default_UCS_MPa = float(linked_cfg.get("material_UCS", 80e6)) / 1e6
+default_k_conf = float(linked_cfg.get("material_k_conf", 4.5))
+default_b_rate = float(linked_cfg.get("material_b_rate", 0.18))
+default_epsdot_ref = float(linked_cfg.get("material_epsdot_ref", 1e-5))
+
+def derive_failure_surface(ucs_mpa, k_conf, dif=1.0):
+    """Return (A_fail, B_fail, n_fail) consistent with the Step-1 strength."""
+    k = max(k_conf, 1.0 + 1e-6)
+    ucs_eff = max(ucs_mpa, 1e-6) * max(dif, 1e-6)
+    A = 3.0 * ucs_eff / (k + 2.0)
+    B = 3.0 * (k - 1.0) / (k + 2.0)
+    return A, B, 1.0
+
+# DIF at a nominal rate so the static surface anchor carries Step-1 rate
+# hardening; the Step-4 strain-rate factor handles the rest dynamically.
+_dif_nominal = 1.0 + default_b_rate * np.log10(
+    max(1.0, default_epsdot_ref) / default_epsdot_ref
+) if default_epsdot_ref > 0 else 1.0
+default_A_fail, default_B_fail, default_n_fail = derive_failure_surface(
+    default_UCS_MPa, default_k_conf, _dif_nominal
+)
+
 linked_peak_mpa = float(linked_cfg.get("peak_stress", 0.0)) / 1e6
+linked_peak_x_mpa = float(linked_cfg.get("peak_stress_X", linked_cfg.get("peak_stress", 0.0))) / 1e6
+linked_peak_y_mpa = float(linked_cfg.get("peak_stress_Y", linked_cfg.get("peak_stress", 0.0))) / 1e6
+linked_peak_z_mpa = float(linked_cfg.get("peak_stress_Z", linked_cfg.get("peak_stress", 0.0))) / 1e6
 if linked_peak_mpa <= 0.0 and linked_result:
     linked_peak_mpa = float(linked_result.get("summary", {}).get("peak_incident_MPa", 0.0))
 default_A = linked_peak_mpa if has_linked_design and linked_peak_mpa > 0 else 60.0
+default_Ax = linked_peak_x_mpa if has_linked_design and linked_peak_x_mpa > 0 else default_A
+default_Ay = linked_peak_y_mpa if has_linked_design and linked_peak_y_mpa > 0 else default_A
+default_Az = linked_peak_z_mpa if has_linked_design and linked_peak_z_mpa > 0 else default_A
 
 default_delay_y_us = float(linked_cfg.get("pulse_delay_Y", 0.0)) * 1e6
 default_delay_z_us = float(linked_cfg.get("pulse_delay_Z", default_delay_y_us * 1e-6)) * 1e6
 
 linked_mode = linked_cfg.get("mode", "")
 linked_axes = linked_cfg.get("symmetric_axes", "")
-path_options = ["Single-sided X", "Symmetric X", "Symmetric XY", "Symmetric XYZ", "Asynchronous XYZ"]
+linked_active_axes = str(linked_cfg.get("active_axes", linked_axes or "XYZ"))
+path_options = ["Single-sided X", "Symmetric X", "Symmetric XY", "Symmetric XYZ", "Asynchronous XY", "Asynchronous XYZ"]
 if linked_mode == "em-symmetric" and linked_axes == "XYZ":
     default_path = "Symmetric XYZ"
 elif linked_mode == "em-symmetric" and linked_axes == "XY":
@@ -343,9 +464,19 @@ elif linked_mode == "em-symmetric" and linked_axes == "XY":
 elif linked_mode == "em-symmetric":
     default_path = "Symmetric X"
 elif linked_mode == "em-async":
-    default_path = "Asynchronous XYZ"
+    default_path = "Asynchronous XY" if linked_active_axes == "XY" else "Asynchronous XYZ"
+    if linked_active_axes == "X":
+        default_path = "Single-sided X"
 else:
     default_path = "Single-sided X"
+
+linked_signature = (
+    f"{linked_mode}|{linked_axes}|{linked_active_axes}|{default_path}|"
+    f"{default_Ax:.6g}|{default_Ay:.6g}|{default_Az:.6g}|{default_td_us:.6g}|"
+    f"{default_sx0:.6g}|{default_sy0:.6g}|{default_sz0:.6g}|"
+    f"{default_delay_y_us:.6g}|{default_delay_z_us:.6g}|"
+    f"{default_E_GPa:.6g}|{default_nu:.6g}|{default_density:.6g}|{default_L_mm:.6g}"
+)
 
 # =============================================================================
 # Sidebar - simplified control hierarchy
@@ -388,9 +519,9 @@ with st.sidebar:
     sz0 = default_sz0
     loading_path = default_path
     td_us = default_td_us
-    Ax = default_A
-    Ay = default_A if default_path in ("Symmetric XY", "Symmetric XYZ", "Asynchronous XYZ") else 0.0
-    Az = default_A if default_path in ("Symmetric XYZ", "Asynchronous XYZ") else 0.0
+    Ax = default_Ax
+    Ay = default_Ay if default_path in ("Symmetric XY", "Symmetric XYZ", "Asynchronous XY", "Asynchronous XYZ") else 0.0
+    Az = default_Az if default_path in ("Symmetric XYZ", "Asynchronous XYZ") else 0.0
     pulse_type = "Half-sine" if has_linked_design else "Hann"
     amplitude_ratio = 1.0
     duration_ratio = 1.0
@@ -400,10 +531,12 @@ with st.sidebar:
     central_width = 0.30
     damage_threshold = 0.15
 
-    # Failure surface defaults.
-    A_fail = 15.0
-    B_fail = 1.3
-    n_fail = 0.75
+    # Failure surface defaults, derived from the Step-1 strength model so the
+    # Step-3 failure index F = q/q_f is consistent with the Step-1 axial
+    # strength (see derive_failure_surface above). Advanced mode can override.
+    A_fail = default_A_fail
+    B_fail = default_B_fail
+    n_fail = default_n_fail
     lode_amp = 0.10
 
     # Damage law defaults; guided presets can change these.
@@ -421,22 +554,25 @@ with st.sidebar:
             "Loading path",
             path_options,
             index=path_options.index(default_path),
+            key=f"guided_loading_path_{linked_signature}" if sync_to_step1 else "guided_loading_path_manual",
             help="Inherited from Step 1 by default; change it here for quick what-if review.",
         )
-        if loading_path in ("Symmetric XY", "Symmetric XYZ", "Asynchronous XYZ") and Ay <= 0.0:
-            Ay = default_A
+        if loading_path in ("Symmetric XY", "Symmetric XYZ", "Asynchronous XY", "Asynchronous XYZ") and Ay <= 0.0:
+            Ay = default_Ay
         if loading_path in ("Symmetric XYZ", "Asynchronous XYZ") and Az <= 0.0:
-            Az = default_A
+            Az = default_Az
         pulse_type = st.selectbox(
             "Pulse shape",
             ["Half-sine", "Hann", "Rectangular"],
             index=0 if has_linked_design else 1,
+            key=f"guided_pulse_shape_{linked_signature}" if sync_to_step1 else "guided_pulse_shape_manual",
         )
         delay_us = st.number_input(
             "Secondary-pulse delay, Δt (μs)",
             value=float(default_delay_y_us),
             min_value=0.0,
             step=5.0,
+            key=f"guided_delay_{linked_signature}" if sync_to_step1 else "guided_delay_manual",
             help="For symmetric loading this delays the opposing X pulse; for asynchronous loading it is the Y-pulse delay.",
         )
         delay_y_us = delay_us
@@ -445,11 +581,13 @@ with st.sidebar:
             value=float(default_delay_z_us),
             min_value=0.0,
             step=5.0,
+            key=f"guided_delay_z_{linked_signature}" if sync_to_step1 else "guided_delay_z_manual",
         ) if loading_path == "Asynchronous XYZ" else 0.0
 
         damage_preset = st.selectbox(
             "Damage response preset",
             ["Default rock", "Slower / tougher", "Faster / more brittle", "Calibration-ready"],
+            key="guided_damage_preset",
             help="Use Advanced mode to edit individual damage-law constants.",
         )
         if damage_preset == "Slower / tougher":
@@ -463,20 +601,47 @@ with st.sidebar:
         npts = {"Fast": 2000, "Normal": 5000, "High": 10000}[resolution]
         tmax_us = max(default_tmax_us, td_us * 1.3, delay_us + td_us * 1.15, delay_z_us + td_us * 1.15)
 
-        # A compact manual override for guided mode; normally closed.
-        manual_needed = not sync_to_step1
-        with st.expander("Manual setup / quick overrides", expanded=manual_needed):
-            E_GPa = st.number_input("Young's modulus, E (GPa)", value=E_GPa, min_value=1.0, step=1.0)
-            nu = st.number_input("Poisson's ratio, ν", value=nu, min_value=0.0, max_value=0.49, step=0.01)
-            rho = st.number_input("Density, ρ (kg/m³)", value=rho, min_value=1000.0, step=50.0)
-            L_mm = st.number_input("Specimen length, L (mm)", value=L_mm, min_value=1.0, step=1.0)
-            sx0 = st.number_input("σx0 (MPa)", value=sx0, min_value=0.0, step=1.0)
-            sy0 = st.number_input("σy0 (MPa)", value=sy0, min_value=0.0, step=1.0)
-            sz0 = st.number_input("σz0 (MPa)", value=sz0, min_value=0.0, step=1.0)
-            td_us = st.number_input("Pulse duration, td (μs)", value=td_us, min_value=1.0, step=5.0)
-            Ax = st.number_input("Ax single-pulse amplitude (MPa)", value=Ax, min_value=0.0, step=5.0)
-            Ay = st.number_input("Ay single-pulse amplitude (MPa)", value=Ay, min_value=0.0, step=5.0)
-            Az = st.number_input("Az single-pulse amplitude (MPa)", value=Az, min_value=0.0, step=5.0)
+        # A compact manual override for guided mode. When linked to Step 1, keep
+        # these widgets inactive unless the user explicitly unlocks them; closed
+        # Streamlit widgets still retain old values and would otherwise hide a
+        # stale Ax/prestress behind a fresh Step 1 setup.
+        manual_override = not sync_to_step1
+        if sync_to_step1:
+            manual_override = st.checkbox(
+                "Unlock manual overrides",
+                value=False,
+                key=f"guided_unlock_overrides_{linked_signature}",
+                help="Leave off to use Step 1 material, pulse and prestress exactly.",
+            )
+        with st.expander("Manual setup / quick overrides", expanded=manual_override):
+            if manual_override:
+                override_key = linked_signature if sync_to_step1 else "manual"
+                E_GPa = st.number_input("Young's modulus, E (GPa)", value=E_GPa, min_value=1.0, step=1.0, key=f"guided_E_{override_key}")
+                nu = st.number_input("Poisson's ratio, ν", value=nu, min_value=0.0, max_value=0.49, step=0.01, key=f"guided_nu_{override_key}")
+                rho = st.number_input("Density, ρ (kg/m³)", value=rho, min_value=1000.0, step=50.0, key=f"guided_rho_{override_key}")
+                L_mm = st.number_input("Specimen length, L (mm)", value=L_mm, min_value=1.0, step=1.0, key=f"guided_L_{override_key}")
+                sx0 = st.number_input("σx0 (MPa)", value=sx0, min_value=0.0, step=1.0, key=f"guided_sx0_{override_key}")
+                sy0 = st.number_input("σy0 (MPa)", value=sy0, min_value=0.0, step=1.0, key=f"guided_sy0_{override_key}")
+                sz0 = st.number_input("σz0 (MPa)", value=sz0, min_value=0.0, step=1.0, key=f"guided_sz0_{override_key}")
+                td_us = st.number_input("Pulse duration, td (μs)", value=td_us, min_value=1.0, step=5.0, key=f"guided_td_{override_key}")
+                Ax = st.number_input("Ax single-pulse amplitude (MPa)", value=Ax, min_value=0.0, step=5.0, key=f"guided_Ax_{override_key}")
+                Ay = st.number_input("Ay single-pulse amplitude (MPa)", value=Ay, min_value=0.0, step=5.0, key=f"guided_Ay_{override_key}")
+                Az = st.number_input("Az single-pulse amplitude (MPa)", value=Az, min_value=0.0, step=5.0, key=f"guided_Az_{override_key}")
+                tmax_us = max(default_tmax_us, td_us * 1.3, delay_us + td_us * 1.15, delay_z_us + td_us * 1.15)
+            else:
+                st.caption("Linked Step 1 values are active. Unlock overrides to edit these values for a what-if run.")
+                st.dataframe(
+                    pd.DataFrame(
+                        [
+                            ("Ax pulse amplitude", f"{Ax:.1f} MPa"),
+                            ("Prestress σx0/σy0/σz0", f"{sx0:.1f}/{sy0:.1f}/{sz0:.1f} MPa"),
+                            ("Pulse duration", f"{td_us:.1f} μs"),
+                        ],
+                        columns=["Linked input", "Value"],
+                    ),
+                    hide_index=True,
+                    use_container_width=True,
+                )
 
         with st.expander("Descriptor options", expanded=False):
             damage_threshold = st.slider("Damage threshold", 0.01, 0.9, damage_threshold, step=0.01)
@@ -509,9 +674,25 @@ with st.sidebar:
             npts = st.slider("Time points", 1000, 30000, 5000, step=1000)
 
         with st.expander("3. Failure surface", expanded=False):
-            A_fail = st.number_input("A in qf = (A+Bpⁿ)h(θ) (MPa)", value=A_fail, min_value=0.0, step=1.0)
-            B_fail = st.number_input("B in qf", value=B_fail, min_value=0.0, step=0.1)
-            n_fail = st.number_input("n in qf", value=n_fail, min_value=0.1, step=0.05)
+            st.caption(
+                f"Defaults are derived from the Step-1 strength model "
+                f"(UCS={default_UCS_MPa:.0f} MPa, k_conf={default_k_conf:.1f}) so that "
+                f"F=q/q_f is consistent with the Step-1 axial strength: "
+                f"A={default_A_fail:.1f} MPa, B={default_B_fail:.2f}, n=1. "
+                f"Override only for independent calibration."
+            )
+            use_derived_surface = st.checkbox(
+                "Use Step-1-consistent surface", value=True,
+                help="Keep on so the failure index matches the Step-1 stress-strain strength. "
+                     "Turn off to enter calibrated A, B, n by hand.",
+            )
+            if use_derived_surface:
+                A_fail, B_fail, n_fail = default_A_fail, default_B_fail, default_n_fail
+                st.latex(rf"q_f = {A_fail:.1f} + {B_fail:.2f}\,p\quad(\mathrm{{n}}=1)")
+            else:
+                A_fail = st.number_input("A in qf = (A+Bpⁿ)h(θ) (MPa)", value=A_fail, min_value=0.0, step=1.0)
+                B_fail = st.number_input("B in qf", value=B_fail, min_value=0.0, step=0.1)
+                n_fail = st.number_input("n in qf", value=n_fail, min_value=0.1, step=0.05)
             lode_amp = st.number_input("Lode-angle amplitude, aθ", value=lode_amp, min_value=0.0, step=0.02)
 
         with st.expander("4. Damage law and descriptors", expanded=False):
@@ -556,13 +737,13 @@ z_drive = np.zeros_like(t)
 
 if loading_path in ["Symmetric X", "Symmetric XY", "Symmetric XYZ"]:
     x_right = pulse(t, Ax * amplitude_ratio, td_right, delay, pulse_type)
-elif loading_path == "Asynchronous XYZ":
+elif loading_path in ["Asynchronous XY", "Asynchronous XYZ"]:
     # X is the reference pulse. Y and Z arrive later and control the sequential path.
     x_right = np.zeros_like(t)
 
 if loading_path in ["Symmetric XY", "Symmetric XYZ"]:
     y_drive = 2.0 * pulse(t, Ay, td, 0.0, pulse_type)
-elif loading_path == "Asynchronous XYZ":
+elif loading_path in ["Asynchronous XY", "Asynchronous XYZ"]:
     y_drive = pulse(t, Ay, td, delay_y, pulse_type)
 
 if loading_path == "Symmetric XYZ":
@@ -585,12 +766,16 @@ if loading_path in ["Symmetric X", "Symmetric XY", "Symmetric XYZ"]:
     sigma_centre = sx0 + Ax * g_left_centre + Ax * amplitude_ratio * g_right_centre
     eta_sup = (np.max(sigma_centre) - sx0) / max(Ax, 1e-9)
     regime_delay = delay
-elif loading_path == "Asynchronous XYZ":
+elif loading_path in ["Asynchronous XY", "Asynchronous XYZ"]:
     g_y_centre = get_window(t - delay_y - (L_m / (2.0 * cp0)), td, pulse_type)
-    g_z_centre = get_window(t - delay_z - (L_m / (2.0 * cp0)), td, pulse_type)
-    sigma_centre = sx0 + Ax * g_left_centre + Ay * g_y_centre + Az * g_z_centre
+    sigma_centre = sx0 + Ax * g_left_centre + Ay * g_y_centre
+    active_delays = [delay_y] if delay_y > 0 else []
+    if loading_path == "Asynchronous XYZ":
+        g_z_centre = get_window(t - delay_z - (L_m / (2.0 * cp0)), td, pulse_type)
+        sigma_centre = sigma_centre + Az * g_z_centre
+        if delay_z > 0:
+            active_delays.append(delay_z)
     eta_sup = max(1.0, (np.max(sigma_centre) - sx0) / max(Ax, 1e-9))
-    active_delays = [d for d in (delay_y, delay_z) if d > 0]
     regime_delay = min(active_delays) if active_delays else 0.0
 else:
     sigma_centre = sx0 + Ax * g_left_centre
@@ -612,10 +797,16 @@ else:
     regime_short = "Sequential"
 
 # Failure envelope and damage law.
+# F_index is the *undamaged* failure index q / q_f (what the applied stress would
+# reach with no degradation).  Damage growth, however, is driven by the EFFECTIVE
+# stress carried by the intact material fraction, (1 - D) q.  This load-shedding
+# feedback makes the damage self-limit instead of snapping to 1: once the material
+# softens, the effective overstress drops and the damage rate falls.
 theta_rad = np.deg2rad(theta_deg)
 h_theta = 1.0 + lode_amp * (1.0 - np.cos(3.0 * theta_rad))
 qf = (A_fail + B_fail * np.maximum(p, 0.0) ** n_fail) * h_theta
-F_index = q / np.maximum(qf, 1e-9)
+qf_safe = np.maximum(qf, 1e-9)
+F_index = q / qf_safe
 
 E_MPa = E_GPa * 1000.0
 eps_x = sx / E_MPa
@@ -629,25 +820,38 @@ epsdot_eq = np.sqrt(
 )
 rate_factor = (np.maximum(np.abs(epsdot_eq), 1e-12) / epsdot0) ** beta_rate
 
+# Recoverable elastic energy density of the intact material (energy release rate Y).
+W_el = (1.0 / (2.0 * E_MPa)) * (
+    sx ** 2 + sy ** 2 + sz ** 2 - 2.0 * nu * (sx * sy + sy * sz + sz * sx)
+)
+
 tau_D = tau_D_us * 1e-6
 D = np.zeros_like(t)
 Ddot = np.zeros_like(t)
+F_eff = np.zeros_like(t)            # damage-coupled (effective) failure index
+W_diss = np.zeros_like(t)          # cumulative damage dissipation, integral of Y dD
 for i in range(1, len(t)):
-    overstress = max((F_index[i - 1] - 1.0) / F0, 0.0)
+    # Effective failure index uses the stress carried by the intact fraction.
+    F_eff[i - 1] = (1.0 - D[i - 1]) * F_index[i - 1]
+    overstress = max((F_eff[i - 1] - 1.0) / F0, 0.0)
     Ddot[i - 1] = ((1.0 - D[i - 1]) ** alpha_sat) / tau_D * (overstress ** m_over) * rate_factor[i - 1]
-    D[i] = np.clip(D[i - 1] + Ddot[i - 1] * (t[i] - t[i - 1]), 0.0, 1.0)
+    dD = Ddot[i - 1] * (t[i] - t[i - 1])
+    D[i] = np.clip(D[i - 1] + dD, 0.0, 1.0)
+    # Continuum-damage-mechanics dissipation: energy released as the modulus
+    # degrades, W_diss = integral of Y dD with Y = W_el (>= 0 by construction).
+    W_diss[i] = W_diss[i - 1] + W_el[i - 1] * (D[i] - D[i - 1])
 if len(Ddot) > 1:
     Ddot[-1] = Ddot[-2]
+    F_eff[-1] = (1.0 - D[-1]) * F_index[-1]
 
 E_D = E_GPa * (1.0 - D)
 cp_D = cp0 * np.sqrt(np.maximum(1.0 - D, 0.0))
 
-W_el = (1.0 / (2.0 * E_MPa)) * (
-    sx ** 2 + sy ** 2 + sz ** 2 - 2.0 * nu * (sx * sy + sy * sz + sz * sx)
-)
+# Input work done by the applied stress on the (elastic) strain field.
 power = sx * epsdot_x + sy * epsdot_y + sz * epsdot_z
 W_input = cumulative_trapezoid(power, t)
-W_diss_estimate = W_input - W_el + W_el[0]
+# Damage dissipation is the physically meaningful dissipated energy here.
+W_diss_estimate = W_diss
 
 # Synthetic descriptors: planning indicators for DEM / experimental validation.
 x = np.linspace(0, 1, 400)
@@ -687,6 +891,7 @@ df_results = pd.DataFrame({
     "theta_deg": theta_deg,
     "qf_MPa": qf,
     "failure_index": F_index,
+    "failure_index_eff": F_eff,
     "epsdot_eq_s-1": epsdot_eq,
     "D": D,
     "Ddot_s-1": Ddot,
@@ -698,6 +903,28 @@ df_results = pd.DataFrame({
 })
 st.session_state["tri_hb_step3_damage_data"] = df_results
 
+# Scalar summary for the Step 5 publication-figure page.
+st.session_state["tri_hb_wave_damage_summary"] = {
+    "linked_signature": linked_signature if sync_to_step1 else None,
+    "loading_path": loading_path,
+    "pulse_Ax_MPa": float(Ax),
+    "prestress_x_MPa": float(sx0),
+    "prestress_y_MPa": float(sy0),
+    "prestress_z_MPa": float(sz0),
+    "regime": regime,
+    "t_travel_us": float(t_travel * 1e6),
+    "t_eq_low_us": float(t_eq_low * 1e6),
+    "t_eq_high_us": float(t_eq_high * 1e6),
+    "dt_star": float(dt_star),
+    "eta_sup": float(eta_sup),
+    "peak_p_MPa": float(np.max(p)),
+    "peak_q_MPa": float(np.max(q)),
+    "peak_F": float(np.max(F_index)),
+    "D_final": float(D[-1]),
+    "D_c": float(D_c),
+    "S_x": float(S_x),
+}
+
 # =============================================================================
 # Top status and summary
 # =============================================================================
@@ -708,7 +935,8 @@ with link_c1:
             f"""
             <div class="step3-status step3-status-success">
             Step 1 linked: prestress <b>{default_sx0:.0f}/{default_sy0:.0f}/{default_sz0:.0f} MPa</b>;
-            pulse <b>{default_A:.0f} MPa</b>, <b>{default_td_us:.0f} &micro;s</b>.
+            pulse X/Y/Z <b>{default_Ax:.0f}/{default_Ay:.0f}/{default_Az:.0f} MPa</b>,
+            <b>{default_td_us:.0f} &micro;s</b>.
             </div>
             """,
             unsafe_allow_html=True,
@@ -804,17 +1032,21 @@ with st.expander(equation_title, expanded=False):
         )
 
     if workflow_view in {"damage", "combined"}:
-        st.markdown("**Step 4: damage variable and rate law**")
-        st.latex(r"F(t)=q(t)/q_f(t),\qquad \langle x\rangle=\max(x,0)")
-        st.latex(r"\dot D=\frac{(1-D)^\alpha}{\tau_D}\left\langle\frac{F-1}{F_0}\right\rangle^m\left(\frac{|\dot\varepsilon_{eq}|}{\dot\varepsilon_0}\right)^\beta,\qquad 0\le D\le 1")
+        st.markdown("**Step 4: damage variable and rate law (with load-shedding feedback)**")
+        st.latex(r"F(t)=q(t)/q_f(t),\qquad F_{\mathrm{eff}}=(1-D)\,F,\qquad \langle x\rangle=\max(x,0)")
+        st.latex(r"\dot D=\frac{(1-D)^\alpha}{\tau_D}\left\langle\frac{F_{\mathrm{eff}}-1}{F_0}\right\rangle^m\left(\frac{|\dot\varepsilon_{eq}|}{\dot\varepsilon_0}\right)^\beta,\qquad 0\le D\le 1")
         st.latex(r"D_i=\operatorname{clip}\!\left[D_{i-1}+\dot D_{i-1}(t_i-t_{i-1}),\,0,\,1\right]")
         st.latex(r"E(D)=E_0(1-D),\qquad c_p(D)=c_{p0}\sqrt{\max(1-D,0)}")
-        st.caption("Step 4 uses the Step 3 failure index F(t) as the damage driver; the full p-q invariant equations are not repeated here.")
+        st.caption(
+            "Damage is driven by the EFFECTIVE failure index (1-D)F, i.e. the stress "
+            "carried by the intact fraction. This load-shedding makes D rise smoothly "
+            "and self-limit near 1 - 1/F_peak instead of snapping to 1."
+        )
         st.markdown("**Step 4: energy-density indicators**")
         st.latex(r"\varepsilon_i=\sigma_i/E_0,\qquad P(t)=\sigma_x\dot\varepsilon_x+\sigma_y\dot\varepsilon_y+\sigma_z\dot\varepsilon_z")
         st.latex(r"W_{\mathrm{input}}(t)=\int_0^t P(\tau)\,d\tau")
         st.latex(r"W_{\mathrm{el}}=\frac{1}{2E_0}\left[\sigma_x^2+\sigma_y^2+\sigma_z^2-2\nu(\sigma_x\sigma_y+\sigma_y\sigma_z+\sigma_z\sigma_x)\right]")
-        st.latex(r"W_{\mathrm{diss}}\approx W_{\mathrm{input}}-W_{\mathrm{el}}+W_{\mathrm{el}}(0)")
+        st.latex(r"W_{\mathrm{diss}}(t)=\int_0^t Y\,\dot D\,d\tau,\qquad Y=W_{\mathrm{el}}\ \ (\text{energy release rate})")
         st.markdown("**Step 4: validation descriptors and delay sensitivity**")
         st.latex(r"D_c=\frac{\int_{\mathrm{centre}}D(x)\,dx}{\int_0^1D(x)\,dx},\qquad S_x=1-\frac{|D_{\mathrm{left}}-D_{\mathrm{right}}|}{D_{\mathrm{left}}+D_{\mathrm{right}}}")
         st.latex(r"\eta_{\mathrm{sup}}(\Delta t^*)=\frac{\max_t\sigma_{\mathrm{centre}}(t;\Delta t^*)-\sigma_{x0}}{A_x}")
@@ -872,50 +1104,61 @@ tab_export = tabs_by_key["export"]
 
 with tab_overview:
     st.subheader("Wave timing and regime check")
-    left, right = st.columns([1.15, 0.85])
+    st.markdown("**Input pulses**")
+    fig1, ax1 = plt.subplots(figsize=(12, 5.4))
+    ax1.plot(t_us, x_left, label="X reference pulse")
+    if np.any(np.abs(x_right) > 0):
+        ax1.plot(t_us, x_right, label="X opposing/secondary pulse")
+    if np.any(np.abs(y_drive) > 0):
+        ax1.plot(t_us, y_drive, label="Y dynamic drive")
+    if np.any(np.abs(z_drive) > 0):
+        ax1.plot(t_us, z_drive, label="Z dynamic drive")
+    ax1.axvline(t_travel * 1e6, color="#888", linestyle="--", linewidth=1.2, label="travel time")
+    ax1.axvspan(t_eq_low * 1e6, t_eq_high * 1e6, color="#9ec7ff", alpha=0.35, label="3-5 travel times")
+    if regime_delay > 0:
+        ax1.axvline(regime_delay * 1e6, linestyle=":", linewidth=1.5, label="secondary delay")
+    ax1.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax1.set_ylabel(r"Dynamic stress increment, $\Delta\sigma$ (MPa)")
+    ax1.set_title("Input pulses")
+    ax1.legend(ncol=2, fontsize=9)
+    ax1.grid(True, alpha=0.3)
+    show_step_figure(
+        fig1, "tri_hb_step2_input_pulses.png",
+        notes=(
+            "**What it shows.** The dynamic stress pulse(s) entering the specimen "
+            "on each active axis, with the shaded equilibrium window.\n\n"
+            "- The pulse must be **longer** than the equilibrium window for valid "
+            "wave analysis.\n"
+            "- The dashed line marks the single bar **travel time**; the band is "
+            "3-5 travel times (when the specimen reaches dynamic equilibrium).\n"
+            "- Wave speed and the window come from the P-wave modulus M."
+        ),
+        equations=[
+            r"M=\frac{E(1-\nu)}{(1+\nu)(1-2\nu)},\qquad c_p=\sqrt{M/\rho}",
+            r"t_{\mathrm{travel}}=\frac{L}{c_p},\qquad t_{\mathrm{eq}}\approx 3\text{--}5\,t_{\mathrm{travel}}",
+            r"\Delta t^\ast=\frac{\Delta t}{t_{\mathrm{travel}}}",
+            r"\sigma_{\mathrm{dyn}}(t)=A\,g(t-\Delta t)\quad(g=\text{half-sine, Hann or rectangular})",
+        ],
+    )
 
-    with left:
-        fig1, ax1 = plt.subplots(figsize=(9.5, 4.6))
-        ax1.plot(t_us, x_left, label="X reference pulse")
-        if np.any(np.abs(x_right) > 0):
-            ax1.plot(t_us, x_right, label="X opposing/secondary pulse")
-        if np.any(np.abs(y_drive) > 0):
-            ax1.plot(t_us, y_drive, label="Y dynamic drive")
-        if np.any(np.abs(z_drive) > 0):
-            ax1.plot(t_us, z_drive, label="Z dynamic drive")
-        ax1.axvline(t_travel * 1e6, linestyle="--", linewidth=1.0, label="travel time")
-        ax1.axvspan(t_eq_low * 1e6, t_eq_high * 1e6, alpha=0.15, label="3-5 travel times")
-        if regime_delay > 0:
-            ax1.axvline(regime_delay * 1e6, linestyle=":", linewidth=1.5, label="secondary delay")
-        ax1.set_xlabel(r"Time, $t$ ($\mu$s)")
-        ax1.set_ylabel(r"Dynamic stress increment, $\Delta\sigma$ (MPa)")
-        ax1.set_title("Input pulses")
-        ax1.grid(True, alpha=0.35)
-        ax1.legend(ncol=2)
-        show_publication_figure(fig1)
-        st.download_button("Download pulse figure", fig_to_bytes(fig1), "tri_hb_step3_input_pulses.png", "image/png")
-        plt.close(fig1)
-
-    with right:
-        st.markdown("**Current interpretation**")
-        st.write(f"Loading path: **{loading_path}**")
-        st.write(f"Regime: **{regime}**")
-        st.write(f"Equilibrium window: **{t_eq_low * 1e6:.1f}-{t_eq_high * 1e6:.1f} μs**")
-        st.write(f"Peak dynamic stress inputs: X **{np.max(sx_dyn):.1f} MPa**, Y **{np.max(y_drive):.1f} MPa**, Z **{np.max(z_drive):.1f} MPa**")
-        with st.expander("Timing equations used in this plot", expanded=False):
-            st.latex(r"M=\frac{E(1-\nu)}{(1+\nu)(1-2\nu)},\qquad c_p=\sqrt{M/\rho}")
-            st.latex(r"t_{\mathrm{travel}}=\frac{L}{c_p},\qquad t_{\mathrm{eq}}\approx 3\text{--}5\,t_{\mathrm{travel}}")
-            st.latex(r"\Delta t^\ast=\frac{\Delta t}{t_{\mathrm{travel}}}")
-            st.latex(r"\sigma_{\mathrm{dyn}}(t)=A\,g(t-\Delta t)")
-            st.caption("The pulse curves use the selected envelope g(t): half-sine, Hann, or rectangular.")
-        if analysis_goal == "Quick validation":
-            st.info("Check that the main pulse length is longer than the equilibrium window before interpreting stress-strain or damage.")
-        elif analysis_goal == "Stress-path focus":
-            st.info("Use the Stress path tab to verify whether the case is hydrostatic, deviatoric, or sequential-path dominated.")
-        elif analysis_goal == "Damage calibration":
-            st.info("Use Advanced mode only after the wave timing and reduced stress curve look reasonable.")
-        else:
-            st.info("Compare final D, Dc, Sx, and the energy trend against DEM bond-breakage and dissipated-energy outputs.")
+    st.markdown("**Current interpretation**")
+    ic1, ic2, ic3, ic4 = st.columns(4)
+    ic1.metric("Loading path", loading_path)
+    ic2.metric("Regime", regime)
+    ic3.metric("Equilibrium window", f"{t_eq_low * 1e6:.1f}-{t_eq_high * 1e6:.1f} µs")
+    ic4.metric("Peak dyn. stress X", f"{np.max(sx_dyn):.1f} MPa")
+    st.write(
+        f"Peak dynamic stress inputs: X **{np.max(sx_dyn):.1f} MPa**, "
+        f"Y **{np.max(y_drive):.1f} MPa**, Z **{np.max(z_drive):.1f} MPa**"
+    )
+    if analysis_goal == "Quick validation":
+        st.info("Check that the main pulse length is longer than the equilibrium window before interpreting stress-strain or damage.")
+    elif analysis_goal == "Stress-path focus":
+        st.info("Use the Stress path tab to verify whether the case is hydrostatic, deviatoric, or sequential-path dominated.")
+    elif analysis_goal == "Damage calibration":
+        st.info("Use Advanced mode only after the wave timing and reduced stress curve look reasonable.")
+    else:
+        st.info("Compare final D, Dc, Sx, and the energy trend against DEM bond-breakage and dissipated-energy outputs.")
 
     fig2, ax2 = plt.subplots(figsize=(10, 4.1))
     dt_grid = np.linspace(0, 20, 400)
@@ -939,24 +1182,27 @@ with tab_overview:
     ax2.set_title("Wave-to-damage transition map")
     ax2.grid(True, alpha=0.35)
     ax2.legend()
-    show_publication_figure(fig2)
-    st.caption(
-        "The two smooth curves are heuristic guide curves, not calibrated damage laws. "
-        "The dashed line is the current normalised delay marker."
+    show_step_figure(
+        fig2, "tri_hb_step2_regime_map.png",
+        caption=("The two smooth curves are heuristic guide curves, not calibrated "
+                 "damage laws. The dashed line is the current normalised delay marker."),
+        notes=(
+            "**What it shows.** Which mechanism is expected to control the response "
+            "as a function of the normalised delay between pulses, Δt*.\n\n"
+            "- **Δt* < 1** -> waves still overlap (superposition).\n"
+            "- **1-3** -> reverberation-coupled.\n"
+            "- **3-10** -> transitional.\n"
+            "- **> 10** -> sequential, damage-memory controlled.\n\n"
+            "The dashed vertical line is your current case. Only the first two "
+            "legend items are curves; the y-axis is a unitless 0-1 dominance "
+            "indicator."
+        ),
+        equations=[
+            r"\Delta t^\ast=\Delta t/t_{\mathrm{travel}}",
+            r"C_{\mathrm{wave}}=\exp[-(\Delta t^\ast/1.2)^2]",
+            r"C_{\mathrm{damage}}=\frac{1}{1+\exp[-(\Delta t^\ast-5.0)/1.3]}",
+        ],
     )
-    with st.expander("Transition-map guide equations", expanded=False):
-        st.latex(r"\Delta t^\ast=\Delta t/t_{\mathrm{travel}}")
-        st.latex(r"C_{\mathrm{wave}}=\exp[-(\Delta t^\ast/1.2)^2]")
-        st.latex(r"C_{\mathrm{damage}}=\frac{1}{1+\exp[-(\Delta t^\ast-5.0)/1.3]}")
-        st.markdown(
-            """
-            - Only the first two legend items are curves.
-            - **Current Δt\\*** is the dashed vertical marker for this case.
-            - The vertical axis is a unitless dominance indicator: values near 1 mean that mechanism is expected to be more influential.
-            """
-        )
-    st.download_button("Download regime map", fig_to_bytes(fig2), "tri_hb_step3_regime_map.png", "image/png")
-    plt.close(fig2)
 
 with tab_stress:
     st.subheader("Stress-path interpretation")
@@ -964,31 +1210,110 @@ with tab_stress:
         "The stress path uses total stresses: static prestress plus dynamic pulse increments. "
         "Prestress sets the starting point; the moving p-q-theta history is driven by the dynamic loading."
     )
-    c1, c2 = st.columns(2)
-    with c1:
-        fig3, ax3 = plt.subplots(figsize=(7, 5.2))
-        sc = ax3.scatter(p, q, c=t_us, s=8)
-        ax3.set_xlabel(r"Mean stress, $p$ (MPa)")
-        ax3.set_ylabel(r"Deviatoric stress, $q$ (MPa)")
-        ax3.set_title(r"$p$-$q$ stress path")
-        ax3.grid(True, alpha=0.35)
-        cb = fig3.colorbar(sc, ax=ax3)
-        cb.set_label("Time (μs)")
-        show_publication_figure(fig3)
-        st.download_button("Download p-q path", fig_to_bytes(fig3), "tri_hb_step3_pq_path.png", "image/png")
-        plt.close(fig3)
 
-    with c2:
-        fig4, ax4 = plt.subplots(figsize=(7, 5.2))
-        sc2 = ax4.scatter(q, theta_deg, c=t_us, s=8)
-        ax4.set_xlabel(r"Deviatoric stress, $q$ (MPa)")
-        ax4.set_ylabel(r"Lode angle, $\theta$ (degrees)")
-        ax4.set_title(r"$q$-$\theta$ projection")
-        ax4.grid(True, alpha=0.35)
-        cb2 = fig4.colorbar(sc2, ax=ax4)
-        cb2.set_label("Time (μs)")
-        show_publication_figure(fig4)
-        plt.close(fig4)
+    with st.expander("How to read this", expanded=False):
+        st.markdown(
+            """
+            **What the three quantities mean**
+
+            - **p (mean stress)** = how hard the specimen is squeezed all-round
+              (the hydrostatic / confining part). Higher p raises strength and
+              drives compaction.
+            - **q (deviatoric stress)** = how *unequal* the three stresses are
+              (the shear part). q drives shear failure and cracking; **q = 0**
+              means all three stresses are equal (pure hydrostatic).
+            - **θ (Lode angle, 0-60°)** = the *kind* of shear: **~0° = triaxial
+              compression**, ~30° = pure shear, **~60° = triaxial extension**.
+
+            **The path is driven by the pulse.** Before the pulse the point sits
+            at the static pre-stress state. When the dynamic pulse arrives it
+            pushes one or more axes up, so p, q and θ move together - that moving
+            trace is the stress path. Because the half-sine pulse loads then
+            unloads, the path runs **out and back along the same line**: start
+            (○) → peak (△) at mid-pulse → back to start (✕). Colour = time.
+
+            **Reading checklist**
+
+            1. **Where does it start?** -> your confinement. Low-p start =
+               little/no confinement; further right = more confined.
+            2. **How steep is the p-q climb?** -> *failure mode.* Steep (q rises
+               faster than p) = shear-dominated (cracking); shallow (p rises, q
+               low) = compaction-dominated (pore collapse).
+            3. **How far does the peak (△) reach?** -> compare against the
+               failure surface q_f in the Damage tab (F = q / q_f). Peak near or
+               above q_f -> damage grows; well below -> specimen survives.
+            4. **What is θ at the peak?** -> failure *style*: 0° compression,
+               30° shear, 60° extension.
+            5. **Does it return to the start?** -> yes = elastic recovery; a
+               path that does not close indicates permanent change.
+
+            **Mode signatures**
+
+            - *Single-sided X / gas-gun*: one axis driven -> large q, steep p-q
+              line, θ -> 0 (compression). Shear-failure prone.
+            - *Symmetric XYZ (hydrostatic)*: all axes driven equally -> q ~ 0,
+              path runs almost flat along the p-axis; the specimen can only
+              compact, not shear-fail.
+            - *Asynchronous XY/XYZ*: axes driven at different times -> the path
+              **bends** as each delayed pulse arrives; this is where stress
+              path-dependence shows up.
+            """
+        )
+
+    fig3, ax3 = plt.subplots(figsize=(7, 5.2))
+    sc = ax3.scatter(p, q, c=t_us, s=8, zorder=3)
+    annotate_path_direction(ax3, p, q)
+    ax3.set_xlabel(r"Mean stress, $p$ (MPa)")
+    ax3.set_ylabel(r"Deviatoric stress, $q$ (MPa)")
+    ax3.set_title(r"$p$-$q$ stress path")
+    ax3.grid(True, alpha=0.35)
+    cb = fig3.colorbar(sc, ax=ax3)
+    cb.set_label("Time (μs)")
+    show_step_figure(
+        fig3, "tri_hb_step3_pq_path.png",
+        caption=("Colour = time since pulse start (purple -> yellow). The pulse "
+                 "loads then unloads, so the path runs out and back along the same "
+                 "line: start (○) -> peak (△) at mid-pulse -> back to start (✕)."),
+        notes=(
+            "**What it shows.** The loading trajectory in mean-stress / "
+            "deviatoric-stress space.\n\n"
+            "- **Start (○)** = your static pre-stress; further right = more "
+            "confined.\n"
+            "- **Steep climb** (q rises faster than p) = shear-dominated; "
+            "**shallow** = compaction-dominated.\n"
+            "- **Peak (△)**: compare against the failure surface q_f in the "
+            "Damage tab. Reaching q_f is when damage starts."
+        ),
+        equations=[
+            r"p=\tfrac{1}{3}(\sigma_x+\sigma_y+\sigma_z)",
+            r"q=\sqrt{\tfrac{1}{2}[(\sigma_x-\sigma_y)^2+(\sigma_y-\sigma_z)^2+(\sigma_z-\sigma_x)^2]}",
+        ],
+    )
+
+    fig4, ax4 = plt.subplots(figsize=(7, 5.2))
+    sc2 = ax4.scatter(q, theta_deg, c=t_us, s=8, zorder=3)
+    annotate_path_direction(ax4, q, theta_deg)
+    ax4.set_xlabel(r"Deviatoric stress, $q$ (MPa)")
+    ax4.set_ylabel(r"Lode angle, $\theta$ (degrees)")
+    ax4.set_title(r"$q$-$\theta$ projection")
+    ax4.grid(True, alpha=0.35)
+    cb2 = fig4.colorbar(sc2, ax=ax4)
+    cb2.set_label("Time (μs)")
+    show_step_figure(
+        fig4, "tri_hb_step3_qtheta.png",
+        notes=(
+            "**What it shows.** How the *character* of the shear evolves with the "
+            "load.\n\n"
+            "- **θ ~ 0°** = triaxial compression, **~30°** = pure shear, "
+            "**~60°** = triaxial extension.\n"
+            "- A path that sweeps θ -> 0 as q grows (single-sided loading) means "
+            "the state moves toward triaxial compression."
+        ),
+        equations=[
+            r"J_2=\tfrac{1}{2}(s_1^2+s_2^2+s_3^2),\quad J_3=s_1 s_2 s_3,\quad s_i=\sigma_i-p",
+            r"\cos(3\theta)=\frac{3\sqrt{3}}{2}\,\frac{J_3}{J_2^{3/2}}",
+        ],
+    )
 
     fig5, ax5 = plt.subplots(figsize=(10, 4.1))
     ax5.plot(t_us, sx, label=r"$\sigma_x$")
@@ -1001,8 +1326,18 @@ with tab_stress:
     ax5.set_title("Stress and invariant histories")
     ax5.grid(True, alpha=0.35)
     ax5.legend(ncol=3)
-    show_publication_figure(fig5)
-    plt.close(fig5)
+    show_step_figure(
+        fig5, "tri_hb_step3_stress_histories.png",
+        notes=(
+            "**What it shows.** The three total principal stresses and the two "
+            "invariants p, q through time.\n\n"
+            "- Each σ is static pre-stress plus its dynamic increment.\n"
+            "- p (dashed) and q (dotted) are what drive the p-q path above."
+        ),
+        equations=[
+            r"\sigma_i^{\mathrm{total}}(t)=\sigma_i^{0}+\sigma_i^{\mathrm{dyn}}(t)",
+        ],
+    )
 
     if loading_path == "Symmetric XYZ" and np.nanmax(q) < 0.05 * max(np.nanmax(p), 1.0):
         st.success("This case is close to hydrostatic: q remains small relative to p.")
@@ -1013,32 +1348,59 @@ with tab_stress:
 
 with tab_damage:
     st.subheader("Damage onset, accumulation and stiffness loss")
-    c1, c2 = st.columns(2)
-    with c1:
-        fig6, ax6 = plt.subplots(figsize=(7, 4.6))
-        ax6.plot(t_us, F_index, color=PUB_COLORS["blue"], label=r"Failure index, $F(t)$")
-        ax6.axhline(1.0, color=PUB_COLORS["vermillion"], linestyle="--", linewidth=1.2, label=r"$F=1$")
-        ax6.set_xlabel(r"Time, $t$ ($\mu$s)")
-        ax6.set_ylabel(r"$F=q/q_f$")
-        ax6.set_title("Failure-envelope interaction")
-        ax6.grid(True, alpha=0.35)
-        ax6.legend()
-        show_publication_figure(fig6)
-        plt.close(fig6)
 
-    with c2:
-        fig7, ax7 = plt.subplots(figsize=(7, 4.6))
-        ax7.plot(t_us, D, color=PUB_COLORS["blue"], label=r"$D(t)$")
-        if np.max(Ddot) > 0:
-            ax7.plot(t_us, Ddot / max(np.max(Ddot), 1e-12), color=PUB_COLORS["orange"], linestyle="--", label=r"normalised $\dot{D}$")
-        ax7.set_xlabel(r"Time, $t$ ($\mu$s)")
-        ax7.set_ylabel(r"Damage variable, $D$")
-        ax7.set_title("Cumulative damage and damage rate")
-        ax7.grid(True, alpha=0.35)
-        ax7.legend()
-        show_publication_figure(fig7)
-        st.download_button("Download damage figure", fig_to_bytes(fig7), "tri_hb_step3_damage_evolution.png", "image/png")
-        plt.close(fig7)
+    fig6, ax6 = plt.subplots(figsize=(7, 4.6))
+    ax6.plot(t_us, F_index, color=PUB_COLORS["blue"], label=r"Applied $F=q/q_f$")
+    ax6.plot(t_us, F_eff, color=PUB_COLORS["green"], linestyle="-.", label=r"Effective $(1-D)\,F$")
+    ax6.axhline(1.0, color=PUB_COLORS["vermillion"], linestyle="--", linewidth=1.2, label=r"$F=1$")
+    ax6.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax6.set_ylabel(r"Failure index")
+    ax6.set_title("Failure-envelope interaction")
+    ax6.grid(True, alpha=0.35)
+    ax6.legend()
+    show_step_figure(
+        fig6, "tri_hb_step4_failure_index.png",
+        caption=("Damage is driven by the effective index (1-D)F, not the applied "
+                 "F. As D grows the material sheds load, so the effective index "
+                 "falls back toward 1 and the damage rate self-limits."),
+        notes=(
+            "**What it shows.** How close the stress state is to failure.\n\n"
+            "- **F = q / q_f**; damage grows only when **F > 1** (above the dashed "
+            "line).\n"
+            "- The **effective** index (1-D)F is the real driver - it is the "
+            "applied index reduced by the load the damaged material can no longer "
+            "carry."
+        ),
+        equations=[
+            r"F=q/q_f,\qquad F_{\mathrm{eff}}=(1-D)\,F",
+            r"q_f=(A+B\,p^{n})\,[1+a_\theta(1-\cos 3\theta)]",
+        ],
+    )
+
+    fig7, ax7 = plt.subplots(figsize=(7, 4.6))
+    ax7.plot(t_us, D, color=PUB_COLORS["blue"], label=r"$D(t)$")
+    if np.max(Ddot) > 0:
+        ax7.plot(t_us, Ddot / max(np.max(Ddot), 1e-12), color=PUB_COLORS["orange"], linestyle="--", label=r"normalised $\dot{D}$")
+    ax7.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax7.set_ylabel(r"Damage variable, $D$")
+    ax7.set_title("Cumulative damage and damage rate")
+    ax7.grid(True, alpha=0.35)
+    ax7.legend()
+    show_step_figure(
+        fig7, "tri_hb_step4_damage_evolution.png",
+        notes=(
+            "**What it shows.** Cumulative damage D (0 = intact, 1 = fully failed) "
+            "and its rate.\n\n"
+            "- D rises while F_eff > 1 and **self-limits** as the material softens "
+            "(it does not snap straight to 1).\n"
+            "- The rate (dashed) peaks when the stress most exceeds the failure "
+            "surface."
+        ),
+        equations=[
+            r"\dot D=\frac{(1-D)^{\alpha}}{\tau_D}\,\Big\langle\frac{F_{\mathrm{eff}}-1}{F_0}\Big\rangle^{m}\,\Big(\frac{|\dot\varepsilon_{\mathrm{eq}}|}{\dot\varepsilon_0}\Big)^{\beta}",
+            r"D_i=\operatorname{clip}[\,D_{i-1}+\dot D_{i-1}\,\Delta t,\,0,\,1\,]",
+        ],
+    )
 
     fig8, ax8 = plt.subplots(figsize=(10, 4.1))
     ax8.plot(t_us, E_D, color=PUB_COLORS["blue"], label=r"$E(D)$")
@@ -1052,8 +1414,19 @@ with tab_damage:
     lines, labels = ax8.get_legend_handles_labels()
     lines2, labels2 = ax8b.get_legend_handles_labels()
     ax8.legend(lines + lines2, labels + labels2)
-    show_publication_figure(fig8)
-    plt.close(fig8)
+    show_step_figure(
+        fig8, "tri_hb_step4_stiffness_degradation.png",
+        notes=(
+            "**What it shows.** How the growing damage degrades the material's "
+            "elastic properties.\n\n"
+            "- Young's modulus falls linearly with damage.\n"
+            "- P-wave speed falls with the square root of (1-D) - the quantity a "
+            "real test measures via wave-speed/time-of-flight."
+        ),
+        equations=[
+            r"E(D)=E_0\,(1-D),\qquad c_p(D)=c_{p0}\sqrt{\max(1-D,\,0)}",
+        ],
+    )
 
     d1, d2, d3, d4 = st.columns(4)
     d1.metric("Peak F", f"{np.nanmax(F_index):.2f}")
@@ -1063,87 +1436,114 @@ with tab_damage:
 
 with tab_validation:
     st.subheader("Energy balance and validation descriptors")
-    c1, c2 = st.columns(2)
-    with c1:
-        fig9, ax9 = plt.subplots(figsize=(7, 4.6))
-        ax9.plot(t_us, W_input, color=PUB_COLORS["blue"], label=r"$W_{\mathrm{input}}$")
-        ax9.plot(t_us, W_el, color=PUB_COLORS["green"], label=r"$W_{\mathrm{el}}$")
-        ax9.plot(t_us, W_diss_estimate, color=PUB_COLORS["vermillion"], label=r"$W_{\mathrm{diss}}$")
-        ax9.set_xlabel(r"Time, $t$ ($\mu$s)")
-        ax9.set_ylabel(r"Energy density (MJ m$^{-3}$)")
-        ax9.set_title("Energy indicators")
-        ax9.grid(True, alpha=0.35)
-        ax9.legend()
-        show_publication_figure(fig9)
-        st.download_button("Download energy figure", fig_to_bytes(fig9), "tri_hb_step3_energy_balance.png", "image/png")
-        plt.close(fig9)
 
-    with c2:
-        descriptors = pd.DataFrame({
-            "Descriptor": [
-                "Final damage D",
-                "Central damage fraction Dc",
-                "Symmetry index Sx",
-                "Neutral-zone estimate χn",
-                "Superposition factor ηsup",
-                "Normalised delay Δt*",
-                "Peak failure index Fmax",
-            ],
-            "Value": [
-                D[-1],
-                D_c,
-                S_x,
-                neutral_width_estimate,
-                eta_sup,
-                dt_star,
-                np.nanmax(F_index),
-            ],
-            "Use for": [
-                "Overall degradation",
-                "Central damage concentration",
-                "Left-right damage symmetry",
-                "Low-velocity zone estimate",
-                "Constructive overlap check",
-                "Regime classifier",
-                "Damage-onset calibration",
-            ],
-        })
-        st.dataframe(descriptors, width="stretch")
+    fig9, ax9 = plt.subplots(figsize=(7, 4.6))
+    ax9.plot(t_us, W_input, color=PUB_COLORS["blue"], label=r"$W_{\mathrm{input}}$")
+    ax9.plot(t_us, W_el, color=PUB_COLORS["green"], label=r"$W_{\mathrm{el}}$ (recoverable)")
+    ax9.plot(t_us, W_diss_estimate, color=PUB_COLORS["vermillion"], label=r"$W_{\mathrm{diss}}$ (damage)")
+    ax9.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax9.set_ylabel(r"Energy density (MJ m$^{-3}$)")
+    ax9.set_title("Energy indicators")
+    ax9.grid(True, alpha=0.35)
+    ax9.legend()
+    show_step_figure(
+        fig9, "tri_hb_step4_energy_balance.png",
+        caption=("W_diss is the continuum-damage dissipation, zero until damage "
+                 "grows then increasing monotonically."),
+        notes=(
+            "**What it shows.** Where the input work goes.\n\n"
+            "- **W_input** total work done on the specimen.\n"
+            "- **W_el** recoverable elastic energy (returned on unloading).\n"
+            "- **W_diss** energy dissipated by damage = the continuum-damage "
+            "integral ∫Y dD with Y the elastic energy release rate."
+        ),
+        equations=[
+            r"W_{\mathrm{input}}(t)=\int_0^t(\sigma_x\dot\varepsilon_x+\sigma_y\dot\varepsilon_y+\sigma_z\dot\varepsilon_z)\,d\tau",
+            r"W_{\mathrm{el}}=\frac{1}{2E_0}\big[\sigma_x^2+\sigma_y^2+\sigma_z^2-2\nu(\sigma_x\sigma_y+\sigma_y\sigma_z+\sigma_z\sigma_x)\big]",
+            r"W_{\mathrm{diss}}(t)=\int_0^t Y\,\dot D\,d\tau,\qquad Y=W_{\mathrm{el}}",
+        ],
+    )
 
-    c3, c4 = st.columns(2)
-    with c3:
-        fig10, ax10 = plt.subplots(figsize=(7, 4.5))
-        ax10.plot(x, damage_profile, color=PUB_COLORS["blue"], label="Estimated damage profile")
-        ax10.axvspan(0.5 - central_width / 2.0, 0.5 + central_width / 2.0, alpha=0.15, label="Central region")
-        ax10.axhline(damage_threshold, linestyle="--", label="Threshold")
-        ax10.set_xlabel(r"Normalised specimen position, $x/L$")
-        ax10.set_ylabel("Damage intensity")
-        ax10.set_title("Damage-zone migration / central concentration")
-        ax10.grid(True, alpha=0.35)
-        ax10.legend()
-        show_publication_figure(fig10)
-        plt.close(fig10)
+    st.markdown("**Validation descriptors**")
+    descriptors = pd.DataFrame({
+        "Descriptor": [
+            "Final damage D",
+            "Central damage fraction Dc",
+            "Symmetry index Sx",
+            "Neutral-zone estimate χn",
+            "Superposition factor ηsup",
+            "Normalised delay Δt*",
+            "Peak failure index Fmax",
+        ],
+        "Value": [
+            D[-1],
+            D_c,
+            S_x,
+            neutral_width_estimate,
+            eta_sup,
+            dt_star,
+            np.nanmax(F_index),
+        ],
+        "Use for": [
+            "Overall degradation",
+            "Central damage concentration",
+            "Left-right damage symmetry",
+            "Low-velocity zone estimate",
+            "Constructive overlap check",
+            "Regime classifier",
+            "Damage-onset calibration",
+        ],
+    })
+    st.dataframe(descriptors, width="stretch")
 
-    with c4:
-        if linked_reduced is not None and len(linked_reduced) > 0:
-            fig11, ax11 = plt.subplots(figsize=(7, 4.5))
-            ax11.plot(t_us, sx, color=PUB_COLORS["blue"], label=r"Model $\sigma_x$")
-            red = linked_reduced.dropna(subset=["time_us", "stress_MPa"]) if isinstance(linked_reduced, pd.DataFrame) else pd.DataFrame()
-            if not red.empty:
-                ax11.plot(red["time_us"], red["stress_MPa"], color=PUB_COLORS["vermillion"], linestyle="--", label="Reduced stress")
-            ax11.set_xlabel(r"Time, $t$ ($\mu$s)")
-            ax11.set_ylabel(r"Stress, $\sigma$ (MPa)")
-            ax11.set_title("Reduced-data / model stress comparison")
-            ax11.grid(True, alpha=0.35)
-            ax11.legend()
-            show_publication_figure(fig11)
-            plt.close(fig11)
-            st.caption("The model response is compared against the reduced simulator or experimental stress source.")
-        else:
-            st.info(
-                "Generate reduced data in Step 1 to overlay stress and energy histories here. "
-                "Use DEM/CT/DIC outputs to replace the synthetic damage-profile descriptor when available."
-            )
+    fig10, ax10 = plt.subplots(figsize=(7, 4.5))
+    ax10.plot(x, damage_profile, color=PUB_COLORS["blue"], label="Estimated damage profile")
+    ax10.axvspan(0.5 - central_width / 2.0, 0.5 + central_width / 2.0, alpha=0.15, label="Central region")
+    ax10.axhline(damage_threshold, linestyle="--", label="Threshold")
+    ax10.set_xlabel(r"Normalised specimen position, $x/L$")
+    ax10.set_ylabel("Damage intensity")
+    ax10.set_title("Damage-zone migration / central concentration")
+    ax10.grid(True, alpha=0.35)
+    ax10.legend()
+    show_step_figure(
+        fig10, "tri_hb_step4_damage_profile.png",
+        notes=(
+            "**What it shows.** Where damage concentrates along the specimen (a "
+            "planning indicator, to be replaced by DEM/CT/DIC when available).\n\n"
+            "- A peak at the **centre** (x/L = 0.5) indicates central concentration "
+            "from wave superposition.\n"
+            "- Off-centre or asymmetric peaks indicate sequential / one-sided "
+            "loading. The shaded band is the central region used for D_c."
+        ),
+        equations=[
+            r"D_c=\frac{\int_{\mathrm{centre}}D(x)\,dx}{\int_0^1 D(x)\,dx},\qquad S_x=1-\frac{|D_{\mathrm{left}}-D_{\mathrm{right}}|}{D_{\mathrm{left}}+D_{\mathrm{right}}}",
+        ],
+    )
+
+    if linked_reduced is not None and len(linked_reduced) > 0:
+        fig11, ax11 = plt.subplots(figsize=(7, 4.5))
+        ax11.plot(t_us, sx, color=PUB_COLORS["blue"], label=r"Model $\sigma_x$")
+        red = linked_reduced.dropna(subset=["time_us", "stress_MPa"]) if isinstance(linked_reduced, pd.DataFrame) else pd.DataFrame()
+        if not red.empty:
+            ax11.plot(red["time_us"], red["stress_MPa"], color=PUB_COLORS["vermillion"], linestyle="--", label="Reduced stress")
+        ax11.set_xlabel(r"Time, $t$ ($\mu$s)")
+        ax11.set_ylabel(r"Stress, $\sigma$ (MPa)")
+        ax11.set_title("Reduced-data / model stress comparison")
+        ax11.grid(True, alpha=0.35)
+        ax11.legend()
+        show_step_figure(
+            fig11, "tri_hb_step4_model_vs_reduced.png",
+            notes=(
+                "**What it shows.** The model axial stress overlaid on the Step-1 "
+                "reduced data (simulator or uploaded experiment), so you can judge "
+                "how well the model reproduces the measured response."
+            ),
+        )
+    else:
+        st.info(
+            "Generate reduced data in Step 1 to overlay stress and energy histories here. "
+            "Use DEM/CT/DIC outputs to replace the synthetic damage-profile descriptor when available."
+        )
 
     st.markdown(
         """
@@ -1180,19 +1580,26 @@ with tab_export:
     ax12.set_title("Delay-controlled transition from central superposition to sequential damage")
     ax12.grid(True, alpha=0.35)
     ax12.legend()
-    show_publication_figure(fig12)
-    st.caption(
-        "ηsup is the centre-stress superposition ratio. The final and central damage curves are "
-        "0-1 heuristic sensitivity indicators generated from the wave-control and damage-memory guide curves."
+    show_step_figure(
+        fig12, "tri_hb_step4_delay_sensitivity.png",
+        caption=("ηsup is the centre-stress superposition ratio. The final and "
+                 "central damage curves are 0-1 heuristic sensitivity indicators."),
+        notes=(
+            "**What it shows.** How the damage outcome is expected to vary as you "
+            "sweep the inter-pulse delay Δt*, with your current case marked "
+            "(dashed line).\n\n"
+            "- At **small Δt*** waves superpose -> high central damage.\n"
+            "- At **large Δt*** pulses act sequentially -> damage spreads / shifts.\n\n"
+            "The trend curves are planning indicators; use calibrated DEM/CT/DIC "
+            "data for final damage quantification."
+        ),
+        equations=[
+            r"\eta_{\mathrm{sup}}(\Delta t^*)=\frac{\max_t\sigma_{\mathrm{centre}}(t;\Delta t^*)-\sigma_{x0}}{A_x}",
+            r"C_{\mathrm{wave}}=\exp[-(\Delta t^*/1.2)^2],\qquad C_{\mathrm{damage}}=\frac{1}{1+\exp[-(\Delta t^*-5.0)/1.3]}",
+            r"I_{\mathrm{final}}=\operatorname{clip}(0.15+0.35C_{\mathrm{wave}}+0.25C_{\mathrm{damage}},0,1)",
+            r"I_{\mathrm{central}}=\operatorname{clip}(0.75C_{\mathrm{wave}}+0.25(1-C_{\mathrm{damage}}),0,1)",
+        ],
     )
-    with st.expander("Delay-sensitivity indicator equations", expanded=False):
-        st.latex(r"\eta_{\mathrm{sup}}(\Delta t^*)=\frac{\max_t\sigma_{\mathrm{centre}}(t;\Delta t^*)-\sigma_{x0}}{A_x}")
-        st.latex(r"C_{\mathrm{wave}}=\exp[-(\Delta t^*/1.2)^2],\qquad C_{\mathrm{damage}}=\frac{1}{1+\exp[-(\Delta t^*-5.0)/1.3]}")
-        st.latex(r"I_{\mathrm{final}}=\operatorname{clip}(0.15+0.35C_{\mathrm{wave}}+0.25C_{\mathrm{damage}},0,1)")
-        st.latex(r"I_{\mathrm{central}}=\operatorname{clip}(0.75C_{\mathrm{wave}}+0.25(1-C_{\mathrm{damage}}),0,1)")
-        st.caption("The trend curves are planning indicators for delay sensitivity; use calibrated DEM/CT/DIC data for final damage quantification.")
-    st.download_button("Download delay sensitivity figure", fig_to_bytes(fig12), "tri_hb_step3_delay_sensitivity.png", "image/png")
-    plt.close(fig12)
 
     st.markdown("**Calculated data preview**")
     st.dataframe(df_results.head(40), width="stretch")
