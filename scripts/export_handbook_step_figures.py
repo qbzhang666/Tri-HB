@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+"""Handbook Step 2-4 figures, matched to the CURRENT wave_damage.py physics
+(true-triaxial Lode envelope, optional rate-dependent envelope, corrected
+energy balance W_input = W_el + W_diss, and the Stage-1 orthotropic damage
+tensor). Regenerate with:  py -3.13 scripts/export_handbook_step_figures.py
+"""
+
 from pathlib import Path
 
 import matplotlib
@@ -125,57 +131,66 @@ def invariants_from_diagonal(sx, sy, sz):
     return p, q, np.rad2deg(theta), J2, J3
 
 
+def derive_failure_surface(ucs_mpa, k_conf, dif=1.0):
+    k = max(k_conf, 1.0 + 1e-6)
+    ucs_eff = max(ucs_mpa, 1e-6) * max(dif, 1e-6)
+    return 3.0 * ucs_eff / (k + 2.0), 3.0 * (k - 1.0) / (k + 2.0), 1.0
+
+
+def lode_shape(theta_deg, mode, param):
+    """Deviatoric strength multiplier h(theta) (matches wave_damage.lode_shape).
+    theta in [0,60]: 0 = compression meridian, 60 = extension meridian."""
+    th = np.deg2rad(np.asarray(theta_deg, dtype=float))
+    if mode == "lode":
+        e = float(np.clip(param, 0.5, 1.0))
+        return 1.0 - (1.0 - e) * (1.0 - np.cos(3.0 * th)) / 2.0
+    if mode == "willam":
+        e = float(np.clip(param, 0.5 + 1e-6, 1.0))
+        a = np.pi / 3.0 - th
+        ca = np.cos(a)
+        rad = np.sqrt(np.maximum(4.0 * (1.0 - e ** 2) * ca ** 2 + 5.0 * e ** 2 - 4.0 * e, 0.0))
+        num = 2.0 * (1.0 - e ** 2) * ca + (2.0 * e - 1.0) * rad
+        den = 4.0 * (1.0 - e ** 2) * ca ** 2 + (2.0 * e - 1.0) ** 2
+        return num / np.maximum(den, 1e-12)
+    return 1.0 + param * (1.0 - np.cos(3.0 * th))
+
+
 def compute_case():
-    # One deliberately nontrivial sample: sandstone, asynchronous XYZ, inherited
-    # from the Step 1 Mode 5 example used in the handbook figures.
-    E_GPa = 15.0
-    nu = 0.20
-    rho = 2650.0
-    L_mm = 50.0
+    # Sandstone, asynchronous XYZ (inherits the Mode-5 handbook example).
+    E_GPa, nu, rho, L_mm = 15.0, 0.20, 2650.0, 50.0
     sx0, sy0, sz0 = 30.0, 20.0, 15.0
     Ax = Ay = Az = 400.0
     td_us = 200.0
-    delay_y_us = 80.0
-    delay_z_us = 160.0
+    delay_y_us, delay_z_us = 80.0, 160.0
     pulse_type = "Half-sine"
-    tmax_us = 520.0
-    npts = 6000
+    tmax_us, npts = 520.0, 6000
 
-    A_fail = 15.0
-    B_fail = 1.3
-    n_fail = 0.75
-    lode_amp = 0.10
-    tau_D_us = 30.0
-    alpha_sat = 1.0
-    m_over = 2.0
-    beta_rate = 0.15
-    epsdot0 = 1.0
-    F0 = 1.0
+    # Current default failure surface: derived from UCS + confinement ratio, with
+    # the physically-correct extension-weakened Lode shape (rho_t/rho_c = 0.70).
+    UCS_MPa, k_conf = 80.0, 4.0
+    A_fail, B_fail, n_fail = derive_failure_surface(UCS_MPa, k_conf, 1.0)
+    lode_mode, lode_ratio = "lode", 0.70
+    sigma_t_MPa = UCS_MPa / 12.0
+    tau_D_us, alpha_sat, m_over, beta_rate, epsdot0, F0 = 30.0, 1.0, 2.0, 0.15, 1.0, 1.0
     central_width = 0.30
 
     E = E_GPa * 1e9
-    G = E / (2.0 * (1.0 + nu))
     M = E * (1.0 - nu) / ((1.0 + nu) * max(1.0 - 2.0 * nu, 1e-9))
     cp0 = np.sqrt(M / rho)
-    cs = np.sqrt(G / rho)
     L_m = L_mm / 1000.0
     t_travel = L_m / cp0
-    t_eq_low = 3.0 * t_travel
-    t_eq_high = 5.0 * t_travel
+    t_eq_low, t_eq_high = 3.0 * t_travel, 5.0 * t_travel
 
     t_us = np.linspace(0.0, tmax_us, npts)
     t = t_us * 1e-6
     td = td_us * 1e-6
-    delay_y = delay_y_us * 1e-6
-    delay_z = delay_z_us * 1e-6
+    delay_y, delay_z = delay_y_us * 1e-6, delay_z_us * 1e-6
 
     x_left = pulse(t, Ax, td, 0.0, pulse_type)
     x_right = np.zeros_like(t)
     y_drive = pulse(t, Ay, td, delay_y, pulse_type)
     z_drive = pulse(t, Az, td, delay_z, pulse_type)
-
-    sx_dyn = x_left + x_right
-    sx = sx0 + sx_dyn
+    sx = sx0 + x_left + x_right
     sy = sy0 + y_drive
     sz = sz0 + z_drive
     p, q, theta_deg, J2, J3 = invariants_from_diagonal(sx, sy, sz)
@@ -188,45 +203,62 @@ def compute_case():
     eta_sup = max(1.0, (np.max(sigma_centre) - sx0) / max(Ax, 1e-9))
     dt_star = delay_y / t_travel
 
-    theta_rad = np.deg2rad(theta_deg)
-    h_theta = 1.0 + lode_amp * (1.0 - np.cos(3.0 * theta_rad))
+    h_theta = lode_shape(theta_deg, lode_mode, lode_ratio)
     qf = (A_fail + B_fail * np.maximum(p, 0.0) ** n_fail) * h_theta
     F_index = q / np.maximum(qf, 1e-9)
 
     E_MPa = E_GPa * 1000.0
-    eps_x = sx / E_MPa
-    eps_y = sy / E_MPa
-    eps_z = sz / E_MPa
-    epsdot_x = central_difference(eps_x, t)
-    epsdot_y = central_difference(eps_y, t)
-    epsdot_z = central_difference(eps_z, t)
-    epsdot_eq = np.sqrt(
-        2.0
-        / 3.0
-        * ((epsdot_x - epsdot_y) ** 2 + (epsdot_y - epsdot_z) ** 2 + (epsdot_z - epsdot_x) ** 2)
-        / 2.0
-    )
+    # Applied (undamaged) directional elastic strains (Poisson-coupled).
+    el_x = (sx - nu * (sy + sz)) / E_MPa
+    el_y = (sy - nu * (sx + sz)) / E_MPa
+    el_z = (sz - nu * (sx + sy)) / E_MPa
+    epsdot_eq = np.sqrt(2.0 / 3.0 * ((central_difference(el_x, t) - central_difference(el_y, t)) ** 2
+                        + (central_difference(el_y, t) - central_difference(el_z, t)) ** 2
+                        + (central_difference(el_z, t) - central_difference(el_x, t)) ** 2) / 2.0)
     rate_factor = (np.maximum(np.abs(epsdot_eq), 1e-12) / epsdot0) ** beta_rate
 
     tau_D = tau_D_us * 1e-6
+    # --- Isotropic scalar damage with load-shedding feedback (F_eff = (1-D)F) ---
     D = np.zeros_like(t)
     Ddot = np.zeros_like(t)
+    F_eff = np.zeros_like(t)
     for i in range(1, len(t)):
-        overstress = max((F_index[i - 1] - 1.0) / F0, 0.0)
-        Ddot[i - 1] = ((1.0 - D[i - 1]) ** alpha_sat) / tau_D * (overstress**m_over) * rate_factor[i - 1]
+        F_eff[i - 1] = (1.0 - D[i - 1]) * F_index[i - 1]
+        ov = max((F_eff[i - 1] - 1.0) / F0, 0.0)
+        Ddot[i - 1] = ((1.0 - D[i - 1]) ** alpha_sat) / tau_D * (ov ** m_over) * rate_factor[i - 1]
         D[i] = np.clip(D[i - 1] + Ddot[i - 1] * (t[i] - t[i - 1]), 0.0, 1.0)
     if len(Ddot) > 1:
         Ddot[-1] = Ddot[-2]
-
     E_D = E_GPa * (1.0 - D)
     cp_D = cp0 * np.sqrt(np.maximum(1.0 - D, 0.0))
 
-    W_el = (1.0 / (2.0 * E_MPa)) * (
-        sx**2 + sy**2 + sz**2 - 2.0 * nu * (sx * sy + sy * sz + sz * sx)
-    )
-    power = sx * epsdot_x + sy * epsdot_y + sz * epsdot_z
+    # --- Orthotropic (diagonal) damage tensor, tension-driven per axis ---
+    eps_t0 = max(sigma_t_MPa, 1e-6) / E_MPa
+    Fx = np.maximum(-el_x, 0.0) / eps_t0
+    Fy = np.maximum(-el_y, 0.0) / eps_t0
+    Fz = np.maximum(-el_z, 0.0) / eps_t0
+    Dx = np.zeros_like(t); Dy = np.zeros_like(t); Dz = np.zeros_like(t)
+    for i in range(1, len(t)):
+        dti = t[i] - t[i - 1]
+        for Darr, Farr in ((Dx, Fx), (Dy, Fy), (Dz, Fz)):
+            feff = (1.0 - Darr[i - 1]) * Farr[i - 1]
+            ov = max((feff - 1.0) / F0, 0.0)
+            Darr[i] = min(1.0, Darr[i - 1] + ((1.0 - Darr[i - 1]) ** alpha_sat) / tau_D
+                          * (ov ** m_over) * rate_factor[i - 1] * dti)
+    E_Dx = E_GPa * (1.0 - Dx); E_Dy = E_GPa * (1.0 - Dy); E_Dz = E_GPa * (1.0 - Dz)
+
+    # --- Corrected energy balance (damage-coupled strain; closes by construction) ---
+    one_minus_D = np.maximum(1.0 - D, 1e-6)
+    eps_x_d = (sx - nu * (sy + sz)) / (E_MPa * one_minus_D)
+    eps_y_d = (sy - nu * (sx + sz)) / (E_MPa * one_minus_D)
+    eps_z_d = (sz - nu * (sx + sy)) / (E_MPa * one_minus_D)
+    power = (sx * central_difference(eps_x_d, t)
+             + sy * central_difference(eps_y_d, t)
+             + sz * central_difference(eps_z_d, t))
     W_input = cumulative_trapezoid(power, t)
-    W_diss = W_input - W_el + W_el[0]
+    W_el_abs = 0.5 * (sx * eps_x_d + sy * eps_y_d + sz * eps_z_d)
+    W_el = W_el_abs - W_el_abs[0]
+    W_diss = np.maximum(W_input - W_el, 0.0)
 
     x = np.linspace(0.0, 1.0, 400)
     max_D = float(np.max(D))
@@ -276,7 +308,6 @@ def save_panel(fig, ax, filename, title):
 
 def plot_step2(data):
     t_us = data["t_us"]
-
     fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
     ax.plot(t_us, data["x_left"], label=r"X pulse", color=PUB_COLORS["blue"], linewidth=2.05)
     ax.plot(t_us, data["y_drive"], label=r"Y pulse", color=PUB_COLORS["green"], linewidth=2.05)
@@ -313,13 +344,8 @@ def plot_step2(data):
     save_panel(fig, ax, "step2_delay_regime_map.png", "Delay-regime interaction")
 
     labels = ["travel time", "eq low", "eq high", "Y delay", "Z delay"]
-    values = [
-        data["t_travel"] * 1e6,
-        data["t_eq_low"] * 1e6,
-        data["t_eq_high"] * 1e6,
-        data["delay_y"] * 1e6,
-        data["delay_z"] * 1e6,
-    ]
+    values = [data["t_travel"] * 1e6, data["t_eq_low"] * 1e6, data["t_eq_high"] * 1e6,
+              data["delay_y"] * 1e6, data["delay_z"] * 1e6]
     fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
     ax.bar(labels, values, color=[PUB_COLORS["gray"], PUB_COLORS["orange"], PUB_COLORS["vermillion"], PUB_COLORS["green"], PUB_COLORS["purple"]])
     ax.set_ylabel(r"Time, $t$ ($\mu$s)")
@@ -329,7 +355,6 @@ def plot_step2(data):
 
 def plot_step3(data):
     t_us = data["t_us"]
-
     fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
     ax.plot(t_us, data["sx"], label=r"$\sigma_x$", color=PUB_COLORS["blue"], linewidth=2.0)
     ax.plot(t_us, data["sy"], label=r"$\sigma_y$", color=PUB_COLORS["green"], linewidth=2.0)
@@ -367,18 +392,45 @@ def plot_step3(data):
     ax.legend(loc="upper right")
     save_panel(fig, ax, "step3_failure_index_strain_rate.png", "Failure-index interaction")
 
+    # NEW (V6): true-triaxial Lode deviatoric shapes
+    th = np.linspace(0.0, 60.0, 200)
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(th, lode_shape(th, "legacy", 0.10), label=r"legacy $1+a_\theta(1-\cos3\theta)$", color=PUB_COLORS["gray"], linestyle=":", linewidth=2.0)
+    ax.plot(th, lode_shape(th, "lode", 0.70), label=r"Lode (default), $\rho_t/\rho_c=0.70$", color=PUB_COLORS["blue"], linewidth=2.2)
+    ax.plot(th, lode_shape(th, "willam", 0.70), label=r"Willam--Warnke, $\rho_t/\rho_c=0.70$", color=PUB_COLORS["vermillion"], linestyle="--", linewidth=2.0)
+    ax.axvline(0, color=PUB_COLORS["black"], linewidth=0.8, alpha=0.5)
+    ax.text(1.5, 0.62, "compression\nmeridian", fontsize=10.5, color=PUB_COLORS["black"])
+    ax.text(46, 0.62, "extension\nmeridian", fontsize=10.5, color=PUB_COLORS["black"])
+    ax.set_xlabel(r"Lode angle, $\theta$ (deg)")
+    ax.set_ylabel(r"Deviatoric multiplier, $h(\theta)$")
+    ax.set_ylim(0.55, 1.25)
+    ax.legend(loc="upper center")
+    save_panel(fig, ax, "step3_lode_shapes.png", "True-triaxial deviatoric (Lode) shapes")
+
+    # NEW (V6): rate-dependent envelope DIF on q_f
+    edot = np.logspace(0, 4, 200)
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    for b_env, col in ((0.03, PUB_COLORS["blue"]), (0.05, PUB_COLORS["vermillion"]), (0.08, PUB_COLORS["green"])):
+        ax.plot(edot, 1.0 + b_env * np.log10(np.clip(edot, 1.0, None)), label=fr"$b_{{\mathrm{{env}}}}={b_env}$", linewidth=2.1, color=col)
+    ax.set_xscale("log")
+    ax.set_xlabel(r"Equivalent strain rate, $\dot{\varepsilon}_{\mathrm{eq}}/\dot{\varepsilon}_0$")
+    ax.set_ylabel(r"Envelope DIF on $q_f$")
+    ax.legend(loc="upper left")
+    save_panel(fig, ax, "step3_rate_dependent_envelope.png", r"Rate-dependent envelope, $\mathrm{DIF}=1+b\log_{10}(\dot\varepsilon/\dot\varepsilon_0)$")
+
 
 def plot_step4_damage(data):
     t_us = data["t_us"]
     Ddot_norm = data["Ddot"] / max(float(np.max(data["Ddot"])), 1e-12)
 
     fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
-    ax.plot(t_us, data["F_index"], color=PUB_COLORS["blue"], linewidth=2.15, label=r"Failure index, $F(t)$")
+    ax.plot(t_us, data["F_index"], color=PUB_COLORS["blue"], linewidth=2.15, label=r"Applied $F=q/q_f$")
+    ax.plot(t_us, data["F_eff"], color=PUB_COLORS["green"], linestyle="-.", linewidth=1.9, label=r"Effective $(1-D)F$")
     ax.axhline(1.0, color=PUB_COLORS["vermillion"], linestyle="--", linewidth=1.6, label=r"$F=1$")
     ax.set_xlabel(r"Time, $t$ ($\mu$s)")
     ax.set_ylabel(r"$F=q/q_f$")
     ax.legend(loc="upper right")
-    save_panel(fig, ax, "step4_damage_trigger.png", "Failure-envelope interaction")
+    save_panel(fig, ax, "step4_damage_trigger.png", "Failure-envelope interaction (load-shedding)")
 
     fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
     ax.plot(t_us, data["D"], label=r"$D(t)$", color=PUB_COLORS["blue"], linewidth=2.15)
@@ -386,7 +438,7 @@ def plot_step4_damage(data):
     ax.set_xlabel(r"Time, $t$ ($\mu$s)")
     ax.set_ylabel(r"Damage variable")
     ax.legend(loc="upper right")
-    save_panel(fig, ax, "step4_cumulative_damage.png", r"Damage accumulation")
+    save_panel(fig, ax, "step4_cumulative_damage.png", r"Damage accumulation (isotropic)")
 
     fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
     ax.plot(t_us, data["E_D"], color=PUB_COLORS["green"], linewidth=2.1, label=r"$E(D)$")
@@ -412,18 +464,38 @@ def plot_step4_damage(data):
     ax.legend(loc="upper right")
     save_panel(fig, ax, "step4_damage_profile.png", r"Damage-profile descriptors, $D_c=%.2f$, $S_x=%.2f$" % (data["D_c"], data["S_x"]))
 
+    # NEW (V6): orthotropic damage tensor components
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(t_us, data["Dx"], label=r"$D_x$", color=PUB_COLORS["vermillion"], linewidth=2.1)
+    ax.plot(t_us, data["Dy"], label=r"$D_y$", color=PUB_COLORS["green"], linewidth=2.1)
+    ax.plot(t_us, data["Dz"], label=r"$D_z$", color=PUB_COLORS["orange"], linewidth=2.1)
+    ax.plot(t_us, np.maximum.reduce([data["Dx"], data["Dy"], data["Dz"]]), label=r"$D=\max_i D_i$", color=PUB_COLORS["blue"], linestyle=":", linewidth=1.9)
+    ax.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax.set_ylabel(r"Damage-tensor component, $D_i$")
+    ax.legend(loc="upper left", ncol=2)
+    save_panel(fig, ax, "step4_orthotropic_damage.png", "Orthotropic damage tensor (tension-driven)")
+
+    # NEW (V6): directional stiffness degradation
+    fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
+    ax.plot(t_us, data["E_Dx"], label=r"$E_x$", color=PUB_COLORS["vermillion"], linewidth=2.1)
+    ax.plot(t_us, data["E_Dy"], label=r"$E_y$", color=PUB_COLORS["green"], linewidth=2.1)
+    ax.plot(t_us, data["E_Dz"], label=r"$E_z$", color=PUB_COLORS["orange"], linewidth=2.1)
+    ax.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax.set_ylabel(r"Directional modulus, $E_i$ (GPa)")
+    ax.legend(loc="lower left")
+    save_panel(fig, ax, "step4_directional_stiffness.png", r"Directional stiffness, $E_i=E_0(1-D_i)$")
+
 
 def plot_step4_energy(data):
     t_us = data["t_us"]
-
     fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
     ax.plot(t_us, data["W_input"], label=r"$W_{\mathrm{input}}$", color=PUB_COLORS["blue"], linewidth=2.05)
-    ax.plot(t_us, data["W_el"], label=r"$W_{\mathrm{el}}$", color=PUB_COLORS["green"], linewidth=2.0)
-    ax.plot(t_us, data["W_diss"], label=r"$W_{\mathrm{diss}}$", color=PUB_COLORS["vermillion"], linewidth=2.0)
+    ax.plot(t_us, data["W_el"], label=r"$W_{\mathrm{el}}$ (recoverable)", color=PUB_COLORS["green"], linewidth=2.0)
+    ax.plot(t_us, data["W_diss"], label=r"$W_{\mathrm{diss}}=W_{\mathrm{input}}-W_{\mathrm{el}}$", color=PUB_COLORS["vermillion"], linewidth=2.0)
     ax.set_xlabel(r"Time, $t$ ($\mu$s)")
     ax.set_ylabel(r"Energy density (MJ m$^{-3}$)")
     ax.legend(loc="upper right")
-    save_panel(fig, ax, "step4_energy_density_histories.png", "Energy-density partition")
+    save_panel(fig, ax, "step4_energy_density_histories.png", "Energy balance (first law closes)")
 
     fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)
     ax.plot(t_us, data["power"], color=PUB_COLORS["purple"], linewidth=2.15)
@@ -461,7 +533,9 @@ def main():
     plot_step3(data)
     plot_step4_damage(data)
     plot_step4_energy(data)
-    print(f"Wrote Step 2-4 handbook figures to {OUT_DIR}")
+    print(f"Wrote Step 2-4 handbook figures (V6 physics) to {OUT_DIR}")
+    print(f"  peak F={np.max(data['F_index']):.2f}  peak D={np.max(data['D']):.3f}  "
+          f"peak Dx/Dy/Dz={np.max(data['Dx']):.3f}/{np.max(data['Dy']):.3f}/{np.max(data['Dz']):.3f}")
 
 
 if __name__ == "__main__":

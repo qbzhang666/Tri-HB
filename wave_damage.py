@@ -119,6 +119,46 @@ def invariants_from_diagonal(sx, sy, sz):
     return p, q, np.rad2deg(theta), J2, J3
 
 
+def lode_shape(theta_deg, mode, param):
+    """Deviatoric (Lode-angle) strength multiplier h(theta).
+
+    Our Lode angle (invariants_from_diagonal) is theta in [0, 60 deg], with
+    theta = 0 at the triaxial-COMPRESSION meridian (J3 > 0) and theta = 60 deg at
+    the triaxial-EXTENSION meridian. All shapes below are normalised so the
+    compression meridian gives h = 1.
+
+      'legacy'  -> 1 + param*(1 - cos 3theta), param = a_theta.
+                   NOTE: this *raises* the extension meridian above compression,
+                   the opposite of typical brittle rock; kept for backward
+                   compatibility / as the historical default.
+      'lode'    -> linear, extension-weakened chord: h goes 1 (compression) ->
+                   param (extension) with param = rho = rho_t/rho_c in (0.5, 1].
+      'willam'  -> Willam-Warnke convex interpolation, same endpoints as 'lode'
+                   (1 at compression, rho at extension) but elliptic/convex.
+
+    For 'lode'/'willam', param is the extension/compression meridian ratio
+    rho_t/rho_c (~0.6-0.8 for rock); both make extension WEAKER than compression,
+    which is the physically correct sense and captures the intermediate principal
+    stress (true-triaxial) effect through theta.
+    """
+    th = np.deg2rad(np.asarray(theta_deg, dtype=float))
+    if mode == "lode":
+        e = float(np.clip(param, 0.5, 1.0))
+        return 1.0 - (1.0 - e) * (1.0 - np.cos(3.0 * th)) / 2.0
+    if mode == "willam":
+        e = float(np.clip(param, 0.5 + 1e-6, 1.0))
+        # WW radius is normalised to compression; our theta=0 is compression, so
+        # evaluate the standard WW function at the complementary angle (pi/3 - th).
+        a = np.pi / 3.0 - th
+        ca = np.cos(a)
+        rad = np.sqrt(np.maximum(4.0 * (1.0 - e ** 2) * ca ** 2 + 5.0 * e ** 2 - 4.0 * e, 0.0))
+        num = 2.0 * (1.0 - e ** 2) * ca + (2.0 * e - 1.0) * rad
+        den = 4.0 * (1.0 - e ** 2) * ca ** 2 + (2.0 * e - 1.0) ** 2
+        return num / np.maximum(den, 1e-12)
+    # legacy (default)
+    return 1.0 + param * (1.0 - np.cos(3.0 * th))
+
+
 def cumulative_trapezoid(y, t):
     out = np.zeros_like(y, dtype=float)
     if len(y) > 1:
@@ -483,11 +523,46 @@ linked_signature = (
 # =============================================================================
 with st.sidebar:
     st.header("Shared model controls")
+    # Workflow presets. Each goal steers the default control level, which tab opens
+    # first, and which model-constant panel is expanded. It deliberately does NOT
+    # change the physics, so results stay consistent across goals.
+    GOAL_PRESETS = {
+        "Quick validation":   {"control": "Guided",   "tab": "overview",   "note": "opens the Wave-model tab; Guided controls."},
+        "Stress-path focus":  {"control": "Guided",   "tab": "stress",     "note": "opens the Stress-path tab; Guided controls."},
+        "Damage calibration": {"control": "Advanced", "tab": "damage",     "note": "opens the Damage tab; Advanced model constants exposed."},
+        "DEM comparison":     {"control": "Advanced", "tab": "validation", "note": "opens the Energy + validation tab; Advanced descriptors exposed."},
+    }
+    # In the stepped workflow the step already expresses the goal, so derive it
+    # automatically instead of asking again on every step. Only the standalone
+    # (combined) view shows the selector, since there is no step to infer from.
+    VIEW_TO_GOAL = {
+        "wave": "Quick validation",
+        "stress": "Stress-path focus",
+        "damage": "Damage calibration",
+    }
+    if workflow_view in VIEW_TO_GOAL:
+        analysis_goal = VIEW_TO_GOAL[workflow_view]
+        _preset = GOAL_PRESETS[analysis_goal]
+        st.caption(f"Analysis goal (auto from step) · **{analysis_goal}** → {_preset['note']}")
+    else:
+        analysis_goal = st.selectbox(
+            "Analysis goal",
+            list(GOAL_PRESETS.keys()),
+            help="Workflow preset: opens the most relevant tab first and pre-fills "
+                 "sensible defaults (the calibration goals start in Advanced mode "
+                 "with the model constants exposed). The governing equations are "
+                 "identical across goals, so the underlying physics stays consistent.",
+        )
+        _preset = GOAL_PRESETS[analysis_goal]
+
     control_level = st.radio(
         "Control level",
         ["Guided", "Advanced"],
+        index=["Guided", "Advanced"].index(_preset["control"]),
         horizontal=True,
-        help="Guided hides model constants. Advanced exposes the full failure and damage law.",
+        key=f"control_level_{analysis_goal}",
+        help="Guided hides model constants. Advanced exposes the full failure and "
+             "damage law. Defaulted from the current step/goal; change it any time.",
     )
 
     sync_to_step1 = False
@@ -497,17 +572,6 @@ with st.sidebar:
             st.success("Material, geometry, prestress and pulse defaults are inherited from Step 1.")
     else:
         st.warning("No Step 1 design is available. Manual setup is shown below.")
-
-    analysis_goal = st.selectbox(
-        "Analysis goal",
-        [
-            "Quick validation",
-            "Stress-path focus",
-            "Damage calibration",
-            "DEM comparison",
-        ],
-        help="Changes which guidance is highlighted; the calculations remain the same.",
-    )
 
     # Initialise all variables from Step 1 defaults.  The UI below overrides them.
     E_GPa = default_E_GPa
@@ -538,6 +602,15 @@ with st.sidebar:
     B_fail = default_B_fail
     n_fail = default_n_fail
     lode_amp = 0.10
+    # Deviatoric (Lode) shape + rate dependence of the envelope.
+    # Default is the physically-correct extension-weakened Lode shape (rock has a
+    # weaker extension than compression meridian); the legacy cap and Willam-Warnke
+    # are selectable in Advanced mode. The envelope stays quasi-static by default
+    # (rate enters the damage law); Advanced can switch on a rate-dependent surface.
+    lode_mode = "lode"            # 'legacy' | 'lode' | 'willam'
+    lode_ratio = 0.70             # rho_t/rho_c for 'lode'/'willam' (~0.6-0.8 for rock)
+    env_dif_mode = "None"         # 'None' | 'Cohesion (A)' | 'Full (A and B)'
+    b_env = 0.03                  # DIF slope for the rate-dependent envelope
 
     # Damage law defaults; guided presets can change these.
     tau_D_us = 30.0
@@ -546,6 +619,12 @@ with st.sidebar:
     beta_rate = 0.15
     epsdot0 = 1.0
     F0 = 1.0
+    # Damage representation. Default is the isotropic scalar D (current behaviour).
+    # 'Orthotropic' grows a diagonal damage tensor (D_x, D_y, D_z) aligned with the
+    # bars, each driven by the directional tensile (extensile) strain — the
+    # tension-driven anisotropy of blasting-induced fracturing. Advanced only.
+    damage_model = "Isotropic"        # 'Isotropic' | 'Orthotropic'
+    sigma_t_MPa = max(default_UCS_MPa / 12.0, 1.0)   # tensile strength for the onset strain
 
     if control_level == "Guided":
         st.divider()
@@ -643,7 +722,7 @@ with st.sidebar:
                     use_container_width=True,
                 )
 
-        with st.expander("Descriptor options", expanded=False):
+        with st.expander("Descriptor options", expanded=_preset["tab"] in ("damage", "validation")):
             damage_threshold = st.slider("Damage threshold", 0.01, 0.9, damage_threshold, step=0.01)
             central_width = st.slider("Central region fraction", 0.1, 0.8, central_width, step=0.05)
 
@@ -693,9 +772,61 @@ with st.sidebar:
                 A_fail = st.number_input("A in qf = (A+Bpⁿ)h(θ) (MPa)", value=A_fail, min_value=0.0, step=1.0)
                 B_fail = st.number_input("B in qf", value=B_fail, min_value=0.0, step=0.1)
                 n_fail = st.number_input("n in qf", value=n_fail, min_value=0.1, step=0.05)
-            lode_amp = st.number_input("Lode-angle amplitude, aθ", value=lode_amp, min_value=0.0, step=0.02)
+            st.markdown("**True-triaxial (σ₂) & rate options**")
+            lode_choice = st.selectbox(
+                "Deviatoric (Lode) shape",
+                ["Lode, extension-weakened (ρt/ρc)",
+                 "Willam–Warnke convex (ρt/ρc)",
+                 "Legacy cap (1+aθ(1−cos3θ))"],
+                index=0,
+                help="Default (Lode) and Willam–Warnke make extension WEAKER than "
+                     "compression (physically correct for rock) and capture the "
+                     "intermediate principal stress (σ₂) effect through the Lode "
+                     "angle θ. Legacy is the historical shape (raises extension) and "
+                     "is kept only for backward comparison.",
+            )
+            if lode_choice.startswith("Legacy"):
+                lode_mode = "legacy"
+                lode_amp = st.number_input("Lode-angle amplitude, aθ", value=lode_amp, min_value=0.0, step=0.02)
+            else:
+                lode_mode = "willam" if lode_choice.startswith("Willam") else "lode"
+                lode_ratio = st.number_input(
+                    "Extension/compression meridian ratio, ρt/ρc",
+                    value=lode_ratio, min_value=0.50, max_value=1.0, step=0.01,
+                    help="≈0.6–0.8 for rock; 1.0 = no intermediate-stress effect (von Mises circle).",
+                )
+            env_dif_mode = st.selectbox(
+                "Envelope rate dependence (DIF on q_f)",
+                ["None", "Cohesion (A)", "Full (A and B)"],
+                help="None keeps the failure surface quasi-static (strain rate "
+                     "enters only the damage rate). The others inflate the envelope "
+                     "with strain rate so the failure ONSET, not just the damage "
+                     "speed, becomes rate-sensitive.",
+            )
+            if env_dif_mode != "None":
+                b_env = st.number_input(
+                    "Envelope DIF slope b_env   (DIF = 1 + b·log₁₀(ε̇_eq/ε̇₀))",
+                    value=b_env, min_value=0.0, step=0.01,
+                )
 
-        with st.expander("4. Damage law and descriptors", expanded=False):
+        with st.expander("4. Damage law and descriptors", expanded=_preset["tab"] in ("damage", "validation")):
+            damage_model = st.selectbox(
+                "Damage representation",
+                ["Isotropic", "Orthotropic"],
+                help="Isotropic: a single scalar D (degrades stiffness/wave speed "
+                     "equally). Orthotropic: a diagonal damage tensor D_x, D_y, D_z "
+                     "aligned with the bars, each grown by the directional tensile "
+                     "(extensile) strain — the tension-driven, directional cracking "
+                     "of blasting. Calibrate each D_i from the per-axis modulus / "
+                     "wave-speed loss the Tri-HB measures.",
+            )
+            if damage_model == "Orthotropic":
+                sigma_t_MPa = st.number_input(
+                    "Tensile strength σ_t (MPa) — sets the onset strain ε_t0 = σ_t/E",
+                    value=float(sigma_t_MPa), min_value=0.1, step=0.5,
+                    help="Directional damage D_i starts once the extensile strain in "
+                         "direction i exceeds ε_t0 = σ_t/E. Typical rock σ_t ≈ UCS/10–15.",
+                )
             tau_D_us = st.number_input("Damage time scale, τD (μs)", value=tau_D_us, min_value=0.1, step=5.0)
             alpha_sat = st.number_input("Saturation exponent, α", value=alpha_sat, min_value=0.0, step=0.2)
             m_over = st.number_input("Overstress exponent, m", value=m_over, min_value=0.1, step=0.2)
@@ -802,12 +933,9 @@ else:
 # stress carried by the intact material fraction, (1 - D) q.  This load-shedding
 # feedback makes the damage self-limit instead of snapping to 1: once the material
 # softens, the effective overstress drops and the damage rate falls.
-theta_rad = np.deg2rad(theta_deg)
-h_theta = 1.0 + lode_amp * (1.0 - np.cos(3.0 * theta_rad))
-qf = (A_fail + B_fail * np.maximum(p, 0.0) ** n_fail) * h_theta
-qf_safe = np.maximum(qf, 1e-9)
-F_index = q / qf_safe
 
+# Strains and equivalent strain rate are needed BOTH for the (optional)
+# rate-dependent envelope and for the damage-rate factor, so compute them first.
 E_MPa = E_GPa * 1000.0
 eps_x = sx / E_MPa
 eps_y = sy / E_MPa
@@ -820,37 +948,103 @@ epsdot_eq = np.sqrt(
 )
 rate_factor = (np.maximum(np.abs(epsdot_eq), 1e-12) / epsdot0) ** beta_rate
 
-# Recoverable elastic energy density of the intact material (energy release rate Y).
-W_el = (1.0 / (2.0 * E_MPa)) * (
-    sx ** 2 + sy ** 2 + sz ** 2 - 2.0 * nu * (sx * sy + sy * sz + sz * sx)
-)
+# Deviatoric (Lode/true-triaxial) shape h(theta): legacy default, or the
+# extension-weakened Lode / Willam-Warnke forms that capture the intermediate
+# principal stress (sigma_2) effect with the physically correct sign.
+lode_param = lode_amp if lode_mode == "legacy" else lode_ratio
+h_theta = lode_shape(theta_deg, lode_mode, lode_param)
+
+# Optional strain-rate dependence of the envelope (DIF on q_f), so the failure
+# ONSET shifts with rate, not just the post-onset damage speed. Default 'None'
+# reproduces the quasi-static envelope exactly.
+if env_dif_mode != "None":
+    dif_env = 1.0 + b_env * np.log10(np.clip(np.abs(epsdot_eq) / max(epsdot0, 1e-12), 1.0, None))
+else:
+    dif_env = np.ones_like(t)
+A_eff = A_fail * dif_env
+B_eff = B_fail * (dif_env if env_dif_mode == "Full (A and B)" else np.ones_like(t))
+qf = (A_eff + B_eff * np.maximum(p, 0.0) ** n_fail) * h_theta
+qf_safe = np.maximum(qf, 1e-9)
+F_index = q / qf_safe
 
 tau_D = tau_D_us * 1e-6
-D = np.zeros_like(t)
 Ddot = np.zeros_like(t)
 F_eff = np.zeros_like(t)            # damage-coupled (effective) failure index
-W_diss = np.zeros_like(t)          # cumulative damage dissipation, integral of Y dD
-for i in range(1, len(t)):
-    # Effective failure index uses the stress carried by the intact fraction.
-    F_eff[i - 1] = (1.0 - D[i - 1]) * F_index[i - 1]
-    overstress = max((F_eff[i - 1] - 1.0) / F0, 0.0)
-    Ddot[i - 1] = ((1.0 - D[i - 1]) ** alpha_sat) / tau_D * (overstress ** m_over) * rate_factor[i - 1]
-    dD = Ddot[i - 1] * (t[i] - t[i - 1])
-    D[i] = np.clip(D[i - 1] + dD, 0.0, 1.0)
-    # Continuum-damage-mechanics dissipation: energy released as the modulus
-    # degrades, W_diss = integral of Y dD with Y = W_el (>= 0 by construction).
-    W_diss[i] = W_diss[i - 1] + W_el[i - 1] * (D[i] - D[i - 1])
-if len(Ddot) > 1:
-    Ddot[-1] = Ddot[-2]
-    F_eff[-1] = (1.0 - D[-1]) * F_index[-1]
+
+# Applied (undamaged) directional elastic strains. In the compression-positive
+# convention an EXTENSILE strain is negative; <-eps_i>+ is the tensile driver that
+# opens cracks with their normal along axis i (axial-splitting / blasting cracks).
+el_x = (sx - nu * (sy + sz)) / E_MPa
+el_y = (sy - nu * (sx + sz)) / E_MPa
+el_z = (sz - nu * (sx + sy)) / E_MPa
+
+if damage_model == "Orthotropic":
+    # Diagonal damage tensor: each D_i grows from the directional tensile-strain
+    # index F_i = <-eps_i>+ / eps_t0 via the SAME overstress kinetics (tau_D,
+    # alpha, m, beta, F0). Damage grows only under directional extension (none in
+    # pure compression) -> the tension-driven anisotropy of blasting fracturing.
+    eps_t0 = max(sigma_t_MPa, 1e-6) / E_MPa
+    Fx = np.maximum(-el_x, 0.0) / eps_t0
+    Fy = np.maximum(-el_y, 0.0) / eps_t0
+    Fz = np.maximum(-el_z, 0.0) / eps_t0
+    Dx = np.zeros_like(t); Dy = np.zeros_like(t); Dz = np.zeros_like(t)
+    for i in range(1, len(t)):
+        dt_i = t[i] - t[i - 1]
+        for Darr, Farr in ((Dx, Fx), (Dy, Fy), (Dz, Fz)):
+            feff = (1.0 - Darr[i - 1]) * Farr[i - 1]
+            ov = max((feff - 1.0) / F0, 0.0)
+            Darr[i] = min(1.0, Darr[i - 1] + ((1.0 - Darr[i - 1]) ** alpha_sat) / tau_D
+                          * (ov ** m_over) * rate_factor[i - 1] * dt_i)
+    D = np.maximum.reduce([Dx, Dy, Dz])          # governing (worst-axis) scalar
+    Ddot[1:] = np.diff(D) / np.maximum(np.diff(t), 1e-12)
+    F_eff = (1.0 - D) * np.maximum.reduce([Fx, Fy, Fz])
+else:
+    D = np.zeros_like(t)
+    for i in range(1, len(t)):
+        # Effective failure index uses the stress carried by the intact fraction.
+        F_eff[i - 1] = (1.0 - D[i - 1]) * F_index[i - 1]
+        overstress = max((F_eff[i - 1] - 1.0) / F0, 0.0)
+        Ddot[i - 1] = ((1.0 - D[i - 1]) ** alpha_sat) / tau_D * (overstress ** m_over) * rate_factor[i - 1]
+        dD = Ddot[i - 1] * (t[i] - t[i - 1])
+        D[i] = np.clip(D[i - 1] + dD, 0.0, 1.0)
+    if len(Ddot) > 1:
+        Ddot[-1] = Ddot[-2]
+        F_eff[-1] = (1.0 - D[-1]) * F_index[-1]
+    Dx = Dy = Dz = D                              # isotropic: equal components
 
 E_D = E_GPa * (1.0 - D)
 cp_D = cp0 * np.sqrt(np.maximum(1.0 - D, 0.0))
+# Directional degraded modulus and wave speed (== scalar in isotropic mode); these
+# are the per-axis quantities the Tri-HB's three bars measure post-test.
+E_Dx = E_GPa * (1.0 - Dx); E_Dy = E_GPa * (1.0 - Dy); E_Dz = E_GPa * (1.0 - Dz)
+cp_Dx = cp0 * np.sqrt(np.maximum(1.0 - Dx, 0.0))
+cp_Dy = cp0 * np.sqrt(np.maximum(1.0 - Dy, 0.0))
+cp_Dz = cp0 * np.sqrt(np.maximum(1.0 - Dz, 0.0))
 
-# Input work done by the applied stress on the (elastic) strain field.
-power = sx * epsdot_x + sy * epsdot_y + sz * epsdot_z
+# ---- Energy balance (closes by construction: W_input = W_el + W_diss) ----
+# Damage degrades the secant modulus to E(1-D), so the specimen carries the
+# damage-coupled elastic strain. Loading while D grows is not fully recoverable:
+# the input work that cannot be returned on unloading IS the continuum-damage
+# dissipation, so the first law holds exactly. The partition uses the scalar
+# (aggregate, worst-axis) damage D so it stays thermodynamically consistent for
+# any loading; the per-direction tensor D_x/D_y/D_z and the directional stiffness
+# losses E_i are reported separately. (A full anisotropic energy partition, where
+# each direction dissipates against its own work-conjugate stress, is Stage 2.)
+one_minus_D = np.maximum(1.0 - D, 1e-6)
+eps_x_d = (sx - nu * (sy + sz)) / (E_MPa * one_minus_D)
+eps_y_d = (sy - nu * (sx + sz)) / (E_MPa * one_minus_D)
+eps_z_d = (sz - nu * (sx + sy)) / (E_MPa * one_minus_D)
+# Total work input by the applied stress on the damage-coupled strain field.
+power = (sx * central_difference(eps_x_d, t)
+         + sy * central_difference(eps_y_d, t)
+         + sz * central_difference(eps_z_d, t))
 W_input = cumulative_trapezoid(power, t)
-# Damage dissipation is the physically meaningful dissipated energy here.
+# Recoverable elastic energy stored in the damaged material, referenced to t0 so
+# the static-prestress baseline is removed (starts at zero, like W_input).
+W_el_abs = 0.5 * (sx * eps_x_d + sy * eps_y_d + sz * eps_z_d)
+W_el = W_el_abs - W_el_abs[0]
+# Energy dissipated by damage = input work minus recoverable elastic energy.
+W_diss = np.maximum(W_input - W_el, 0.0)
 W_diss_estimate = W_diss
 
 # Synthetic descriptors: planning indicators for DEM / experimental validation.
@@ -890,13 +1084,24 @@ df_results = pd.DataFrame({
     "q_MPa": q,
     "theta_deg": theta_deg,
     "qf_MPa": qf,
+    "h_theta": h_theta,
+    "envelope_DIF": dif_env,
     "failure_index": F_index,
     "failure_index_eff": F_eff,
     "epsdot_eq_s-1": epsdot_eq,
     "D": D,
+    "Dx": Dx,
+    "Dy": Dy,
+    "Dz": Dz,
     "Ddot_s-1": Ddot,
     "E_D_GPa": E_D,
+    "E_Dx_GPa": E_Dx,
+    "E_Dy_GPa": E_Dy,
+    "E_Dz_GPa": E_Dz,
     "cp_D_m_s": cp_D,
+    "cp_Dx_m_s": cp_Dx,
+    "cp_Dy_m_s": cp_Dy,
+    "cp_Dz_m_s": cp_Dz,
     "W_input_MJ_m3": W_input,
     "W_elastic_MJ_m3": W_el,
     "W_diss_estimate_MJ_m3": W_diss_estimate,
@@ -1021,13 +1226,29 @@ with st.expander(equation_title, expanded=False):
         st.latex(r"p=\tfrac{1}{3}(\sigma_x+\sigma_y+\sigma_z),\qquad q=\sqrt{\tfrac{1}{2}[(\sigma_x-\sigma_y)^2+(\sigma_y-\sigma_z)^2+(\sigma_z-\sigma_x)^2]}")
         st.latex(r"J_2=\tfrac{1}{2}(s_x^2+s_y^2+s_z^2),\quad J_3=s_xs_ys_z,\quad s_i=\sigma_i-p")
         st.latex(r"\cos(3\theta)=\frac{3\sqrt{3}}{2}\frac{J_3}{J_2^{3/2}}")
-        st.latex(r"q_f=(A+Bp^n)\,[1+a_\theta(1-\cos 3\theta)],\qquad F=q/q_f")
-        st.caption("Step 3 uses total stresses: static prestress plus dynamic pulse increments.")
+        if lode_mode == "legacy":
+            st.latex(r"q_f=(A_{\mathrm{eff}}+B_{\mathrm{eff}}\,p^n)\,[1+a_\theta(1-\cos 3\theta)],\qquad F=q/q_f")
+        elif lode_mode == "lode":
+            st.latex(r"q_f=(A_{\mathrm{eff}}+B_{\mathrm{eff}}\,p^n)\,h(\theta),\quad h=1-(1-\rho)\tfrac{1-\cos 3\theta}{2},\quad \rho=\rho_t/\rho_c")
+        else:
+            st.latex(r"q_f=(A_{\mathrm{eff}}+B_{\mathrm{eff}}\,p^n)\,h_{\mathrm{WW}}(\theta;\rho),\quad \rho=\rho_t/\rho_c\ \text{(Willam--Warnke)}")
+        if env_dif_mode == "None":
+            st.latex(r"A_{\mathrm{eff}}=A,\quad B_{\mathrm{eff}}=B\qquad(\text{quasi-static envelope})")
+        elif env_dif_mode == "Cohesion (A)":
+            st.latex(r"A_{\mathrm{eff}}=A\cdot\mathrm{DIF},\ B_{\mathrm{eff}}=B,\quad \mathrm{DIF}=1+b_{\mathrm{env}}\log_{10}\!\max\!\big(\tfrac{|\dot\varepsilon_{eq}|}{\dot\varepsilon_0},1\big)")
+        else:
+            st.latex(r"A_{\mathrm{eff}}=A\cdot\mathrm{DIF},\ B_{\mathrm{eff}}=B\cdot\mathrm{DIF},\quad \mathrm{DIF}=1+b_{\mathrm{env}}\log_{10}\!\max\!\big(\tfrac{|\dot\varepsilon_{eq}|}{\dot\varepsilon_0},1\big)")
+        st.caption(
+            f"Active envelope: Lode shape = **{lode_mode}**, rate dependence = "
+            f"**{env_dif_mode}**. Step 3 uses total stresses (static prestress plus "
+            f"dynamic pulse increments)."
+        )
         st.markdown("**How to choose failure-surface parameters**")
         st.markdown(
             """
-            - **A, B, n** define the pressure-dependent failure envelope and should be fitted from triaxial compression/extension strengths or a calibrated DEM failure surface.
-            - **aθ** controls Lode-angle sensitivity; set it to zero if no true-triaxial or Lode-angle calibration is available.
+            - **A, B, n** define the pressure-dependent (confinement) failure envelope; fit from triaxial compression/extension strengths or a calibrated DEM surface.
+            - **Lode shape** captures the intermediate principal stress (σ₂, true-triaxial) effect. *Legacy* keeps the historical cap; *Lode* and *Willam–Warnke* use the extension/compression meridian ratio ρt/ρc (≈0.6–0.8 for rock) and make extension correctly weaker than compression.
+            - **Envelope rate dependence (DIF)** lets the failure *onset* shift with strain rate, in addition to the rate term already in the damage law.
             """
         )
 
@@ -1037,16 +1258,26 @@ with st.expander(equation_title, expanded=False):
         st.latex(r"\dot D=\frac{(1-D)^\alpha}{\tau_D}\left\langle\frac{F_{\mathrm{eff}}-1}{F_0}\right\rangle^m\left(\frac{|\dot\varepsilon_{eq}|}{\dot\varepsilon_0}\right)^\beta,\qquad 0\le D\le 1")
         st.latex(r"D_i=\operatorname{clip}\!\left[D_{i-1}+\dot D_{i-1}(t_i-t_{i-1}),\,0,\,1\right]")
         st.latex(r"E(D)=E_0(1-D),\qquad c_p(D)=c_{p0}\sqrt{\max(1-D,0)}")
+        if damage_model == "Orthotropic":
+            st.markdown("**Orthotropic (diagonal tensor, tension-driven):**")
+            st.latex(r"\dot D_i=\frac{(1-D_i)^\alpha}{\tau_D}\Big\langle\frac{(1-D_i)F_i-1}{F_0}\Big\rangle^m\Big(\frac{|\dot\varepsilon_{eq}|}{\dot\varepsilon_0}\Big)^\beta,\quad F_i=\frac{\langle-\varepsilon_i\rangle_+}{\sigma_t/E_0}\ \ (i=x,y,z)")
+            st.latex(r"E_i=E_0(1-D_i),\quad c_{p,i}=c_{p0}\sqrt{1-D_i},\quad D=\max_i D_i")
+            st.caption(
+                "Each direction's damage grows only under its own extensile strain "
+                "⟨−ε_i⟩₊ (no damage in pure compression), so cracks form normal to "
+                "the axes in tension — the anisotropy of blasting-induced fracturing. "
+                "Calibrate each D_i from the per-axis E_i / wave-speed loss the Tri-HB "
+                "measures. Energy is partitioned with the scalar D=max_i D_i (Stage 1)."
+            )
         st.caption(
             "Damage is driven by the EFFECTIVE failure index (1-D)F, i.e. the stress "
             "carried by the intact fraction. This load-shedding makes D rise smoothly "
             "and self-limit near 1 - 1/F_peak instead of snapping to 1."
         )
-        st.markdown("**Step 4: energy-density indicators**")
-        st.latex(r"\varepsilon_i=\sigma_i/E_0,\qquad P(t)=\sigma_x\dot\varepsilon_x+\sigma_y\dot\varepsilon_y+\sigma_z\dot\varepsilon_z")
-        st.latex(r"W_{\mathrm{input}}(t)=\int_0^t P(\tau)\,d\tau")
-        st.latex(r"W_{\mathrm{el}}=\frac{1}{2E_0}\left[\sigma_x^2+\sigma_y^2+\sigma_z^2-2\nu(\sigma_x\sigma_y+\sigma_y\sigma_z+\sigma_z\sigma_x)\right]")
-        st.latex(r"W_{\mathrm{diss}}(t)=\int_0^t Y\,\dot D\,d\tau,\qquad Y=W_{\mathrm{el}}\ \ (\text{energy release rate})")
+        st.markdown("**Step 4: energy-density indicators (first law closes exactly)**")
+        st.latex(r"\varepsilon_i=\frac{\sigma_i-\nu(\sigma_j+\sigma_k)}{E_0(1-D)}\quad(\text{damage-coupled strain}),\qquad P(t)=\sigma_x\dot\varepsilon_x+\sigma_y\dot\varepsilon_y+\sigma_z\dot\varepsilon_z")
+        st.latex(r"W_{\mathrm{input}}(t)=\int_0^t P(\tau)\,d\tau,\qquad W_{\mathrm{el}}=\tfrac12(\sigma_x\varepsilon_x+\sigma_y\varepsilon_y+\sigma_z\varepsilon_z)=\frac{\sigma_x^2+\sigma_y^2+\sigma_z^2-2\nu(\sigma_x\sigma_y+\sigma_y\sigma_z+\sigma_z\sigma_x)}{2E_0(1-D)}")
+        st.latex(r"W_{\mathrm{diss}}(t)=W_{\mathrm{input}}-W_{\mathrm{el}}=\int_0^t Y\,\dot D\,d\tau\ \ge 0\qquad(W_{\mathrm{input}}=W_{\mathrm{el}}+W_{\mathrm{diss}})")
         st.markdown("**Step 4: validation descriptors and delay sensitivity**")
         st.latex(r"D_c=\frac{\int_{\mathrm{centre}}D(x)\,dx}{\int_0^1D(x)\,dx},\qquad S_x=1-\frac{|D_{\mathrm{left}}-D_{\mathrm{right}}|}{D_{\mathrm{left}}+D_{\mathrm{right}}}")
         st.latex(r"\eta_{\mathrm{sup}}(\Delta t^*)=\frac{\max_t\sigma_{\mathrm{centre}}(t;\Delta t^*)-\sigma_{x0}}{A_x}")
@@ -1094,6 +1325,12 @@ tab_order = {
         ("stress", "Stress path"),
     ],
 }[workflow_view]
+# The analysis-goal preset brings its primary tab to the front so changing the
+# goal visibly re-centres the workflow (a stable sort keeps the remaining tabs in
+# their original order). The equations behind every tab are unchanged.
+_goal_tab = GOAL_PRESETS.get(analysis_goal, {}).get("tab")
+if _goal_tab:
+    tab_order = sorted(tab_order, key=lambda kv: kv[0] != _goal_tab)
 created_tabs = st.tabs([label for _, label in tab_order])
 tabs_by_key = {key: tab for (key, _), tab in zip(tab_order, created_tabs)}
 tab_overview = tabs_by_key["overview"]
@@ -1378,55 +1615,87 @@ with tab_damage:
     )
 
     fig7, ax7 = plt.subplots(figsize=(7, 4.6))
-    ax7.plot(t_us, D, color=PUB_COLORS["blue"], label=r"$D(t)$")
-    if np.max(Ddot) > 0:
-        ax7.plot(t_us, Ddot / max(np.max(Ddot), 1e-12), color=PUB_COLORS["orange"], linestyle="--", label=r"normalised $\dot{D}$")
-    ax7.set_xlabel(r"Time, $t$ ($\mu$s)")
-    ax7.set_ylabel(r"Damage variable, $D$")
-    ax7.set_title("Cumulative damage and damage rate")
-    ax7.grid(True, alpha=0.35)
-    ax7.legend()
-    show_step_figure(
-        fig7, "tri_hb_step4_damage_evolution.png",
-        notes=(
+    if damage_model == "Orthotropic":
+        ax7.plot(t_us, Dx, color=PUB_COLORS["vermillion"], label=r"$D_x$")
+        ax7.plot(t_us, Dy, color=PUB_COLORS["green"], label=r"$D_y$")
+        ax7.plot(t_us, Dz, color=PUB_COLORS["orange"], label=r"$D_z$")
+        ax7.plot(t_us, D, color=PUB_COLORS["blue"], linestyle=":", label=r"$D=\max_i D_i$")
+        ax7.set_title("Orthotropic damage tensor (diagonal components)")
+        d_notes = (
+            "**What it shows.** The diagonal damage-tensor components D_x, D_y, D_z "
+            "(0 = intact, 1 = fully cracked normal to that axis).\n\n"
+            "- Each D_i grows from the **directional tensile (extensile) strain**, so "
+            "cracks form perpendicular to the axis in tension — e.g. axial X "
+            "compression drives lateral D_y, D_z (axial splitting) with D_x≈0.\n"
+            "- Confinement on an axis suppresses its extensile strain and its damage "
+            "(this is what the Tri-HB pre-stress controls).\n"
+            "- Scalar D = max_i D_i (dotted) governs the energy / stiffness summary."
+        )
+        d_eqs = [
+            r"\dot D_i=\frac{(1-D_i)^{\alpha}}{\tau_D}\Big\langle\frac{(1-D_i)F_i-1}{F_0}\Big\rangle^{m}\Big(\frac{|\dot\varepsilon_{\mathrm{eq}}|}{\dot\varepsilon_0}\Big)^{\beta}",
+            r"F_i=\frac{\langle-\varepsilon_i\rangle_+}{\varepsilon_{t0}},\quad \varepsilon_{t0}=\frac{\sigma_t}{E_0}\qquad(i=x,y,z)",
+        ]
+    else:
+        ax7.plot(t_us, D, color=PUB_COLORS["blue"], label=r"$D(t)$")
+        if np.max(Ddot) > 0:
+            ax7.plot(t_us, Ddot / max(np.max(Ddot), 1e-12), color=PUB_COLORS["orange"], linestyle="--", label=r"normalised $\dot{D}$")
+        ax7.set_title("Cumulative damage and damage rate")
+        d_notes = (
             "**What it shows.** Cumulative damage D (0 = intact, 1 = fully failed) "
             "and its rate.\n\n"
             "- D rises while F_eff > 1 and **self-limits** as the material softens "
             "(it does not snap straight to 1).\n"
             "- The rate (dashed) peaks when the stress most exceeds the failure "
             "surface."
-        ),
-        equations=[
+        )
+        d_eqs = [
             r"\dot D=\frac{(1-D)^{\alpha}}{\tau_D}\,\Big\langle\frac{F_{\mathrm{eff}}-1}{F_0}\Big\rangle^{m}\,\Big(\frac{|\dot\varepsilon_{\mathrm{eq}}|}{\dot\varepsilon_0}\Big)^{\beta}",
             r"D_i=\operatorname{clip}[\,D_{i-1}+\dot D_{i-1}\,\Delta t,\,0,\,1\,]",
-        ],
-    )
+        ]
+    ax7.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax7.set_ylabel(r"Damage variable, $D$")
+    ax7.grid(True, alpha=0.35)
+    ax7.legend()
+    show_step_figure(fig7, "tri_hb_step4_damage_evolution.png", notes=d_notes, equations=d_eqs)
 
     fig8, ax8 = plt.subplots(figsize=(10, 4.1))
-    ax8.plot(t_us, E_D, color=PUB_COLORS["blue"], label=r"$E(D)$")
-    ax8b = ax8.twinx()
-    ax8b.plot(t_us, cp_D, color=PUB_COLORS["orange"], linestyle="--", label=r"$c_p(D)$")
-    ax8.set_xlabel(r"Time, $t$ ($\mu$s)")
-    ax8.set_ylabel(r"Damaged Young's modulus, $E(D)$ (GPa)")
-    ax8b.set_ylabel(r"Damaged P-wave speed, $c_p(D)$ (m/s)")
-    ax8.set_title("Stiffness and wave-speed degradation")
-    ax8.grid(True, alpha=0.35)
-    lines, labels = ax8.get_legend_handles_labels()
-    lines2, labels2 = ax8b.get_legend_handles_labels()
-    ax8.legend(lines + lines2, labels + labels2)
-    show_step_figure(
-        fig8, "tri_hb_step4_stiffness_degradation.png",
-        notes=(
+    if damage_model == "Orthotropic":
+        ax8.plot(t_us, E_Dx, color=PUB_COLORS["vermillion"], label=r"$E_x$")
+        ax8.plot(t_us, E_Dy, color=PUB_COLORS["green"], label=r"$E_y$")
+        ax8.plot(t_us, E_Dz, color=PUB_COLORS["orange"], label=r"$E_z$")
+        ax8b = ax8.twinx()
+        ax8b.plot(t_us, cp_Dx, color=PUB_COLORS["vermillion"], linestyle="--")
+        ax8b.plot(t_us, cp_Dy, color=PUB_COLORS["green"], linestyle="--")
+        ax8b.plot(t_us, cp_Dz, color=PUB_COLORS["orange"], linestyle="--")
+        ax8.set_title("Directional stiffness and wave-speed degradation (per axis)")
+        s_notes = (
+            "**What it shows.** The **per-axis** modulus E_i = E₀(1−D_i) (solid) and "
+            "wave speed c_{p,i} = c_{p0}√(1−D_i) (dashed) — the directional "
+            "quantities the Tri-HB's three orthogonal bars measure post-test, and "
+            "from which each D_i is calibrated component-by-component."
+        )
+        s_eqs = [r"E_i(D_i)=E_0\,(1-D_i),\qquad c_{p,i}=c_{p0}\sqrt{\max(1-D_i,\,0)}\quad(i=x,y,z)"]
+    else:
+        ax8.plot(t_us, E_D, color=PUB_COLORS["blue"], label=r"$E(D)$")
+        ax8b = ax8.twinx()
+        ax8b.plot(t_us, cp_D, color=PUB_COLORS["orange"], linestyle="--", label=r"$c_p(D)$")
+        ax8.set_title("Stiffness and wave-speed degradation")
+        s_notes = (
             "**What it shows.** How the growing damage degrades the material's "
             "elastic properties.\n\n"
             "- Young's modulus falls linearly with damage.\n"
             "- P-wave speed falls with the square root of (1-D) - the quantity a "
             "real test measures via wave-speed/time-of-flight."
-        ),
-        equations=[
-            r"E(D)=E_0\,(1-D),\qquad c_p(D)=c_{p0}\sqrt{\max(1-D,\,0)}",
-        ],
-    )
+        )
+        s_eqs = [r"E(D)=E_0\,(1-D),\qquad c_p(D)=c_{p0}\sqrt{\max(1-D,\,0)}"]
+    ax8.set_xlabel(r"Time, $t$ ($\mu$s)")
+    ax8.set_ylabel(r"Damaged Young's modulus (GPa)")
+    ax8b.set_ylabel(r"Damaged P-wave speed (m/s)")
+    ax8.grid(True, alpha=0.35)
+    lines, labels = ax8.get_legend_handles_labels()
+    lines2, labels2 = ax8b.get_legend_handles_labels()
+    ax8.legend(lines + lines2, labels + labels2)
+    show_step_figure(fig8, "tri_hb_step4_stiffness_degradation.png", notes=s_notes, equations=s_eqs)
 
     d1, d2, d3, d4 = st.columns(4)
     d1.metric("Peak F", f"{np.nanmax(F_index):.2f}")
@@ -1448,19 +1717,23 @@ with tab_validation:
     ax9.legend()
     show_step_figure(
         fig9, "tri_hb_step4_energy_balance.png",
-        caption=("W_diss is the continuum-damage dissipation, zero until damage "
-                 "grows then increasing monotonically."),
+        caption=("Energy balance closes by construction: W_input = W_el + W_diss. "
+                 "W_input ends above zero by exactly the dissipated part; W_el "
+                 "returns toward zero on unloading; W_diss rises monotonically."),
         notes=(
-            "**What it shows.** Where the input work goes.\n\n"
-            "- **W_input** total work done on the specimen.\n"
-            "- **W_el** recoverable elastic energy (returned on unloading).\n"
-            "- **W_diss** energy dissipated by damage = the continuum-damage "
-            "integral ∫Y dD with Y the elastic energy release rate."
+            "**What it shows.** Where the input work goes (first law: input = "
+            "recoverable + dissipated).\n\n"
+            "- **W_input** total work done on the specimen by the applied stress.\n"
+            "- **W_el** recoverable elastic energy stored in the damaged material "
+            "(returned on unloading).\n"
+            "- **W_diss** energy dissipated by damage = **W_input − W_el**. "
+            "Because the strain uses the degraded modulus E(1−D), this equals the "
+            "continuum-damage integral ∫Y dD and is non-negative."
         ),
         equations=[
-            r"W_{\mathrm{input}}(t)=\int_0^t(\sigma_x\dot\varepsilon_x+\sigma_y\dot\varepsilon_y+\sigma_z\dot\varepsilon_z)\,d\tau",
-            r"W_{\mathrm{el}}=\frac{1}{2E_0}\big[\sigma_x^2+\sigma_y^2+\sigma_z^2-2\nu(\sigma_x\sigma_y+\sigma_y\sigma_z+\sigma_z\sigma_x)\big]",
-            r"W_{\mathrm{diss}}(t)=\int_0^t Y\,\dot D\,d\tau,\qquad Y=W_{\mathrm{el}}",
+            r"\varepsilon_i=\dfrac{\sigma_i-\nu(\sigma_j+\sigma_k)}{E_0\,(1-D)}\quad(\text{damage-coupled strain})",
+            r"W_{\mathrm{input}}(t)=\int_0^t(\sigma_x\dot\varepsilon_x+\sigma_y\dot\varepsilon_y+\sigma_z\dot\varepsilon_z)\,d\tau,\qquad W_{\mathrm{el}}=\tfrac12(\sigma_x\varepsilon_x+\sigma_y\varepsilon_y+\sigma_z\varepsilon_z)",
+            r"W_{\mathrm{diss}}=W_{\mathrm{input}}-W_{\mathrm{el}}=\int_0^t Y\,\dot D\,d\tau\ \ge 0",
         ],
     )
 

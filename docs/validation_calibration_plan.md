@@ -235,3 +235,189 @@ is exactly the independent-prediction argument a Q1 reviewer wants.
 
 Meeting these makes the digital-twin (Route A) or software/methods (Route B)
 paper defensible at Q1.
+
+---
+
+## 10. Novelty & publication strategy
+
+This section is the honest answer to "is the damage model innovative / publishable?"
+It is deliberately candid: the model's *equations* are largely standard, the
+*publishable contribution* lives in the true-triaxial loading-path physics plus
+experimental validation — not in the damage law by itself.
+
+### 10.1 Honest novelty audit (damage law as coded)
+
+| Component (code) | Form | Status / origin |
+|---|---|---|
+| Overstress damage rate `Ḋ ∝ ⟨(F_eff−1)/F0⟩^m` (`wave_damage.py`) | Perzyna overstress | Standard (Perzyna 1966) |
+| Load-shedding `F_eff=(1−D)F`, dissipation `W_diss=∫Y dD`, `Y=W_el` | continuum damage mechanics | Standard (Lemaitre, Krajcinovic) |
+| Rate factor `(ε̇_eq/ε̇0)^β` | power-law DIF on kinetics | Standard; cf. TCK 1986, Grady–Kipp |
+| Failure surface `q_f=(A+Bpⁿ)h(θ)` | pressure-dependent, Lode-modified | Standard family (Willam–Warnke, RHT, JH-2, HJC) |
+| Stiffness/wave-speed loss `E(1−D)`, `c_p√(1−D)` | isotropic damage degradation | Standard |
+
+**Verdict.** As a *standalone constitutive innovation* this would not pass a Q1
+review — a reviewer recognises a competent recombination of JH-2 / RHT /
+Perzyna-CDM ideas. The novelty must come from elsewhere (10.3) and from
+validation (10.4).
+
+### 10.2 Modelling capabilities added to support a stronger claim
+
+Two specific reviewer-bait weaknesses were fixed in code (`wave_damage.py`):
+
+1. **Selectable true-triaxial deviatoric criterion** (`lode_shape()`):
+   `legacy` (historical cap, kept for comparison), `lode` (linear,
+   extension-weakened), `willam` (Willam–Warnke convex). The `lode`/`willam`
+   forms use the extension/compression meridian ratio `ρ_t/ρ_c` and make the
+   **extension meridian correctly weaker than compression** (the legacy
+   `1+a_θ(1−cos3θ)` did the opposite). **Default is now `lode`, ρ_t/ρ_c = 0.70.**
+   The intermediate principal stress (σ₂) effect therefore enters through the
+   Lode angle with the physically correct sign.
+2. **Rate-dependent failure envelope** (`env_dif_mode`): optional
+   `DIF = 1 + b_env·log₁₀(max(ε̇_eq/ε̇0, 1))` applied to the cohesion `A`
+   (`Cohesion (A)`) or to both `A` and `B` (`Full (A and B)`); `None` keeps the
+   quasi-static surface. This lets the **failure onset** shift with strain rate,
+   not just the post-onset damage speed (previously rate entered only `Ḋ`).
+
+These do not by themselves make the model novel, but they remove two obvious
+objections and make the calibration targets (ρ_t/ρ_c, b_env) measurable.
+
+### 10.3 Where the genuine, defensible novelty is
+
+1. **True-triaxial dynamic loading-path & sequence effects.** Almost all SHPB
+   damage work is 1-D or confined-axisymmetric (σ₂=σ₃). Independent X/Y/Z dynamic
+   loading + a third-invariant (Lode) damage envelope + *asynchronous* multi-axis
+   paths (the EM async modes, inter-axis delay Δt) is a real literature gap. The
+   Monash Tri-HB is one of the few rigs that can *produce* σ₂≠σ₃ dynamic states —
+   that capability is the contribution.
+2. **Wave-interaction regime map.** `Δt* = delay/t_travel` classifying
+   synchronous-superposition → reverberation → transitional → sequential/
+   damage-memory (`wave_damage.py`). As a framework linking loading *timing* to
+   damage *memory* in triaxial impact, this is moderately original if formalised
+   and validated.
+3. **Coupled Lode + rate-dependent envelope** calibrated and *blind-validated*
+   against true-triaxial dynamic data — i.e. demonstrating that one parameter set
+   predicts strength across (p, θ, ε̇) it was not fitted to.
+
+### 10.4 The decisive requirement
+
+None of 10.3 is publishable as *modelling* without experimental calibration and
+**blind** prediction (§§3–4, 8). The single highest-leverage step remains:
+calibrate on a subset of Monash Tri-HB tests, then blind-predict a held-out
+loading path / rate. Until then the app is a phenomenological digital twin and
+design tool (legitimate, but a methods/instrument contribution — Route B below).
+
+### 10.5 Calibrate-then-blind-predict protocol for the new envelope features
+
+Extends Stages 4–5 (§3); freeze elastic/strength first.
+
+| Parameter | Calibrate on | Blind-predict (held out) | Pass criterion |
+|---|---|---|---|
+| `ρ_t/ρ_c` (Lode) | Mode-3 points on compression & extension meridians | an intermediate σ₂ (true-triaxial) point not used in the fit | predicted `q_f` within ±10–15%; extension < compression ordering reproduced |
+| `b_env` (envelope DIF) | peak strength vs log ε̇ at one confinement | peak strength at a held-out strain rate | DIF trend R²≥0.9 on calib; held-out onset within ±10–15% |
+| joint (ρ, b_env, A, B) | Modes 1–3 | EM Modes 4–5 (rate + path) blind | §6 acceptance table |
+
+Report whether the *rate-dependent envelope* (`Full`) outperforms the
+quasi-static envelope (`None`) on the held-out set — that comparison is itself a
+publishable result (does failure-onset rate-dependence matter beyond damage
+kinetics?).
+
+### 10.6 Target journals & framing
+
+| Journal (Q1) | Framing that fits | Gating requirement |
+|---|---|---|
+| Int. J. Rock Mech. & Mining Sci. (IJRMMS) | true-triaxial dynamic strength/damage of rock | Mode-3 + blind validation |
+| Rock Mechanics & Rock Engineering (RMRE) | loading-path/σ₂ effects on dynamic failure | experimental series + repeats |
+| Int. J. Impact Engineering (IJIE) | rig + dynamic response under multiaxial impact | Stage-0 system characterisation + validation |
+| Int. J. Mechanical Sciences / Eng. Fracture Mech. | the coupled Lode + rate envelope, validated | blind prediction across (p,θ,ε̇) |
+| J. Mech. Phys. Solids (top) | only with a genuinely new theoretical claim | new mechanism + rigorous validation |
+
+### 10.7 Recommended publication routes
+
+| Route | What it is | Publishable now? | Gate |
+|---|---|---|---|
+| **A — Experimental** (strongest) | Monash Tri-HB tests on true-triaxial loading-path effects, this app as the reduction/interpretation framework | **Yes**, once tests exist | run §8 matrix |
+| **B — Methods / instrument + digital twin** | the rig + integrated digital workflow (reduction → wave → stress path → damage → report) | **Likely** | Stage-0 + a few validation shots |
+| **C — Validated model** | the coupled Lode + rate-dependent damage model, blind-validated | **Eventually** | calibrate + blind-predict (§10.5) |
+
+**Bottom line.** The standard pedigree of the damage law stops being a weakness
+the moment predictive capability on a held-out triaxial loading path is shown —
+at that point "physically-grounded and validated" is a strength, and Routes A/C
+become defensible Q1 contributions.
+
+---
+
+## 11. Anisotropic (orthotropic) damage for blasting — Stage 1 and roadmap
+
+Blasting-induced fracturing is **directional** (radial cracks + spall open
+perpendicular to the local tension), so the stiffness and wave-speed loss differ
+by direction. A scalar `D` cannot represent that. The app now offers an
+**orthotropic damage tensor** as the constitutive basis for a blasting model, with
+the Monash Tri-HB as the calibration platform.
+
+### 11.1 What Stage 1 implements (in `wave_damage.py`, Advanced → "Damage representation")
+
+A diagonal damage tensor `D = diag(D_x, D_y, D_z)` aligned with the bar axes (which
+are the principal loading directions in the rig):
+
+$$\dot D_i=\frac{(1-D_i)^{\alpha}}{\tau_D}\Big\langle\frac{(1-D_i)F_i-1}{F_0}\Big\rangle^{m}\Big(\frac{|\dot\varepsilon_{eq}|}{\dot\varepsilon_0}\Big)^{\beta},\qquad F_i=\frac{\langle-\varepsilon_i\rangle_+}{\varepsilon_{t0}},\quad \varepsilon_{t0}=\sigma_t/E_0$$
+
+- **Tension-driven (unilateral in growth):** `D_i` grows only under directional
+  extension `⟨−ε_i⟩₊` (none in pure compression), so cracks form normal to the
+  axes that are in tension — e.g. axial X compression drives lateral `D_y, D_z`
+  (axial splitting) with `D_x≈0`; confinement on an axis suppresses its damage.
+- **Directional degradation (reported):** `E_i = E₀(1−D_i)`,
+  `c_{p,i} = c_{p0}√(1−D_i)` — the per-axis quantities the three bars measure.
+- **Reuses** the calibrated kinetics (`τ_D, α, m, β, F_0`); the only new parameter
+  is the tensile strength `σ_t` (onset strain `ε_t0 = σ_t/E`).
+- **Default stays isotropic** (scalar `D`) so existing results are unchanged;
+  orthotropic is opt-in in Advanced.
+
+**Verified:** isotropic mode reproduces the scalar model exactly (`D_x=D_y=D_z=D`),
+and the energy balance closes to machine precision in both modes; a uniaxial
+X-compression check gives `D_y,D_z ≈ 0.7–0.8` with `D_x ≈ 0` (correct axial
+splitting) and the expected directional `E_i` loss.
+
+### 11.2 Stage-1 scope / honest limitations
+
+- The **energy partition** uses the scalar aggregate `D = max_i D_i` (keeps the
+  first law thermodynamically consistent for any loading). A **full anisotropic
+  energy partition** — each direction dissipating against its work-conjugate
+  stress — is Stage 2.
+- **Unilateral crack-closure** is implemented in *growth* (no compressive damage)
+  but not yet as *stiffness recovery in compression* within the energy path
+  (Stage 2; needs a tension/compression stress split to stay thermodynamically
+  consistent).
+- Bar-aligned (orthotropic) only; a **full 2nd-order damage tensor with
+  principal-direction rotation** for general (rotating) blast stress paths is
+  Stage 3.
+
+### 11.3 How the Tri-HB calibrates the tensor (the publishable hook)
+
+This is the decisive advantage: the three independent orthogonal bars measure
+**directional** stress/strain, so each `D_i` is calibrated **component-by-component**
+from the per-axis modulus / wave-speed loss — a uniaxial SHPB cannot do this.
+
+| Tensor component | Calibrated from | Tri-HB measurement |
+|---|---|---|
+| `D_x` | axial modulus / wave-speed loss | X incident+transmission bars (E_x, c_{p,x}) |
+| `D_y` | lateral-Y modulus / wave-speed loss | Y output bars (E_y, c_{p,y}) |
+| `D_z` | lateral-Z modulus / wave-speed loss | Z output bars (E_z, c_{p,z}) |
+| `σ_t`, onset | directional tensile/spall strength | low-confinement or reflected-tension shots |
+
+Post-test UPV / unloading modulus along each axis on the recovered specimen gives
+`D_i = 1 − E_{i,post}/E_0` directly.
+
+### 11.4 Validation route for blasting
+
+1. **Calibrate** `D_x, D_y, D_z` (and `σ_t`) on a Tri-HB series that produces
+   different (σ₂, σ₃, ε̇) and hence different directional damage (§8 matrix).
+2. **Blind-predict** the directional damage / fracture orientation on a held-out
+   loading path, and check against the measured per-axis `E_i` loss + DIC/µCT
+   crack maps.
+3. **Apply** the calibrated tensor in a blast simulation (rotating, tensile-
+   dominated stress paths) and validate the predicted fracture pattern / damage
+   zone against field or plate-impact spall data.
+
+Showing that one bar-aligned tensor, calibrated on Tri-HB, predicts blasting-style
+directional fracture is the Route-A/C contribution — anisotropic dynamic damage
+for rock blasting from true-triaxial Hopkinson-bar data.

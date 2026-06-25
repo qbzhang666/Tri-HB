@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 import matplotlib
 matplotlib.use("Agg")
@@ -134,9 +135,9 @@ def show_pub_figure(fig, caption: str, filename: str, registry: list | None = No
     """
     png = _fig_to_png(fig)
     if registry is not None:
-        # Store the figure plus its caption, notes and equations so downstream
-        # document generators (Step 6 presentation, Step 7 report) can reuse the
-        # exact same descriptions and governing equations shown here.
+        # Store the figure plus its caption, notes and equations so the Step 6
+        # document generators (report and presentation) can reuse the exact
+        # same descriptions and governing equations shown here.
         registry.append((filename, png, caption, notes, list(equations or [])))
     fig_col, note_col = st.columns([1.05, 0.95], gap="large")
     with fig_col:
@@ -861,39 +862,228 @@ def experimental_analysis_page() -> None:
         )
 
 
+def _overview_workflow_dot() -> str:
+    """Graphviz DOT for the workspace schematic shown on the Overview page.
+
+    Compact left-to-right flow (landscape) so it scales to one screen-height.
+    Step 1 offers two input routes; Steps 6-7 are shown as a single export
+    node because both are run-document generators.
+    """
+    return r"""
+    digraph trihb_workflow {
+        rankdir=LR;
+        bgcolor="transparent";
+        ranksep=0.40; nodesep=0.22;
+        node [shape=box, style="rounded,filled", fontname="Helvetica",
+              fontsize=10, margin="0.16,0.10", penwidth=0, fontcolor="white"];
+        edge [color="#6B7280", penwidth=1.4, arrowsize=0.7];
+
+        subgraph cluster_s1 {
+            label="STEP 1 · setup";
+            labelloc="t"; fontname="Helvetica"; fontsize=9; fontcolor="#505050";
+            color="#c7ccd6"; style="rounded";
+            sim [label="Simulator", fillcolor="#0072B2"];
+            red [label="Data reducer", fillcolor="#0072B2"];
+        }
+
+        s2 [label="STEP 2\nWave model", fillcolor="#56B4E9"];
+        s3 [label="STEP 3\nStress path\np · q · θ", fillcolor="#009E73"];
+        s4 [label="STEP 4\nDamage &\nenergy", fillcolor="#E69F00"];
+        s5 [label="STEP 5\nSummary\n(figures)", fillcolor="#D55E00"];
+        s67 [label="STEP 6\nReport &\npresentation\n(LaTeX + PDF)", fillcolor="#7A5195"];
+
+        sim -> s2;
+        red -> s2;
+        s2 -> s3 -> s4 -> s5 -> s67;
+        { rank=same; sim; red; }
+    }
+    """
+
+
+def _trihb_animation_html(theme: str = "light") -> str:
+    """Self-contained isometric Tri-HB schematic + synchronized strain-gauge scope.
+
+    Returns a standalone HTML fragment for ``st.components.v1.html``. The
+    component renders inside a sandboxed iframe that does NOT inherit Streamlit's
+    theme, so the palette is injected here as CSS custom properties on the root
+    div (``--t`` text, ``--t2/t3`` muted, ``--bd/bd2`` borders, ``--pbg`` panel
+    fill). The drawing scales to the container width but is capped so it stays
+    roughly one screen tall on a wide page.
+    """
+    if str(theme).lower() == "dark":
+        pal = ("--t:#e9e9e6;--t2:#b4b2a9;--t3:#83827c;"
+               "--bd:#444441;--bd2:#5f5e5a;--pbg:#1f1f1d;")
+    else:
+        pal = ("--t:#2c2c2a;--t2:#5f5e5a;--t3:#9a988f;"
+               "--bd:#cdccc6;--bd2:#b4b2a9;--pbg:#ffffff;")
+    btn = ("border:1px solid var(--bd2);background:var(--pbg);color:var(--t);"
+           "border-radius:8px;padding:6px 14px;cursor:pointer;"
+           "font-family:system-ui,sans-serif;font-size:14px;")
+    return (
+"<div style=\"" + pal + "max-width:780px;margin:0 auto;font-family:system-ui,sans-serif;\">"
+"<div style=\"display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-bottom:8px;\">"
+"<button id=\"playBtn\" style=\"" + btn + "\">&#9654; Play</button>"
+"<button id=\"resetBtn\" style=\"" + btn + "\">&#8635; Reset</button>"
+"<label style=\"display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);\">striker velocity"
+"<input id=\"vel\" type=\"range\" min=\"10\" max=\"50\" step=\"5\" value=\"20\" style=\"width:120px;\">"
+"<span id=\"velVal\" style=\"font-family:monospace;color:var(--t);min-width:48px;\">20 m/s</span></label>"
+"<label style=\"display:flex;align-items:center;gap:6px;font-size:13px;color:var(--t2);cursor:pointer;user-select:none;\">"
+"<input id=\"confChk\" type=\"checkbox\" checked> confinement (X/Y/Z)</label></div>"
+"<div style=\"display:flex;flex-wrap:wrap;gap:6px 18px;margin-bottom:6px;font-size:12.5px;color:var(--t2);\">"
+"<span>bar speed C&#8320; &asymp; <b style=\"color:var(--t);\">5200 m/s</b></span>"
+"<span>pulse width 2L/C&#8320; &asymp; <b style=\"color:var(--t);\">192 &micro;s</b></span>"
+"<span>incident strain &epsilon;&#8321; = v/2C&#8320; &asymp; <b id=\"epsVal\" style=\"color:var(--t);\">1923 &micro;&epsilon;</b></span></div>"
+"<svg id=\"trihb\" viewBox=\"0 0 680 600\" width=\"100%\" role=\"img\" aria-label=\"Monash Tri-HB isometric schematic with synchronized strain-gauge scope\">"
+"<g id=\"scene\"></g><g id=\"overlay\"></g>"
+"<text id=\"phase\" x=\"345\" y=\"392\" text-anchor=\"middle\" style=\"font-size:13px;fill:var(--t);\">press play &mdash; striker impacts the incident bar</text>"
+"<g id=\"plotaxes\"></g><g id=\"ghost\"></g><g id=\"live\"></g></svg></div>"
+"<script>(function(){"
+"var S=50,OX=235,OY=185,C30=0.8660254,S30=0.5,r=0.12,c=0.17;"
+"var GRAY=['#B4B2A9','#6d6c66','#8d8c84'],DGRAY=['#9a9890','#54534e','#6e6d67'];"
+"var AMBER=['#FAC775','#BA7517','#EF9F27'],BLUE=['#85B7EB','#185FA5','#378ADD'],CORAL=['#F0997B','#993C1D','#D85A30'];"
+"var EDGE='#4a4944',COL_I='#D85A30',COL_R='#378ADD',COL_T='#1D9E75',COL_Y='#8E5AB8',COL_Z='#C75D93';"
+"var d=document,scene=d.getElementById('scene'),overlay=d.getElementById('overlay'),phase=d.getElementById('phase');"
+"var plotaxes=d.getElementById('plotaxes'),ghost=d.getElementById('ghost'),live=d.getElementById('live');"
+"var playBtn=d.getElementById('playBtn'),resetBtn=d.getElementById('resetBtn'),velEl=d.getElementById('vel');"
+"var velVal=d.getElementById('velVal'),epsVal=d.getElementById('epsVal'),confChk=d.getElementById('confChk');"
+"function P(x,y,z){return [OX+(x-z)*C30*S,OY+(x+z)*S30*S-y*S];}"
+"function fp(x,y,z){var p=P(x,y,z);return p[0].toFixed(1)+','+p[1].toFixed(1);}"
+"function quad(a,b,c2,e,fill,op){return '<polygon points=\"'+a+' '+b+' '+c2+' '+e+'\" fill=\"'+fill+'\"'+(op!=null?' opacity=\"'+op+'\"':'')+' stroke=\"'+EDGE+'\" stroke-width=\"0.7\" stroke-linejoin=\"round\"/>';}"
+"function boxStr(x0,y0,z0,x1,y1,z1,k){return quad(fp(x0,y1,z0),fp(x1,y1,z0),fp(x1,y1,z1),fp(x0,y1,z1),k[0])+quad(fp(x0,y0,z1),fp(x1,y0,z1),fp(x1,y1,z1),fp(x0,y1,z1),k[1])+quad(fp(x1,y0,z0),fp(x1,y0,z1),fp(x1,y1,z1),fp(x1,y1,z0),k[2]);}"
+"function topband(xa,xb,fill,op){return '<polygon points=\"'+fp(xa,r,-r)+' '+fp(xb,r,-r)+' '+fp(xb,r,r)+' '+fp(xa,r,r)+'\" fill=\"'+fill+'\" opacity=\"'+op+'\"/>';}"
+"function bandY(ya,yb,fill,op){return '<polygon points=\"'+fp(r,ya,-r)+' '+fp(r,yb,-r)+' '+fp(r,yb,r)+' '+fp(r,ya,r)+'\" fill=\"'+fill+'\" opacity=\"'+op+'\"/>';}"
+"function bandZ(za,zb,fill,op){return '<polygon points=\"'+fp(-r,r,za)+' '+fp(r,r,za)+' '+fp(r,r,zb)+' '+fp(-r,r,zb)+'\" fill=\"'+fill+'\" opacity=\"'+op+'\"/>';}"
+"var confOn=true;"
+"function buildScene(t){var solids=[];"
+"function add(x0,y0,z0,x1,y1,z1,k,op){var s=boxStr(x0,y0,z0,x1,y1,z1,k);if(op!=null)s='<g opacity=\"'+op+'\">'+s+'</g>';solids.push({k:x0+x1+y0+y1+z0+z1,s:s});}"
+"var sShift=(t<0.18)?(t/0.18)*0.55:0.55,sx0=-2.95+sShift;add(sx0,-r,-r,sx0+0.36,r,r,CORAL);"
+"add(-2.25,-r,-r,-c,r,r,GRAY);add(c,-r,-r,1.75,r,r,GRAY);add(1.75,-r*0.8,-r*0.8,2.05,r*0.8,r*0.8,DGRAY);"
+"var dim=confOn?null:0.16,rc=r*1.5;"
+"add(-r,c,-r,r,1.25,r,GRAY,dim);add(-r,-1.25,-r,r,-c,r,GRAY,dim);add(-r,-r,c,r,r,1.25,GRAY,dim);add(-r,-r,-1.25,r,r,-c,GRAY,dim);"
+"add(-rc,1.25,-rc,rc,1.55,rc,BLUE,dim);add(-rc,-1.55,-rc,rc,-1.25,rc,BLUE,dim);add(-rc,-rc,1.25,rc,rc,1.55,BLUE,dim);add(-rc,-rc,-1.55,rc,rc,-1.25,BLUE,dim);"
+"add(2.05,-rc,-rc,2.4,rc,rc,BLUE,dim);"
+"var comp=0;if(t>=0.5){var fr=(t-0.5)/0.36;comp=Math.sin(Math.min(fr,1)*Math.PI);}var cx=c*(1-0.32*comp),cl=c*(1+0.20*comp);add(-cx,-cl,-cl,cx,cl,cl,AMBER);"
+"solids.sort(function(a,b){return a.k-b.k;});var html=solids.map(function(o){return o.s;}).join('');"
+"if(t>=0.18&&t<0.5){var k=(t-0.18)/0.32,x=-2.1+k*((-c+0.05)-(-2.1));html+=topband(x,x+0.22,COL_I,0.95);}"
+"if(t>=0.5){var k2=(t-0.5)/0.36;var xr=(-c)-k2*(2.1-c);html+=topband(xr-0.22,xr,COL_R,0.92);var xt=c+k2*1.55;html+=topband(xt,xt+0.22,COL_T,0.92);}"
+"if(confOn&&t>=0.56){var ko=Math.min((t-0.56)/0.36,1),seg=0.2,reach=1.2-c;var yT=c+ko*reach;html+=bandY(yT-seg,yT,COL_Y,0.9);var yB=-c-ko*reach;html+=bandY(yB,yB+seg,COL_Y,0.9);var zB=c+ko*reach;html+=bandZ(zB-seg,zB,COL_Z,0.9);var zF=-c-ko*reach;html+=bandZ(zF,zF+seg,COL_Z,0.9);}"
+"scene.innerHTML=html;phase.textContent=phaseText(t);}"
+"function phaseText(t){if(t<0.18)return 'striker accelerates toward the incident bar';if(t<0.5)return 'incident pulse travels down the incident bar (C0 \\u2248 5200 m/s)';if(t<0.62)return 'at the specimen: part reflects (\\u2190 incident), part transmits (\\u2192 transmission)';return 'Poisson expansion drives output waves outward along the Y and Z bars (Eqs. 4\\u20137)';}"
+"function badge(x,y,z,n){var p=P(x,y,z);return '<circle cx=\"'+p[0].toFixed(1)+'\" cy=\"'+p[1].toFixed(1)+'\" r=\"9\" fill=\"var(--pbg)\" stroke=\"var(--bd2)\" stroke-width=\"1\"/><text x=\"'+p[0].toFixed(1)+'\" y=\"'+(p[1]+3.5).toFixed(1)+'\" text-anchor=\"middle\" style=\"font-size:11px;fill:var(--t);\">'+n+'</text>';}"
+"function gauge(x,lbl){return gmark(P(x,r,0),lbl);}"
+"function gmark(p,lbl){return '<circle cx=\"'+p[0].toFixed(1)+'\" cy=\"'+p[1].toFixed(1)+'\" r=\"3.4\" fill=\"#444441\"/><text x=\"'+p[0].toFixed(1)+'\" y=\"'+(p[1]-7).toFixed(1)+'\" text-anchor=\"middle\" style=\"font-size:10px;fill:var(--t2);\">'+lbl+'</text>';}"
+"function buildOverlay(){var h='';h+=badge(-2.7,0,0,'1')+badge(-1.45,0,0,'2')+badge(0,c+0.32,0,'3')+badge(0.95,0,0,'4')+badge(1.95,0,0,'5')+badge(0,1.4,0,'6')+badge(0,0,1.4,'7');h+=gauge(-1.2,'G1')+gauge(0.8,'G2')+gmark(P(r,0.7,0),'G3')+gmark(P(r,-0.7,0),'G4')+gmark(P(0,r,0.7),'G5')+gmark(P(0,r,-0.7),'G6');"
+"var Tx=70,Ty=350;function arr(dx,dy,lab){return '<line x1=\"'+Tx+'\" y1=\"'+Ty+'\" x2=\"'+(Tx+dx)+'\" y2=\"'+(Ty+dy)+'\" stroke=\"var(--t3)\" stroke-width=\"1.4\"/><text x=\"'+(Tx+dx*1.25)+'\" y=\"'+(Ty+dy*1.25+3)+'\" text-anchor=\"middle\" style=\"font-size:11px;fill:var(--t2);\">'+lab+'</text>';}"
+"h+=arr(C30*S*0.55,S30*S*0.55,'X')+arr(0,-S*0.55,'Y')+arr(-C30*S*0.55,S30*S*0.55,'Z');"
+"var items=['Striker (\\u00d840 mm, 42CrMo)','Incident bar (2.5 m)','Specimen \\u2014 6 interfaces','Transmission bar (2 m)','Absorption, trap + X load cyl.','Y bars + confinement','Z bars + confinement'];"
+"var lx=448,ly=60;for(var i=0;i<items.length;i++){var yy=ly+i*23;h+='<circle cx=\"'+lx+'\" cy=\"'+(yy-4)+'\" r=\"8.5\" fill=\"var(--pbg)\" stroke=\"var(--bd2)\" stroke-width=\"1\"/><text x=\"'+lx+'\" y=\"'+(yy-0.5)+'\" text-anchor=\"middle\" style=\"font-size:11px;fill:var(--t);\">'+(i+1)+'</text><text x=\"'+(lx+15)+'\" y=\"'+(yy-0.5)+'\" style=\"font-size:12px;fill:var(--t);\">'+items[i]+'</text>';}overlay.innerHTML=h;}"
+"var N=240,EI=[],ER=[],ET=[],EY=[],EZ=[];function bump(tau,cc,w,a){var dd=(tau-cc)/w;if(Math.abs(dd)>=0.5)return 0;return a*Math.cos(dd*Math.PI);}"
+"function outpulse(tau,cc,w,a){return bump(tau,cc,w,a)-bump(tau,cc+1.4*w,0.6*w,0.16*a);}"
+"for(var i=0;i<=N;i++){var tau=i/N;EI.push(bump(tau,0.33,0.085,1.0));ER.push(bump(tau,0.69,0.11,-0.6));ET.push(bump(tau,0.64,0.12,0.45));EY.push(outpulse(tau,0.72,0.10,0.26));EZ.push(outpulse(tau,0.75,0.10,0.28));}"
+"var PX0=70,PX1=620,YB=505,AMP=50;function PXt(tau){return PX0+tau*(PX1-PX0);}function PYt(v){return YB-v*AMP;}"
+"function pl(arr,upto,color,w,op){var pts='';for(var j=0;j<=upto&&j<arr.length;j++){pts+=(j?' ':'')+PXt(j/N).toFixed(1)+','+PYt(arr[j]).toFixed(1);}return '<polyline points=\"'+pts+'\" fill=\"none\" stroke=\"'+color+'\" stroke-width=\"'+w+'\" opacity=\"'+op+'\" stroke-linejoin=\"round\"/>';}"
+"function buildAxes(){var h='';h+='<line x1=\"'+PX0+'\" y1=\"'+YB+'\" x2=\"'+PX1+'\" y2=\"'+YB+'\" stroke=\"var(--bd)\" stroke-width=\"1\"/>';"
+"h+='<line x1=\"'+PX0+'\" y1=\"'+(YB-AMP-12)+'\" x2=\"'+PX0+'\" y2=\"'+(YB+AMP+12)+'\" stroke=\"var(--bd)\" stroke-width=\"1\"/>';"
+"h+='<text x=\"'+PX0+'\" y=\"'+(YB-AMP-18)+'\" text-anchor=\"middle\" style=\"font-size:11px;fill:var(--t3);\">strain</text>';"
+"h+='<text x=\"'+(PX1-2)+'\" y=\"'+(YB+22)+'\" text-anchor=\"end\" style=\"font-size:11px;fill:var(--t3);\">time \\u2192</text>';"
+"h+='<text x=\"'+(PX0-6)+'\" y=\"'+(YB-AMP+2)+'\" text-anchor=\"end\" style=\"font-size:10px;fill:var(--t3);\">+ comp.</text>';"
+"h+='<text x=\"'+(PX0-6)+'\" y=\"'+(YB+AMP+2)+'\" text-anchor=\"end\" style=\"font-size:10px;fill:var(--t3);\">\\u2212 tens.</text>';"
+"h+='<text x=\"345\" y=\"418\" text-anchor=\"middle\" style=\"font-size:12.5px;fill:var(--t);\">synchronized strain-gauge signals</text>';"
+"var lg=[['incident',COL_I],['reflected',COL_R],['transmitted',COL_T],['Y output',COL_Y],['Z output',COL_Z]];var st=[95,100,108,92,92],gx=120;for(var m=0;m<lg.length;m++){h+='<rect x=\"'+gx+'\" y=\"430\" width=\"13\" height=\"11\" rx=\"2\" fill=\"'+lg[m][1]+'\"/><text x=\"'+(gx+18)+'\" y=\"439.5\" style=\"font-size:11px;fill:var(--t2);\">'+lg[m][0]+'</text>';gx+=st[m];}"
+"plotaxes.innerHTML=h;ghost.innerHTML=pl(EI,N,COL_I,1.2,0.22)+pl(ER,N,COL_R,1.2,0.22)+pl(ET,N,COL_T,1.2,0.22)+pl(EY,N,COL_Y,1.2,0.22)+pl(EZ,N,COL_Z,1.2,0.22);}"
+"function dot(arr,idx,color){return '<circle cx=\"'+PXt(idx/N).toFixed(1)+'\" cy=\"'+PYt(arr[Math.min(idx,N)]).toFixed(1)+'\" r=\"3.3\" fill=\"'+color+'\"/>';}"
+"function updatePlot(t){var idx=Math.min(N,Math.floor(t*N));var h=pl(EI,idx,COL_I,2.4,1)+pl(ER,idx,COL_R,2.4,1)+pl(ET,idx,COL_T,2.4,1)+pl(EY,idx,COL_Y,2.4,1)+pl(EZ,idx,COL_Z,2.4,1);h+=dot(EI,idx,COL_I)+dot(ER,idx,COL_R)+dot(ET,idx,COL_T)+dot(EY,idx,COL_Y)+dot(EZ,idx,COL_Z);"
+"var cx=PXt(t).toFixed(1);h+='<line x1=\"'+cx+'\" y1=\"'+(YB-AMP-10)+'\" x2=\"'+cx+'\" y2=\"'+(YB+AMP+10)+'\" stroke=\"var(--t3)\" stroke-width=\"1\" stroke-dasharray=\"3 3\"/>';live.innerHTML=h;}"
+"var t=0,playing=false,raf=null,vel=20;"
+"function render(){buildScene(t);updatePlot(t);}"
+"function frame(){t+=0.0016*(vel/20);if(t>1)t=0;render();if(playing)raf=requestAnimationFrame(frame);}"
+"function setPlay(p){playing=p;playBtn.innerHTML=p?'\\u23f8 Pause':'\\u25b6 Play';if(p)raf=requestAnimationFrame(frame);else cancelAnimationFrame(raf);}"
+"playBtn.addEventListener('click',function(){setPlay(!playing);});"
+"resetBtn.addEventListener('click',function(){cancelAnimationFrame(raf);playing=false;playBtn.innerHTML='\\u25b6 Play';t=0;render();});"
+"velEl.addEventListener('input',function(){vel=+velEl.value;velVal.textContent=vel+' m/s';epsVal.innerHTML=Math.round(vel/(2*5200)*1e6)+' \\u00b5\\u03b5';});"
+"confChk.addEventListener('change',function(){confOn=confChk.checked;if(!playing)buildScene(t);});"
+"buildOverlay();buildAxes();render();"
+"})();</script>"
+    )
+
+
 def overview_page() -> None:
     st.markdown("# Tri-HB Integrated Workspace")
     st.caption("Testing design, experimental data reduction, stress-wave interpretation, and DEM-oriented damage validation.")
 
-    st.markdown(
-        """
-        Use the sidebar to move through the unified workflow:
-
-        1. **Test setup, simulator and data analysis** defines the shared material, specimen, bar, loading mode, and experimental data source.
-        2. **Wave model** checks pulse timing, wave travel, equilibrium, and interaction regime.
-        3. **Stress path and analysis** reviews p-q-theta paths, stress histories, and reduced-data comparison.
-        4. **Damage model and validation** evaluates damage evolution, energy indicators, DEM descriptors, and exports.
-        5. **Summary of Results** collects every step's key figure in one publication-styled view (600 dpi), each shown beside its governing equations and a short reading guide, with per-figure PNG downloads and a one-click ZIP of the whole set.
-        6. **Presentation** generates a slide deck (LaTeX + PDF) from this run's Steps 1-5, styled like the Tri-HB Handbook lecture slides.
-        7. **Report** generates a short, run-specific LaTeX/PDF summary of this session's Steps 1-5.
-        """
+    st.markdown("### Workflow at a glance")
+    try:
+        # Natural (compact) size, not stretched to the column, so a landscape
+        # flow stays one-screen tall.
+        st.graphviz_chart(_overview_workflow_dot(), use_container_width=False)
+    except Exception:  # noqa: BLE001 - fall back to text if Graphviz is unavailable
+        st.markdown(
+            "Step 1 (setup + simulator / reducer) -> Step 2 wave -> Step 3 stress "
+            "path -> Step 4 damage -> Step 5 summary -> Step 6 (report and "
+            "presentation)."
+        )
+    st.caption(
+        "Step 1 creates the shared setup (via the simulator **or** the data reducer). "
+        "Steps 2-5 reuse it, so the wave, stress-path, damage and summary views stay "
+        "connected. Step 5 captures the figures that Step 6 turns into a report and a "
+        "presentation deck."
     )
 
+    with st.expander("Step-by-step detail", expanded=False):
+        st.markdown(
+            """
+            1. **Test setup, simulator and data analysis** defines the shared material, specimen, bar, loading mode, and experimental data source.
+            2. **Wave model** checks pulse timing, wave travel, equilibrium, and interaction regime.
+            3. **Stress path and analysis** reviews p-q-theta paths, stress histories, and reduced-data comparison.
+            4. **Damage model and validation** evaluates damage evolution, energy indicators, DEM descriptors, and exports.
+            5. **Summary of Results** collects every step's key figure in one publication-styled view (600 dpi), each shown beside its governing equations and a short reading guide, with per-figure PNG downloads and a one-click ZIP of the whole set.
+            6. **Report and Presentation** generates run-specific documents (LaTeX + PDF): a short report and a Handbook-styled slide deck, both built from this run's Steps 1-5.
+            """
+        )
+
     st.caption(
-        "Step 1 now uses four loading families: Gas-gun uniaxial SHPB; "
+        "Step 1 uses four loading families: Gas-gun uniaxial SHPB; "
         "Confinement-chamber SHPB; Gas-gun Tri-HB static-dynamic loading; "
         "and Electromagnetic programmable loading with three internal topologies."
     )
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Loading families", "4")
-    c2.metric("Workflow steps", "7")
+    c2.metric("Workflow steps", "6")
     c3.metric("Experimental reducer", "CSV/XLSX")
 
     st.info(
         "Start with Step 1 to create the shared setup and either simulate or reduce data. "
         "Steps 2-5 reuse those settings so the wave, stress-path, damage and summary views "
-        "stay connected; Steps 6-7 export the presentation and a run report."
+        "stay connected; Step 6 exports a run report and a presentation deck."
+    )
+
+    st.markdown("### How the Tri-HB works — wave propagation")
+    st.caption(
+        "Isometric view of the Monash triaxial Hopkinson bar. **Static confinement "
+        "(pre-stress) is applied on all three axes** by hydraulic cylinders (blue): "
+        "the X hydraulic load cylinder at the transmission end, plus the Y and Z "
+        "cylinders — this is the triaxial static–dynamic coupling. Press **Play**: "
+        "the striker then launches a dynamic stress pulse down the X incident bar; at "
+        "the cubic specimen it partly reflects (← incident bar) and partly transmits "
+        "(→ transmission bar). The specimen expands laterally (Poisson effect) and "
+        "drives **output waves outward along the four Y and Z bars**, recorded by "
+        "their gauges (G3–G6). The scope below shows all six gauge signals — "
+        "incident, reflected, transmitted, and the Y/Z outputs (Eqs. 4–7) — sweeping "
+        "in step with the animation."
+    )
+    try:
+        theme = st.get_option("theme.base") or "light"
+    except Exception:  # noqa: BLE001 - default to light if the option is unavailable
+        theme = "light"
+    components.html(_trihb_animation_html(theme), height=720, scrolling=False)
+    st.caption(
+        "Schematic for orientation; bar lengths and the gas-gun pulse follow the "
+        "Monash 42CrMo system (C₀ ≈ 5200 m/s, striker up to 50 m/s). The Y/Z output "
+        "waves are Poisson-driven lateral output (peaks ≈ 0.2× the axial pulse, "
+        "arriving just after the transmitted peak), matching the gas-gun Tri-HB "
+        "branch in Tri-HB.py. The same signals are reduced quantitatively in Step 2 "
+        "(wave model) and Step 3 (stress path)."
     )
 
 
@@ -1506,8 +1696,8 @@ def summary_page() -> None:
                 ],
             )
 
-    # ---- Stash the metrics and figures so Step 7 (Report) can reuse exactly
-    # what Step 5 rendered, without recomputing the figures. ----
+    # ---- Stash the metrics and figures so Step 6 (Report and Presentation)
+    # can reuse exactly what Step 5 rendered, without recomputing the figures. ----
     st.session_state["tri_hb_summary_rows"] = rows
     st.session_state["tri_hb_summary_registry"] = registry
 
@@ -1965,14 +2155,51 @@ def _build_presentation_tex(rows: list, registry: list, cfg: dict, fig_names: li
     return "\n".join(lines)
 
 
-def presentation_page() -> None:
-    """Step 6 - Presentation: generate a beamer deck from this run's results."""
-    st.markdown("# Step 6: Presentation")
+def _render_doc_generator(kind: str, rows: list, registry: list, cfg: dict) -> None:
+    """Render one document generator (report or presentation) in the combined page."""
+    fig_names = [fname for fname, *_ in registry]
+    if kind == "report":
+        tex_source = _build_report_tex(rows, registry, cfg, fig_names)
+        jobname, prefer_xe = "tri_hb_report", False
+        pdf_label = "Download report PDF"
+        tex_label = "Download report LaTeX"
+        zip_label = "Download report bundle (LaTeX + figures, ZIP)"
+        key_prefix = "dl_report"
+        preview_label = "Preview report LaTeX source"
+    else:
+        tex_source = _build_presentation_tex(rows, registry, cfg, fig_names)
+        jobname, prefer_xe = "tri_hb_presentation", True
+        pdf_label = "Download presentation PDF"
+        tex_label = "Download presentation LaTeX"
+        zip_label = "Download presentation bundle (LaTeX + figures, ZIP)"
+        key_prefix = "dl_pres"
+        preview_label = "Preview presentation LaTeX source"
+
+    pdf_bytes, compile_msg = _compile_latex_to_pdf(
+        tex_source, registry, jobname, prefer_xelatex=prefer_xe
+    )
+    _offer_doc_downloads(tex_source, pdf_bytes, registry, jobname,
+                         pdf_label=pdf_label, tex_label=tex_label,
+                         zip_label=zip_label, key_prefix=key_prefix)
+    if compile_msg and not pdf_bytes:
+        st.warning("The PDF could not be built on the server. See the build "
+                   "details below; you can still download the LaTeX source or "
+                   "the ZIP bundle and compile it yourself.")
+    if compile_msg:
+        with st.expander("PDF build details", expanded=not pdf_bytes):
+            st.code(compile_msg)
+    with st.expander(preview_label):
+        st.code(tex_source, language="latex")
+
+
+def report_presentation_page() -> None:
+    """Step 6 - Report and Presentation: generate both run documents (LaTeX + PDF)."""
+    st.markdown("# Step 6: Report and Presentation")
     st.caption(
-        "Generate a presentation deck (LaTeX + PDF) from this session's Steps 1-5 "
-        "results, styled like the Tri-HB Handbook lecture slides. The Handbook "
-        "deck is used only as the visual template; the content here is your "
-        "current run."
+        "Generate run-specific documents from this session's Steps 1-5: a short "
+        "report and a presentation deck, each as LaTeX + PDF. Both use the "
+        "metrics and figures captured on the Step 5 summary page; the Handbook "
+        "deck is used only as the visual template."
     )
 
     rows = st.session_state.get("tri_hb_summary_rows")
@@ -1983,93 +2210,49 @@ def presentation_page() -> None:
         st.info(
             "No run results captured yet. Open **Step 5: Summary of Results** "
             "first (after running Steps 1-4) so the metrics and figures are "
-            "available for the presentation."
+            "available for the documents."
         )
         return
 
     rows = rows or []
     registry = registry or []
-    fig_names = [fname for fname, *_ in registry]
-
     st.markdown(f"**Captured from this run:** {len(rows)} metrics, "
-                f"{len(fig_names)} figures.")
+                f"{len(registry)} figures.")
 
-    tex_source = _build_presentation_tex(rows, registry, cfg, fig_names)
-    # beamer needs xelatex/pdflatex; Metropolis prefers xelatex/lualatex but
-    # falls back to the default theme under pdflatex, so either engine works.
-    pdf_bytes, compile_msg = _compile_latex_to_pdf(
-        tex_source, registry, "tri_hb_presentation", prefer_xelatex=True
-    )
-
-    _offer_doc_downloads(
-        tex_source, pdf_bytes, registry, "tri_hb_presentation",
-        pdf_label="Download presentation PDF",
-        tex_label="Download presentation LaTeX",
-        zip_label="Download presentation bundle (LaTeX + figures, ZIP)",
-        key_prefix="dl_pres",
-    )
-
-    if compile_msg and not pdf_bytes:
-        st.warning("The PDF could not be built on the server. See the build "
-                   "details below; you can still download the LaTeX source or "
-                   "the ZIP bundle and compile it yourself.")
-    if compile_msg:
-        with st.expander("PDF build details", expanded=not pdf_bytes):
-            st.code(compile_msg)
-    with st.expander("Preview presentation LaTeX source"):
-        st.code(tex_source, language="latex")
+    tab_report, tab_pres = st.tabs(["Report", "Presentation"])
+    with tab_report:
+        _render_doc_generator("report", rows, registry, cfg)
+    with tab_pres:
+        _render_doc_generator("presentation", rows, registry, cfg)
 
 
-def report_page() -> None:
-    """Step 7 - Report: short LaTeX/PDF summary of this session's Steps 1-5."""
-    st.markdown("# Step 7: Report")
+def validation_plan_page() -> None:
+    """Render the validation/calibration/publication plan live from the markdown
+    file so the app and the source document never drift apart."""
+    st.markdown("# Validation & publication plan")
     st.caption(
-        "Generate a short, run-specific report (LaTeX + PDF) summarising the "
-        "results from this session's Steps 1-5, as a condensed, Handbook-style "
-        "write-up of the current run only."
+        "Rendered live from docs/validation_calibration_plan.md — the single "
+        "source of truth for the model's validation status, the honest novelty "
+        "assessment, and the publication strategy (calibrate → blind-predict)."
     )
-
-    rows = st.session_state.get("tri_hb_summary_rows")
-    registry = st.session_state.get("tri_hb_summary_registry")
-    cfg = st.session_state.get("tri_hb_latest_config", {}) or {}
-
-    if not rows and not registry:
-        st.info(
-            "No run results captured yet. Open **Step 5: Summary of Results** "
-            "first (after running Steps 1-4) so the metrics and figures are "
-            "available for the report."
+    doc_path = APP_DIR / "docs" / "validation_calibration_plan.md"
+    try:
+        text = doc_path.read_text(encoding="utf-8")
+    except OSError as exc:  # file missing/unreadable
+        st.error(
+            f"Could not read {doc_path}. The plan lives in the repo at "
+            f"docs/validation_calibration_plan.md.\n\n{exc}"
         )
         return
-
-    rows = rows or []
-    registry = registry or []
-    fig_names = [fname for fname, *_ in registry]
-
-    st.markdown(f"**Captured from this run:** {len(rows)} metrics, "
-                f"{len(fig_names)} figures.")
-
-    tex_source = _build_report_tex(rows, registry, cfg, fig_names)
-    pdf_bytes, compile_msg = _compile_latex_to_pdf(
-        tex_source, registry, "tri_hb_report", prefer_xelatex=False
+    st.download_button(
+        "Download this plan (Markdown)",
+        data=text,
+        file_name="validation_calibration_plan.md",
+        mime="text/markdown",
+        key="dl_validation_plan",
     )
-
-    _offer_doc_downloads(
-        tex_source, pdf_bytes, registry, "tri_hb_report",
-        pdf_label="Download report PDF",
-        tex_label="Download report LaTeX",
-        zip_label="Download report bundle (LaTeX + figures, ZIP)",
-        key_prefix="dl_report",
-    )
-
-    if compile_msg and not pdf_bytes:
-        st.warning("The PDF could not be built on the server. See the build "
-                   "details below; you can still download the LaTeX source or "
-                   "the ZIP bundle and compile it yourself.")
-    if compile_msg:
-        with st.expander("PDF build details", expanded=not pdf_bytes):
-            st.code(compile_msg)
-    with st.expander("Preview report LaTeX source"):
-        st.code(tex_source, language="latex")
+    st.divider()
+    st.markdown(text)
 
 
 page = st.sidebar.radio(
@@ -2081,8 +2264,8 @@ page = st.sidebar.radio(
         "Step 3: Stress path and analysis",
         "Step 4: Damage model and validation",
         "Step 5: Summary of Results",
-        "Step 6: Presentation",
-        "Step 7: Report",
+        "Step 6: Report and Presentation",
+        "Validation & publication plan",
     ],
     key="tri_hb_workspace_page",
 )
@@ -2105,7 +2288,7 @@ with page_slot.container():
         run_legacy_app("wave_damage.py", {"TRI_HB_WORKFLOW_VIEW": "damage"})
     elif page == "Step 5: Summary of Results":
         summary_page()
-    elif page == "Step 6: Presentation":
-        presentation_page()
-    elif page == "Step 7: Report":
-        report_page()
+    elif page == "Step 6: Report and Presentation":
+        report_presentation_page()
+    elif page == "Validation & publication plan":
+        validation_plan_page()

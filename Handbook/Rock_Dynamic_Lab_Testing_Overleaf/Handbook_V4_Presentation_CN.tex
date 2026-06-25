@@ -1,0 +1,1331 @@
+% ===================================================================
+% Tri-HB 手册 V4 演示文稿（中文版）
+% 使用 XeLaTeX 编译: xelatex Handbook_V4_Presentation_CN.tex
+% 图表与英文版完全一致；每张幻灯片内容与英文版对应。
+% ===================================================================
+\documentclass[11pt,aspectratio=169]{beamer}
+
+% Prefer the requested Metropolis theme; fall back gracefully if unavailable.
+\newif\ifmetropolisavailable
+\IfFileExists{beamerthememetropolis.sty}{\metropolisavailabletrue}{\metropolisavailablefalse}
+\ifmetropolisavailable
+  \usetheme[progressbar=frametitle, sectionpage=progressbar]{metropolis}
+\else
+  \usetheme{default}
+\fi
+
+\IfFileExists{appendixnumberbeamer.sty}{\usepackage{appendixnumberbeamer}}{}
+\IfFileExists{booktabs.sty}{%
+  \usepackage{booktabs}
+}{%
+  \newcommand{\toprule}{\hline}
+  \newcommand{\midrule}{\hline}
+  \newcommand{\bottomrule}{\hline}
+}
+\IfFileExists{ccicons.sty}{\usepackage[scale=2]{ccicons}}{}
+\IfFileExists{pgfplots.sty}{%
+  \usepackage{pgfplots}
+  \pgfplotsset{compat=1.18}
+  \usepgfplotslibrary{dateplot}
+}{}
+\IfFileExists{xspace.sty}{\usepackage{xspace}}{}
+\usepackage{iftex}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc}
+\usepackage{graphicx}
+
+% -------------------------------------------------------------------
+% 中文字体支持（需用 XeLaTeX 编译）
+% 依次尝试常见简体中文字体，确保在不同系统上都能编译。
+% -------------------------------------------------------------------
+\ifXeTeX
+  \usepackage{xeCJK}
+  \IfFontExistsTF{Noto Serif SC}{%
+    \setCJKmainfont{Noto Serif SC}%
+    \setCJKsansfont{Noto Sans SC}%
+  }{%
+    \IfFontExistsTF{SimSun}{%
+      \setCJKmainfont{SimSun}%
+      \setCJKsansfont{SimHei}%
+    }{%
+      \setCJKmainfont{FandolSong}%
+      \setCJKsansfont{FandolHei}%
+    }%
+  }
+\fi
+
+% -------------------------------------------------------------------
+% COLOR THEME
+% Monash-inspired, lighter, restrained academic version
+% -------------------------------------------------------------------
+\definecolor{TUSTnavy}{HTML}{00739D}
+\definecolor{TUSTdeep}{HTML}{505050}
+\definecolor{TUSTteal}{HTML}{006DAE}
+\definecolor{TUSTlightteal}{HTML}{6F64A9}
+\definecolor{TUSTgold}{HTML}{795548}
+\definecolor{TUSToffwhite}{HTML}{F6F6F6}
+\definecolor{TUSTlightgray}{HTML}{FFFFFF}
+\definecolor{TUSTmidgray}{HTML}{505050}
+\definecolor{TUSTbody}{HTML}{000000}
+\definecolor{TUSTalert}{HTML}{DF0021}
+\definecolor{TUSTalertbg}{HTML}{F6F6F6}
+\definecolor{TUSTgreen}{HTML}{006F29}
+\definecolor{TUSTgreenbg}{HTML}{F6F6F6}
+
+\setbeamercolor{normal text}{fg=TUSTbody, bg=TUSToffwhite}
+\setbeamercolor{background canvas}{bg=TUSToffwhite}
+\setbeamercolor{alerted text}{fg=TUSTalert}
+\setbeamercolor{frametitle}{fg=TUSTnavy, bg=TUSToffwhite}
+\setbeamercolor{title}{fg=TUSTnavy}
+\setbeamercolor{section title}{fg=TUSTnavy, bg=TUSToffwhite}
+\setbeamercolor{subtitle}{fg=TUSTmidgray}
+\setbeamercolor{author}{fg=TUSTmidgray}
+\setbeamercolor{date}{fg=TUSTmidgray}
+\setbeamercolor{institute}{fg=TUSTmidgray}
+\setbeamercolor{block title}{fg=TUSTnavy, bg=TUSToffwhite}
+\setbeamercolor{block body}{fg=TUSTbody, bg=TUSTlightgray}
+\setbeamercolor{block title alerted}{fg=white, bg=TUSTalert}
+\setbeamercolor{block body alerted}{fg=TUSTbody, bg=TUSTalertbg}
+\setbeamercolor{block title example}{fg=white, bg=TUSTgreen}
+\setbeamercolor{block body example}{fg=TUSTbody, bg=TUSTgreenbg}
+\setbeamercolor{progress bar}{fg=TUSTnavy, bg=TUSTdeep}
+\setbeamercolor{item}{fg=TUSTnavy}
+\setbeamercolor{itemize item}{fg=TUSTnavy}
+\setbeamercolor{itemize subitem}{fg=TUSTgold}
+\setbeamercolor{enumerate item}{fg=TUSTnavy}
+\setbeamercolor{enumerate subitem}{fg=TUSTgold}
+\setbeamercolor{footline}{fg=TUSTmidgray, bg=TUSToffwhite}
+\setbeamercolor{standout}{fg=TUSTnavy, bg=TUSToffwhite}
+
+\ifmetropolisavailable
+\makeatletter
+\setbeamertemplate{section page}{
+  \centering
+  \begin{minipage}{0.92\textwidth}
+    \centering
+    {\usebeamerfont{section title}\usebeamercolor[fg]{section title}\insertsectionhead\par}
+  \end{minipage}
+  \vspace{0.55em}
+  \usebeamertemplate*{progress bar in section page}
+}
+\makeatother
+\metroset{block=fill}
+\fi
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{%
+  \hfill{\scriptsize\color{TUSTmidgray}\insertframenumber/\inserttotalframenumber}\hspace{1.2em}\vspace{0.7em}
+}
+
+\newcommand{\zhsub}[1]{{\normalsize\color{TUSTmidgray} #1}}
+\newcommand{\cncue}[1]{{\footnotesize\color{TUSTmidgray} #1}}
+\newcommand{\numcard}[3]{%
+  \begin{beamercolorbox}[wd=\textwidth, rounded=true, sep=0.7ex, leftskip=0.8ex, rightskip=0.8ex]{block body}
+    {\large\textbf{\color{TUSTteal}#1.}} \textbf{#2}\\[2pt] #3
+  \end{beamercolorbox}%
+}
+\newcommand{\cmdline}[1]{{\scriptsize\ttfamily\detokenize{#1}}}
+\newcommand{\figurewithnotes}[2]{%
+  \begin{figure}
+    \centering
+    \includegraphics[width=\textwidth,height=0.65\textheight,keepaspectratio]{#1}
+  \end{figure}
+  \vspace{-0.12cm}
+  {\scriptsize
+  \begin{itemize}
+    #2
+  \end{itemize}}
+}
+
+% Overleaf names build artifacts output.*. If the same project previously
+% compiled a BibLaTeX document, stale output.aux can otherwise stop this deck.
+\makeatletter
+\providecommand{\abx@aux@read@bblrerun}{}
+\providecommand{\abx@aux@read@bbl@mdfivesum}[1]{}
+\providecommand{\abx@aux@lbx@loadrequest}[1]{}
+\providecommand{\abx@aux@locallabelwidth}[3]{}
+\providecommand{\abx@aux@cite}[2]{}
+\providecommand{\abx@aux@refcontext}[1]{}
+\providecommand{\abx@aux@biblist}[1]{}
+\providecommand{\abx@aux@number}[5]{}
+\providecommand{\abx@aux@defaultrefcontext}[3]{}
+\providecommand{\abx@aux@defaultlabelprefix}[3]{}
+\providecommand{\abx@aux@page}[2]{}
+\providecommand{\abx@aux@fnpage}[2]{}
+\providecommand{\abx@aux@refsection}[2]{}
+\providecommand{\abx@aux@category}[2]{}
+\providecommand{\abx@aux@segm}[3]{}
+\providecommand{\abx@aux@nociteall}{}
+\providecommand{\abx@aux@count}[2]{}
+\providecommand{\abx@aux@fncount}[2]{}
+\providecommand{\abx@aux@backref}[5]{}
+\providecommand{\abx@aux@bibliography}[1]{}
+\providecommand{\abx@aux@sortscheme}[1]{}
+\makeatother
+
+% -------------------------------------------------------------------
+% META
+% -------------------------------------------------------------------
+\title{岩石动态实验测试}
+\subtitle{单轴加载、原位地应力、爆炸波、地震脉冲与开挖扰动下的岩石动态破坏\\[4pt]
+\zhsub{多轴与路径相关的霍普金森杆实验}}
+\date{2026 年 5 月 30 日}
+\author{%
+  \Large\textbf{张前兵 (Qianbing Zhang)}\\[4pt]
+  {\normalsize\href{mailto:qianbing.zhang@monash.edu}{\color{TUSTteal}\nolinkurl{qianbing.zhang@monash.edu}}}
+}
+\institute{%
+  土木与环境工程系\\
+  \large\textbf{蒙纳士大学 (Monash University)}\\[8pt]
+  {\tiny \color{TUSTmidgray} \copyright~2026 Qianbing Zhang. 版权所有。}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}{演示文稿概览}
+  \scriptsize
+  \setbeamertemplate{section in toc}[sections numbered]
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \tableofcontents[hideallsubsections,sections={1-4}]
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \tableofcontents[hideallsubsections,sections={5-8}]
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ###################################################################
+\section{岩石动态破坏的研究动机}
+% ###################################################################
+
+\begin{frame}{为什么动态岩石测试不能只看单轴抗压强度（UCS）}
+  \begin{exampleblock}{核心目标}
+    将经典霍普金森杆理论、六种实验加载模式、受控实验
+    与损伤模型验证，串联成一条清晰的逻辑链。
+  \end{exampleblock}
+  \vspace{0.25cm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \textbf{实验需求}\\[3pt]
+      岩石动态破坏很少是单轴的。原位地应力、爆炸波、
+      地震脉冲与开挖扰动都是多轴且路径相关的。
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{分析需求}\\[3pt]
+      每一步计算都必须可追溯：从实验设置、波形数据还原，
+      到应力路径、损伤、能量密度与验证描述量。
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{一个实验平台，六种加载模式}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.52\textwidth}
+      \begin{itemize}
+        \item X 轴气炮系统：用于经典 SHPB 及耦合三轴加载。
+        \item 独立的 Y、Z 杆对：施加真三轴静态预应力。
+        \item 电磁脉冲发生器：可编程控制幅值、
+              持续时间、对称性与各轴间延时。
+        \item 当前数字孪生预应力范围：每轴 0--50 MPa。
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \begin{block}{物理意义}
+        模式 1--3 保留气炮传统；模式 4--6 增加了干净的
+        脉冲控制与真正的多方向时序研究能力。
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ###################################################################
+\section{经典霍普金森杆理论}
+% ###################################################################
+
+\begin{frame}{方程将一切归结为四项检查}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.49\textwidth}
+      \numcard{1}{波的传播}{弹性杆波力学决定了可用的有效信号窗口。}
+      \vspace{0.22cm}
+      \numcard{2}{试样应力平衡}{三波法要求满足传播时间与力平衡检查。}
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \numcard{3}{应力路径}{将 $\sigma_1,\sigma_2,\sigma_3$ 转换为 $p$、$q$ 及罗德角 $\theta$。}
+      \vspace{0.22cm}
+      \numcard{4}{损伤与能量}{破坏指数、刚度损失与能量密度构成验证层。}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{贯穿各实验的应变率标定}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{alertblock}{更新后的 DIF 约定}
+        分析预设采用统一的文献参考应变率尺度
+        \[
+          \dot{\varepsilon}_{\mathrm{ref}} = 10^{-5}\ \mathrm{s}^{-1}.
+        \]
+      \end{alertblock}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{效果}
+        算例、还原数据与模型对比都遵循同一标定策略，
+        而不会混用相互独立的强度约定。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \[
+    \mathrm{DIF} = 1 + C\log_{10}\!\left(\frac{\dot{\varepsilon}}
+    {10^{-5}}\right), \qquad \mathrm{DIF}\le \mathrm{DIF}_{\max}.
+  \]
+  \cncue{$\dot{\varepsilon}$ 为实测应变率；$C$ 为拟合的率敏感系数；
+  $\mathrm{DIF}_{\max}$ 在标定范围之外限制强度放大幅度。}
+\end{frame}
+
+\begin{frame}{经典霍普金森杆如何被改进}
+  \scriptsize
+  \begin{tabular}{@{}p{0.12\textwidth}p{0.28\textwidth}p{0.28\textwidth}p{0.22\textwidth}@{}}
+    \toprule
+    \textbf{模式族} & \textbf{经典假设} & \textbf{实验改进} & \textbf{新揭示的物理} \\
+    \midrule
+    模式 1 & 一维 X 杆冲击 & 不作改动；标准 SHPB 还原 & 基准动态强度 \\
+    模式 2 & 单驱动轴加被动围压 & 传统围压腔，$\sigma_2=\sigma_3=p_c$ & 固定罗德状态下的压力强化 \\
+    模式 3 & 单驱动轴加独立边界 & 主动真三轴 Y/Z 围压 & 原位地应力与罗德角效应 \\
+    模式 4--6 & 气炮脉冲受撞击杆速度与长度约束 & 电磁半正弦波，可控幅值、持续时间、时序与对称性 & 爆炸/地震脉冲形状、路径相关性与压实 \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.25cm}
+  \begin{block}{叙述顺序}
+    从经典 SHPB 方程出发，依次加入围压、真三轴，
+    最终引入可编程的电磁波加载。
+  \end{block}
+\end{frame}
+
+\begin{frame}{模式 1：气炮单轴 SHPB}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{适用场景：}
+      \begin{itemize}
+        \item 目标是基准动态单轴强度。
+        \item 需要与已发表的经典 SHPB 结果对比。
+        \item 围压与罗德角效应不在研究范围内。
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{block}{主要局限}
+        单一加载轴，无主动围压。
+      \end{block}
+      \[
+        \sigma_x(t)\approx\sigma_{\mathrm{dyn}}(t), \qquad
+        \sigma_y=\sigma_z=0 .
+      \]
+      \cncue{$\sigma_x$ 为试样轴向应力；$\sigma_{\mathrm{dyn}}$ 为由杆波反推得到的动态应力。}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{模式 1 实验设置条件}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{材料与几何}
+        砂岩预设：$E=15$ GPa，UCS $=80$ MPa，$\nu=0.20$，
+        $\rho=2650$ kg\,m$^{-3}$。\\[3pt]
+        试样：$50\times50\times50$ mm。
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{加载设置}
+        沿 X 轴气炮冲击；撞击杆速度 $V=20$ m\,s$^{-1}$。\\[3pt]
+        静态预应力：$\sigma_x=\sigma_y=\sigma_z=0$ MPa。
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{block}{解读}
+    这是无围压的基准 SHPB 工况，用于将纯轴向率响应
+    与围压、罗德角效应区分开来。
+  \end{block}
+\end{frame}
+
+\begin{frame}{模式 1：应力时程}
+  \figurewithnotes{figures/handbook_modes/mode_1_gas_gun_uniaxial_stress_history.png}{%
+    \item 只有 X 轴应力承载动态脉冲；侧向应力保持为零。
+    \item 用此图在加入围压前检查基准脉冲持续时间与峰值轴向应力。
+  }
+\end{frame}
+
+\begin{frame}{模式 1：轴向应力--应变响应}
+  \figurewithnotes{figures/handbook_modes/mode_1_gas_gun_uniaxial_stress_strain.png}{%
+    \item 加载段给出砂岩预设的动态单轴强度估计。
+    \item 此基准曲线不应施加任何围压修正。
+  }
+\end{frame}
+
+\section{改进型气炮霍普金森杆模式}
+
+\begin{frame}{模式 2：围压腔 SHPB}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{适用场景：}
+      \begin{itemize}
+        \item 轴对称三轴围压已足够。
+        \item 试样为圆柱形或带护套。
+        \item 应力路径可保持在 $\theta=0$。
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{block}{主要局限}
+        侧向压力是被动的；无法独立施加 $\sigma_2$ 与 $\sigma_3$。
+      \end{block}
+      \[
+        \sigma_2=\sigma_3=p_c, \qquad
+        p=\frac{\sigma_1+2p_c}{3}.
+      \]
+      \cncue{$p_c$ 为腔体压力；$p$ 为平均应力；模式 2 强制轴对称围压。}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{模式 2 实验设置条件}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{材料与几何}
+        砂岩预设：$E=15$ GPa，UCS $=80$ MPa，$\nu=0.20$，
+        $\rho=2650$ kg\,m$^{-3}$。\\[3pt]
+        试样：$50\times50\times50$ mm。
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{加载设置}
+        沿 X 轴气炮冲击；撞击杆速度 $V=20$ m\,s$^{-1}$。\\[3pt]
+        静态条件：$\sigma_x=30$ MPa，腔体压力
+        $p_c=\sigma_y=\sigma_z=20$ MPa。
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{block}{解读}
+    腔体提升了平均应力，但保持两个侧向主应力相等，
+    因此应力路径是轴对称的。
+  \end{block}
+\end{frame}
+
+\begin{frame}{模式 2：应力时程}
+  \figurewithnotes{figures/handbook_modes/mode_2_confinement_chamber_stress_history.png}{%
+    \item X 轴动态脉冲叠加在静态轴向预应力之上。
+    \item 侧向应力保持相等，代表腔体围压而非真三轴控制。
+  }
+\end{frame}
+
+\begin{frame}{模式 2：应力路径}
+  \figurewithnotes{figures/handbook_modes/mode_2_confinement_chamber_stress_path.png}{%
+    \item $p$--$q$ 路径主要反映 $\sigma_y=\sigma_z$ 下的围压强化。
+    \item 它适用于腔体试验，但无法分离 Y、Z 边界的独立效应。
+  }
+\end{frame}
+
+\begin{frame}{模式 3：蒙纳士气炮真三轴加载}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{适用场景：}
+      \begin{itemize}
+        \item 原位预应力很重要。
+        \item $\sigma_2$ 与 $\sigma_3$ 必须独立控制。
+        \item 动态 X 加载与真三轴围压相结合。
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{exampleblock}{标志性能力}
+        气炮动态加载加上主动正交杆/缸围压。
+      \end{exampleblock}
+      \[
+        \sigma_x=\sigma_{x0}+\sigma_{\mathrm{dyn}}(t), \quad
+        \sigma_y=\sigma_{y0}, \quad \sigma_z=\sigma_{z0}.
+      \]
+      \cncue{$\sigma_{i0}$ 表示气炮脉冲到达前 $i$ 轴上的静态预应力。}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{模式 3 实验设置条件}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{材料与几何}
+        砂岩预设：$E=15$ GPa，UCS $=80$ MPa，$\nu=0.20$，
+        $\rho=2650$ kg\,m$^{-3}$。\\[3pt]
+        试样：$50\times50\times50$ mm。
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{加载设置}
+        沿 X 轴气炮冲击；撞击杆速度 $V=20$ m\,s$^{-1}$。\\[3pt]
+        静态预应力：$\sigma_x=30$，$\sigma_y=20$，
+        $\sigma_z=15$ MPa。
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{block}{解读}
+    独立的侧向围压使气炮结果能够探测非轴对称应力路径
+    与罗德角敏感性。
+  \end{block}
+\end{frame}
+
+\begin{frame}{模式 3：应力时程}
+  \figurewithnotes{figures/handbook_modes/mode_3_monash_tri_hb_stress_history.png}{%
+    \item 动态 X 脉冲与不相等的静态 Y、Z 应力相结合。
+    \item 这将真三轴围压与腔体式 $\sigma_y=\sigma_z$ 假设区分开来。
+  }
+\end{frame}
+
+\begin{frame}{模式 3：应力路径}
+  \figurewithnotes{figures/handbook_modes/mode_3_monash_tri_hb_stress_path.png}{%
+    \item 由于 $\sigma_y$ 与 $\sigma_z$ 不相等，路径经过不同的罗德状态。
+    \item 与模式 2 对比，可看出独立施加侧向应力带来的变化。
+  }
+\end{frame}
+
+\section{电磁加载模式}
+
+\begin{frame}{模式 4：电磁单轴冲击}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{适用场景：}
+      \begin{itemize}
+        \item 倾向于使用干净的半正弦脉冲。
+        \item 脉冲幅值与持续时间需独立调节。
+        \item 率效应是主要研究问题。
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{block}{设计优势}
+        电磁系统将峰值应力与脉冲持续时间解耦。
+      \end{block}
+      \[
+        \sigma_{\mathrm{dyn}}(t)=
+        \sigma_{\mathrm{peak}}\sin\!\left(\frac{\pi t}{\tau}\right),
+        \quad 0<t<\tau .
+      \]
+      \cncue{$\sigma_{\mathrm{peak}}$ 为电磁脉冲幅值；$\tau$ 为脉冲持续时间。}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{模式 4 实验设置条件}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{材料与几何}
+        砂岩预设：$E=15$ GPa，UCS $=80$ MPa，$\nu=0.20$，
+        $\rho=2650$ kg\,m$^{-3}$。\\[3pt]
+        试样：$50\times50\times50$ mm。
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{加载设置}
+        沿 X 轴电磁半正弦脉冲；峰值 $400$ MPa，持续时间 $200~\mu$s。\\[3pt]
+        静态预应力：$\sigma_x=30$，$\sigma_y=20$，
+        $\sigma_z=15$ MPa；不使用撞击杆速度。
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{block}{解读}
+    电磁驱动器将脉冲幅值与持续时间作为显式输入，
+    因此可在不改变气炮撞击速度的情况下改变率效应。
+  \end{block}
+\end{frame}
+
+\begin{frame}{模式 4：应力时程}
+  \figurewithnotes{figures/handbook_modes/mode_4_em_uniaxial_stress_history.png}{%
+    \item X 轴应力遵循预设的半正弦脉冲形状。
+    \item 静态 Y、Z 预应力定义初始围压，但不接收动态脉冲。
+  }
+\end{frame}
+
+\begin{frame}{模式 4：轴向应力--应变响应}
+  \figurewithnotes{figures/handbook_modes/mode_4_em_uniaxial_stress_strain.png}{%
+    \item 该曲线由电磁脉冲幅值与持续时间控制，而非撞击杆速度。
+    \item 与模式 1 对比，可分离脉冲形状效应与无围压气炮加载。
+  }
+\end{frame}
+
+\begin{frame}{模式 5：电磁异步三轴冲击}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{适用场景：}
+      \begin{itemize}
+        \item 加载顺序与各轴间延时本身就是研究的物理问题。
+        \item 裂纹起裂可能取决于哪个轴先到达。
+        \item 第 2 步延时区间与第 3 步应力路径是核心输出。
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{alertblock}{解读警告}
+        对异步三轴路径而言，单轴本构拟合没有意义。
+      \end{alertblock}
+      \[
+        \sigma_i(t)=\sigma_{i0}+A_i\,g(t-\Delta t_i).
+      \]
+      \cncue{$A_i$ 为第 $i$ 轴的脉冲幅值；$g$ 为脉冲形状；$\Delta t_i$ 为触发延时。}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{模式 5 实验设置条件}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{材料与几何}
+        砂岩预设：$E=15$ GPa，UCS $=80$ MPa，$\nu=0.20$，
+        $\rho=2650$ kg\,m$^{-3}$。\\[3pt]
+        试样：$50\times50\times50$ mm。
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{加载设置}
+        在 X/Y/Z 上施加电磁脉冲；峰值 $400$ MPa，持续时间 $200~\mu$s。\\[3pt]
+        静态预应力：$\sigma_x=30$，$\sigma_y=20$，
+        $\sigma_z=15$ MPa。延时可编程；六模式损伤对比
+        使用 $\Delta t_y=80~\mu$s 与 $\Delta t_z=160~\mu$s。
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{block}{解读}
+    本模式用于应力路径设计：改变脉冲延时即改变材料
+    感受平均应力与偏应力的先后顺序。
+  \end{block}
+\end{frame}
+
+\begin{frame}{模式 5：应力时程}
+  \figurewithnotes{figures/handbook_modes/mode_5_em_async_triaxial_stress_history.png}{%
+    \item X、Y、Z 动态应力同时存在，因此加载状态在三维空间中演化。
+    \item 该设置可同步运行，或加非零 Y/Z 延时以在时间上分离各峰值。
+  }
+\end{frame}
+
+\begin{frame}{模式 5：应力路径}
+  \figurewithnotes{figures/handbook_modes/mode_5_em_async_triaxial_stress_path.png}{%
+    \item 弯曲的 $p$--$q$ 轨迹是关键诊断量，而非简单的轴向应力--应变曲线。
+    \item 峰值 $q$ 标志着路径松弛回到高平均应力之前最强的偏应力需求。
+  }
+\end{frame}
+
+\begin{frame}{模式 6：电磁对称多方向冲击}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{适用场景：}
+      \begin{itemize}
+        \item 需要静水或近静水的动态加载。
+        \item 试样应力须超过单侧杆的极限。
+        \item 动量抵消是设计要求的一部分。
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{exampleblock}{核心思想}
+        对向脉冲使试样应力加倍，同时保持单杆应力不变。
+      \end{exampleblock}
+      \[
+        \sigma_i(t)=\sigma_{i0}+2A_i\,g(t), \qquad
+        F_i^{+}+F_i^{-}\approx0 .
+      \]
+      \cncue{因子 2 来自方向相反、大小相等的脉冲；$F_i^{+}$ 与 $F_i^{-}$ 为对向杆力。}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{模式 6 实验设置条件}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{材料与几何}
+        砂岩预设：$E=15$ GPa，UCS $=80$ MPa，$\nu=0.20$，
+        $\rho=2650$ kg\,m$^{-3}$。\\[3pt]
+        试样：$50\times50\times50$ mm。
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{加载设置}
+        在 $\pm X,\pm Y,\pm Z$ 上施加对向电磁脉冲；每杆峰值 $400$ MPa，
+        持续时间 $200~\mu$s。\\[3pt]
+        静态预应力：$\sigma_x=30$，$\sigma_y=20$，$\sigma_z=15$ MPa。
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{block}{解读}
+    对称对向加载在抵消试样净动量的同时提升试样压力，
+    使其成为最接近动态压实的默认工况。
+  \end{block}
+\end{frame}
+
+\begin{frame}{模式 6：应力时程}
+  \figurewithnotes{figures/handbook_modes/mode_6_em_symmetric_xyz_stress_history.png}{%
+    \item 对向脉冲使试样侧的加载贡献加倍，而不超过单杆脉冲尺度。
+    \item 三个主应力同步上升，因此相对模式 5 偏应力被削弱。
+  }
+\end{frame}
+
+\begin{frame}{模式 6：静水压实路径}
+  \figurewithnotes{figures/handbook_modes/mode_6_em_symmetric_xyz_stress_path.png}{%
+    \item 诊断量从轴向强度转变为压力--体积应变的压实关系。
+    \item 当目标是静水帽盖响应而非剪切破坏时使用本模式。
+  }
+\end{frame}
+
+\section{六种模式的异同}
+
+\begin{frame}{六模式对比：什么相同、什么改变}
+  \tiny
+  \begin{tabular}{@{}p{0.08\textwidth}p{0.13\textwidth}p{0.21\textwidth}p{0.25\textwidth}p{0.17\textwidth}@{}}
+    \toprule
+    \textbf{模式} & \textbf{驱动} & \textbf{边界状态} & \textbf{结果中改变的内容} & \textbf{共同基础} \\
+    \midrule
+    1 & 气炮 X & 无围压 & 基准轴向强度 & 砂岩，50 mm \\
+    2 & 气炮 X & 腔体，$\sigma_2=\sigma_3$ & 轴对称压力强化 & 与模式 1 相同气炮速度 \\
+    3 & 气炮 X & 主动真三轴 & 独立侧向应力改变罗德路径 & 同一 X 冲击族 \\
+    4 & 电磁 X & 静态三轴预应力 & 半正弦幅值--持续时间控制 & 与模式 5--6 相同预应力 \\
+    5 & 电磁 X/Y/Z & 时序多轴脉冲 & 加载顺序弯曲应力路径 & 与模式 4 相同电磁 $A,\tau$ \\
+    6 & 电磁 $\pm$ 轴 & 对称挤压 & 静水压实与力抵消 & 相同电磁 $A,\tau$ \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.16cm}
+  \cncue{共同实验基础：砂岩预设
+  $E=15$ GPa，UCS $=80$ MPa，$\nu=0.20$，$\rho=2650$ kg\,m$^{-3}$；
+  试样 $50\times50\times50$ mm。}
+\end{frame}
+
+\begin{frame}{六模式结果汇总：异同}
+  \scriptsize
+  \begin{tabular}{@{}p{0.10\textwidth}p{0.24\textwidth}p{0.29\textwidth}p{0.27\textwidth}@{}}
+    \toprule
+    \textbf{模式} & \textbf{与其他相同之处} & \textbf{不同的设置条件} & \textbf{结果特征} \\
+    \midrule
+    1 & 相同砂岩与试样几何 & 无围压；气炮 X，20 m\,s$^{-1}$ & 最低压力基准；仅轴向段有意义 \\
+    2 & 与模式 1、3 相同气炮速度 & 腔体围压，$\sigma_1=30$，$\sigma_2=\sigma_3=20$ MPa & 轴对称围压强化试样 \\
+    3 & 与模式 2 相同 X 冲击族 & 真三轴预应力，$30/20/15$ MPa & 不相等侧向应力带来罗德角效应 \\
+    4 & 与模式 5--6 相同 $30/20/15$ MPa 预应力 & 单个电磁 X 脉冲，400 MPa 峰值，200 $\mu$s & 脉冲幅值与持续时间为显式输入 \\
+    5 & 与模式 4、6 相同电磁幅值/持续时间 & 可编程 X/Y/Z 时序 & 弯曲路径显示加载顺序与路径相关性 \\
+    6 & 与模式 4、5 相同电磁脉冲尺度 & 在 $\pm X,\pm Y,\pm Z$ 上对称对向脉冲 & 静水压实主导；动量抵消 \\
+    \bottomrule
+  \end{tabular}
+\end{frame}
+
+\begin{frame}{聚焦对比：传统、真三轴与对称加载}
+  \tiny
+  \begin{block}{聚焦对比的归一化输入}
+    相同砂岩试样、相同静态预应力
+    $\sigma_{x0}/\sigma_{y0}/\sigma_{z0}=30/20/20$ MPa，
+    以及相同半正弦应力波尺度 $A=400$ MPa，$\tau=200~\mu$s。
+  \end{block}
+  \vspace{0.10cm}
+  \begin{tabular}{@{}p{0.08\textwidth}p{0.24\textwidth}p{0.11\textwidth}p{0.11\textwidth}p{0.10\textwidth}p{0.19\textwidth}@{}}
+    \toprule
+    \textbf{模式} & \textbf{受控边界条件} & \textbf{峰值 $p$} & \textbf{峰值 $q$} & \textbf{峰值 $F$} & \textbf{第 4 步结果} \\
+    \midrule
+    2 & 锁定 Y/Z 腔体 & 156.7 MPa & 410.0 MPa & 5.65 & $D_f=1.00$，$D_c=0.29$ \\
+    3 & 真三轴侧向响应 & 208.9 MPa & 333.1 MPa & 3.89 & $D_f=1.00$，$D_c=0.38$ \\
+    6 & 对称 XYZ 加倍 & 823.3 MPa & 10.0 MPa & 0.35 & 剪切定律下 $D_f=0.00$ \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.18cm}
+  \cncue{此处 $F=q/q_f$ 为第 3 步破坏指数，供第 4 步标量损伤定律使用。
+  模式 6 储存了更多体积能量，但并未触发该偏应力损伤判据。}
+\end{frame}
+
+\begin{frame}{聚焦对比：应力路径数据}
+  \figurewithnotes{figures/handbook_steps/mode236_controlled_stress_comparison.png}{%
+    \item 模式 2 偏应力需求最大，因为侧向应力固定而 X 上升。
+    \item 模式 3 在相同 X 脉冲下允许真三轴侧向响应，从而降低 $q$。
+    \item 模式 6 大幅驱动压力但保持 $q$ 很小，应解读为帽盖/压实工况。
+  }
+\end{frame}
+
+\begin{frame}{模式选择：让装置匹配研究问题}
+  \small
+  \begin{tabular}{@{}p{0.18\textwidth}p{0.36\textwidth}p{0.36\textwidth}@{}}
+    \toprule
+    \textbf{模式} & \textbf{最适合的问题} & \textbf{主要诊断量} \\
+    \midrule
+    1 & 基准动态强度 & 三波应力平衡 \\
+    2 & 轴对称围压 & 围压修正与 $\theta=0$ \\
+    3 & 原位真三轴预应力 & 独立的 $\sigma_1,\sigma_2,\sigma_3$ \\
+    4 & 干净的率扫描 & 半正弦幅值--持续时间控制 \\
+    5 & 加载顺序效应 & $\Delta t^\ast$，$p$--$q$--$\theta$ 路径 \\
+    6 & 静水帽盖响应 & 对称能量折叠与动量抵消 \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.35cm}
+  \begin{block}{实用准则}
+    选择仍能保留研究问题所需应力状态与时序物理的、最简单的模式。
+  \end{block}
+\end{frame}
+
+% ###################################################################
+\section{实验流程与应力路径还原}
+% ###################################################################
+
+\begin{frame}{实验流程：同一试样，可比输入}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{受控实验准则}
+        在全部六种模式中使用相同的砂岩试样几何与材料常数。
+        当某模式存在静态预应力时，采用集成分析设置中的
+        默认实验室数值。
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{波形输入准则}
+        \begin{itemize}
+          \item 气炮模式使用相同的参考撞击杆条件。
+          \item 电磁模式使用相同的半正弦幅值与持续时间。
+          \item 模式 5 可改变延时以揭示路径相关性。
+        \end{itemize}
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{第 1 步定义共享的实验状态}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \textbf{输入}
+      \begin{itemize}
+        \item 材料预设与试样几何
+        \item 杆截面与弹性属性
+        \item 加载模式、脉冲源与预应力
+        \item 模拟器或上传的应变片数据
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{数据交接}
+      \begin{block}{共享键}
+        设置条件\\
+        还原后的应力与波形时程
+      \end{block}
+      它们使后续各步与当前设置保持同步。
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{第 1 步方程：从杆信号到试样响应}
+  \scriptsize
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.49\textwidth}
+      \begin{block}{三波应力}
+        \[
+          \sigma_s(t)=
+          \frac{A_bE_b}{2A_s}
+          \left[\varepsilon_I(t)+\varepsilon_R(t)+\varepsilon_T(t)\right].
+        \]
+      \end{block}
+      \begin{block}{单波应力}
+        \[
+          \sigma_s(t)=\frac{A_bE_b}{A_s}\,\varepsilon_T(t).
+        \]
+      \end{block}
+      \begin{block}{符号说明}
+        \begin{itemize}
+          \item $\varepsilon_I,\varepsilon_R,\varepsilon_T$：入射、反射、透射杆应变。
+          \item $A_b,A_s$：杆与试样的横截面积。
+          \item $E_b$：杆的杨氏模量；$\sigma_s$：试样应力。
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \begin{exampleblock}{应变率还原}
+        \[
+          \dot{\varepsilon}_s(t)=
+          -\frac{2C_0}{L_s}\,\varepsilon_R(t),
+          \qquad
+          \varepsilon_s(t)=\int_0^t \dot{\varepsilon}_s(\tau)\,d\tau .
+        \]
+      \end{exampleblock}
+      \begin{block}{杆波能量}
+        \[
+          W_i(t)=E_bA_bC_0
+          \int_0^t \varepsilon_i^2(\tau)\,d\tau .
+        \]
+      \end{block}
+      \begin{block}{符号说明}
+        \begin{itemize}
+          \item $C_0$：杆中弹性波速。
+          \item $L_s$：试样加载长度。
+          \item $W_i$：波分支 $i$ 携带的能量。
+          \item $\tau$：积分哑元时间，此处并非脉冲持续时间。
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{第 2 步方程：波的时序与叠加}
+  \scriptsize
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.49\textwidth}
+      \begin{block}{弹性波速}
+        \[
+          M=\frac{E(1-\nu)}{(1+\nu)(1-2\nu)},\qquad
+          c_p=\sqrt{\frac{M}{\rho}},\qquad
+          c_s=\sqrt{\frac{G}{\rho}} .
+        \]
+      \end{block}
+      \begin{block}{时序尺度}
+        \[
+          t_{\mathrm{travel}}=\frac{L_s}{c_p},\qquad
+          \Delta t^\ast=\frac{\Delta t}{t_{\mathrm{travel}}}.
+        \]
+      \end{block}
+      \begin{block}{符号说明}
+        \begin{itemize}
+          \item $E,\nu,\rho$：试样杨氏模量、泊松比与密度。
+          \item $M$：约束 P 波模量；$G$：剪切模量。
+          \item $c_p,c_s$：试样中 P 波与 S 波速度。
+          \item $\Delta t^\ast$：用于区间分类的无量纲延时。
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \begin{exampleblock}{中心叠加}
+        \[
+          \sigma_{\mathrm{centre}}(t)
+          =\sigma_{x0}+
+          \sum_i A_i\,g\!\left(t-\Delta t_i-\frac{L_s}{2c_p}\right).
+        \]
+        \[
+          \eta_{\mathrm{sup}}=
+          \frac{\max_t\sigma_{\mathrm{centre}}(t)-\sigma_{x0}}{A_x}.
+        \]
+      \end{exampleblock}
+      \begin{block}{符号说明}
+        \begin{itemize}
+          \item $A_i$：第 $i$ 轴的脉冲幅值。
+          \item $g(\cdot)$：所选脉冲形状，例如半正弦或汉宁窗。
+          \item $\Delta t_i$：第 $i$ 轴的触发延时。
+          \item $\eta_{\mathrm{sup}}$：试样中心处的叠加因子。
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{第 2 步：输入动态脉冲}
+  \figurewithnotes{figures/handbook_steps/step2_input_dynamic_pulses.png}{%
+    \item 脉冲幅值、持续时间与延时在评估破坏之前定义了波相互作用问题。
+    \item 此图确认所选加载模式是单轴、多轴还是对称。
+  }
+\end{frame}
+
+\begin{frame}{第 2 步：中心叠加}
+  \figurewithnotes{figures/handbook_steps/step2_centre_superposition.png}{%
+    \item 中心应力是各延时波在试样中部到达的叠加之和。
+    \item 峰值叠加确定后续应力路径检查中最严苛的时刻。
+  }
+\end{frame}
+
+\begin{frame}{第 2 步：延时区间图}
+  \figurewithnotes{figures/handbook_steps/step2_delay_regime_map.png}{%
+    \item 小 $\Delta t^\ast$ 给出重叠脉冲；大 $\Delta t^\ast$ 给出顺序加载。
+    \item 区间标签说明模式 5 表现为同步还是分阶段三轴冲击。
+  }
+\end{frame}
+
+\begin{frame}{第 2 步：时序尺度}
+  \figurewithnotes{figures/handbook_steps/step2_timing_scales.png}{%
+    \item 传播时间将施加的脉冲延时归一化，使不同试样尺寸可比较。
+    \item 此图在一项检查中关联材料波速、试样长度与脉冲时序。
+  }
+\end{frame}
+
+\begin{frame}{第 3 步方程：应力不变量与破坏指数}
+  \scriptsize
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.49\textwidth}
+      \begin{block}{应力不变量}
+        \[
+          p=\frac{\sigma_x+\sigma_y+\sigma_z}{3},
+        \]
+        \[
+          q=\sqrt{\frac{(\sigma_x-\sigma_y)^2+
+          (\sigma_y-\sigma_z)^2+(\sigma_z-\sigma_x)^2}{2}} .
+        \]
+        \[
+          \cos(3\theta)=\frac{3\sqrt{3}}{2}\frac{J_3}{J_2^{3/2}} .
+        \]
+      \end{block}
+      \begin{block}{符号说明}
+        \begin{itemize}
+          \item $\sigma_x,\sigma_y,\sigma_z$：与杆轴对齐的主应力。
+          \item $p$：平均应力；$q$：偏应力大小。
+          \item $J_2,J_3$：偏应力不变量。
+          \item $\theta$：描述压缩/拉伸路径形状的罗德角。
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \begin{exampleblock}{破坏包络}
+        \[
+          h(\theta)=1+a_\theta\left(1-\cos3\theta\right),
+        \]
+        \[
+          q_f(p,\theta)=\left(A+Bp^n\right)h(\theta),
+          \qquad
+          F(t)=\frac{q(t)}{q_f(t)} .
+        \]
+      \end{exampleblock}
+      \begin{block}{等效应变率}
+        \[
+          \dot{\varepsilon}_{\mathrm{eq}}=
+          \sqrt{\frac{2}{3}\cdot\frac{1}{2}
+          \left[
+          (\dot{\varepsilon}_x-\dot{\varepsilon}_y)^2+
+          (\dot{\varepsilon}_y-\dot{\varepsilon}_z)^2+
+          (\dot{\varepsilon}_z-\dot{\varepsilon}_x)^2
+          \right]} .
+        \]
+      \end{block}
+      \begin{block}{符号说明}
+        \begin{itemize}
+          \item $A,B,n,a_\theta$：标定的破坏包络参数。
+          \item $q_f$：当前 $p,\theta$ 下可用的偏应力强度。
+          \item $F$：破坏指数；$F>1$ 在第 4 步触发损伤。
+          \item $\dot{\varepsilon}_{\mathrm{eq}}$：标量偏应变率指标。
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{第 3 步：总应力与不变量}
+  \figurewithnotes{figures/handbook_steps/step3_total_stresses_invariants.png}{%
+    \item 总应力包含静态预应力与动态脉冲两部分贡献。
+    \item 导出的 $p$、$q$、$\theta$ 时程是从装置加载通往破坏分析的桥梁。
+  }
+\end{frame}
+
+\begin{frame}{第 3 步：p-q 轨迹}
+  \figurewithnotes{figures/handbook_steps/step3_pq_trajectory.png}{%
+    \item 轨迹显示加载主要是围压增加、剪切增加，还是两者兼有。
+    \item 峰值 $q$ 是将应力路径与破坏包络比较的关键点。
+  }
+\end{frame}
+
+\begin{frame}{第 3 步：破坏面对比}
+  \figurewithnotes{figures/handbook_steps/step3_failure_surface_comparison.png}{%
+    \item 路径以 $q_f(p,\theta)$ 为判据，而非单一单轴强度值。
+    \item 罗德角修正改变了相同平均应力下允许的偏应力。
+  }
+\end{frame}
+
+\begin{frame}{第 3 步：破坏指数与应变率}
+  \figurewithnotes{figures/handbook_steps/step3_failure_index_strain_rate.png}{%
+    \item 只有当 $F=q/q_f$ 超过 1 时才允许损伤增长。
+    \item 应变率时程控制第 4 步中超应力转化为损伤的速度。
+  }
+\end{frame}
+
+\section{损伤模型结果与验证}
+
+\begin{frame}{第 4 步方程：损伤演化}
+  \scriptsize
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{alertblock}{损伤触发}
+        只有当应力状态越出破坏包络时损伤才增长：
+        \[
+          F(t)=\frac{q(t)}{q_f(t)}>1,\qquad
+          \langle x\rangle=\max(x,0).
+        \]
+      \end{alertblock}
+      \begin{block}{符号说明}
+        \begin{itemize}
+          \item $F=q/q_f$：来自第 3 步的需求/承载比。
+          \item $q$：当前偏应力；$q_f$：破坏包络值。
+          \item $\langle x\rangle$：麦考利括号，负超应力对应零损伤增长。
+          \item $D$：标量损伤变量，从完好（$0$）到破坏（$1$）。
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \begin{exampleblock}{率敏感定律}
+        \[
+          \dot{D}=\frac{(1-D)^\alpha}{\tau_D}
+          \,R_F\,R_{\dot{\varepsilon}},
+        \]
+        \[
+          R_F=\left\langle\frac{F-1}{F_0}\right\rangle^m,
+          \qquad
+          R_{\dot{\varepsilon}}=
+          \left(\frac{|\dot{\varepsilon}_{\mathrm{eq}}|}
+          {\dot{\varepsilon}_0}\right)^\beta .
+        \]
+        \[
+          E(D)=E_0(1-D),\qquad
+          c_p(D)=c_{p0}\sqrt{\max(1-D,0)}.
+        \]
+      \end{exampleblock}
+      \begin{block}{符号说明}
+        \begin{itemize}
+          \item $\tau_D$：损伤时间尺度；$\alpha$：饱和指数。
+          \item $F_0,m$：超应力归一化与指数。
+          \item $\dot{\varepsilon}_0,\beta$：参考率与率敏感性。
+          \item $E(D),c_p(D)$：退化后的刚度与 P 波速度。
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{第 4 步：损伤触发}
+  \figurewithnotes{figures/handbook_steps/step4_damage_trigger.png}{%
+    \item $F=1$ 处的水平线是损伤演化的起始阈值。
+    \item 控制累积损伤的是高于阈值的持续时间，而不仅是峰值。
+  }
+\end{frame}
+
+\begin{frame}{第 4 步：累积损伤}
+  \figurewithnotes{figures/handbook_steps/step4_cumulative_damage.png}{%
+    \item 损伤在超应力窗口内增长，随后随刚度损失而饱和。
+    \item 最终值提供验证描述量所用的标量损伤状态。
+  }
+\end{frame}
+
+\begin{frame}{第 4 步：模式 2、3、6 损伤模型对比}
+  \figurewithnotes{figures/handbook_steps/step4_mode236_damage_model_comparison.png}{%
+    \item 在相同预应力与脉冲尺度下，模式 2 与 3 均超过 $F=1$ 并使标量剪切损伤定律饱和。
+    \item 模式 3 的峰值破坏指数低于模式 2，因为侧向动态响应降低了偏应力对比。
+    \item 模式 6 保持在偏应力触发阈值以下；需用帽盖、压实或孔隙塌缩描述量来验证其损伤状态。
+  }
+\end{frame}
+
+\begin{frame}{第 4 步：受控损伤描述量}
+  \tiny
+  \begin{tabular}{@{}p{0.08\textwidth}p{0.24\textwidth}p{0.13\textwidth}p{0.12\textwidth}p{0.12\textwidth}p{0.12\textwidth}@{}}
+    \toprule
+    \textbf{模式} & \textbf{损伤驱动} & \textbf{起始时间} & \textbf{最终 $D_f$} & \textbf{$D_c$} & \textbf{$S_x$} \\
+    \midrule
+    2 & 轴向偏应力超应力 & 3.5 $\mu$s & 1.00 & 0.29 & 0.40 \\
+    3 & 偏应力超应力加侧向响应 & 3.5 $\mu$s & 1.00 & 0.38 & 0.78 \\
+    6 & 静水/帽盖响应；剪切触发未激活 & -- & 0.00 & 0.00 & 1.00 \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.25cm}
+  \begin{block}{解读}
+    同一第 4 步标量定律适用于模式 2--3 的剪切破坏对比。
+    模式 6 需要额外的体积帽盖损伤度量，
+    因为高 $p$ 低 $q$ 可在不越出偏应力包络的情况下
+    压碎孔隙或压实颗粒。
+  \end{block}
+\end{frame}
+
+\begin{frame}{第 4 步：刚度与波速损失}
+  \figurewithnotes{figures/handbook_steps/step4_stiffness_wave_speed.png}{%
+    \item $E(D)$ 与 $c_p(D)$ 将标量损伤转换为可测量的刚度与波速退化。
+    \item 这些曲线适用于将模拟损伤与超声或试验后测量结果对比。
+  }
+\end{frame}
+
+\begin{frame}{第 4 步：损伤分布描述量}
+  \figurewithnotes{figures/handbook_steps/step4_damage_profile.png}{%
+    \item 分布将中心损伤与端部效应、边界伪影区分开来。
+    \item 对称性指标有助于判断异步加载是否使破坏区产生偏置。
+  }
+\end{frame}
+
+\begin{frame}{第 4 步方程：能量与验证描述量}
+  \scriptsize
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.52\textwidth}
+      \begin{block}{能量密度}
+        \[
+          \begin{aligned}
+          W_{\mathrm{el}} &=
+          \frac{1}{2E}\Big[
+          \sigma_x^2+\sigma_y^2+\sigma_z^2 \\
+          &\quad -2\nu(\sigma_x\sigma_y+\sigma_y\sigma_z+\sigma_z\sigma_x)
+          \Big],\\
+          W_{\mathrm{input}}(t)&=
+          \int_0^t
+          \left(\sigma_x\dot{\varepsilon}_x+
+          \sigma_y\dot{\varepsilon}_y+
+          \sigma_z\dot{\varepsilon}_z\right)d\tau .
+          \end{aligned}
+        \]
+      \end{block}
+      \begin{block}{符号说明}
+        \begin{itemize}
+          \item $W_{\mathrm{el}}$：可恢复弹性能量密度。
+          \item $W_{\mathrm{input}}$：累积机械功密度。
+          \item $\sigma_i\dot{\varepsilon}_i$：第 $i$ 轴的功率密度贡献。
+          \item 当应力为 MPa、应变无量纲时，单位为 MJ\,m$^{-3}$。
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{exampleblock}{损伤描述量}
+        \[
+          D_c=\frac{\int_{\mathrm{centre}}D(x)\,dx}
+          {\int_0^{L_s}D(x)\,dx},
+        \]
+        \[
+          S_x=1-
+          \frac{|D_{\mathrm{left}}-D_{\mathrm{right}}|}
+          {D_{\mathrm{left}}+D_{\mathrm{right}}}.
+        \]
+      \end{exampleblock}
+      \begin{block}{符号说明}
+        \begin{itemize}
+          \item $D(x)$：沿试样长度的估计损伤分布。
+          \item $D_c$：中心区域占总损伤的比例。
+          \item $D_{\mathrm{left}},D_{\mathrm{right}}$：每一半的积分损伤。
+          \item $S_x=1$ 表示左右损伤对称；越小表示定位偏置越强。
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{第 4 步：能量密度时程}
+  \figurewithnotes{figures/handbook_steps/step4_energy_density_histories.png}{%
+    \item 输入功、可恢复能量与耗散能量应与损伤定律一致地演化。
+    \item 较大的耗散比例表明是不可逆开裂或压实，而非弹性储能。
+  }
+\end{frame}
+
+\begin{frame}{第 4 步：功率密度}
+  \figurewithnotes{figures/handbook_steps/step4_power_density.png}{%
+    \item 功率密度标识出机械功注入最快的短时间窗口。
+    \item 将峰值与损伤起始时间对比，以检查破坏是否由率主导。
+  }
+\end{frame}
+
+\begin{frame}{第 4 步：验证描述量}
+  \figurewithnotes{figures/handbook_steps/step4_validation_descriptors.png}{%
+    \item 描述量将空间损伤场压缩为中心集中度与左右对称性。
+    \item 它们用于与 DEM 裂纹图或回收试样观测结果对比。
+  }
+\end{frame}
+
+\begin{frame}{第 4 步：延时敏感性指标}
+  \figurewithnotes{figures/handbook_steps/step4_delay_sensitivity_indicators.png}{%
+    \item 延时敏感性将第 2 步时序与最终损伤模式及能量耗散关联起来。
+    \item 用它来决定多轴试验应当同步还是有意错开。
+  }
+\end{frame}
+
+\begin{frame}{第 4 步：六模式损伤模型结果}
+  \figurewithnotes{figures/handbook_steps/step4_six_mode_damage_model_comparison.png}{%
+    \item 在受控算例下，模式 1--5 激活偏应力剪切损伤定律。
+    \item 模式 5 与模式 4、6 使用相同电磁幅值与持续时间，但延时的 Y/Z 脉冲显示路径相关性。
+    \item 模式 6 近乎静水，剪切损伤触发保持未激活，需要帽盖/压实描述量。
+  }
+\end{frame}
+
+\begin{frame}{第 4 步：六模式损伤描述量}
+  \tiny
+  \begin{tabular}{@{}p{0.08\textwidth}p{0.34\textwidth}p{0.11\textwidth}p{0.11\textwidth}p{0.09\textwidth}p{0.09\textwidth}@{}}
+    \toprule
+    \textbf{模式} & \textbf{受控实验输入} & \textbf{峰值 $F$} & \textbf{起始} & \textbf{$D_f$} & \textbf{$D_c$} \\
+    \midrule
+    1 & $V=20$ m\,s$^{-1}$；无静态预应力 & 2.97 & 9.0 $\mu$s & 1.00 & 0.21 \\
+    2 & $V=20$ m\,s$^{-1}$；$30/20/20$ MPa & 5.45 & 6.0 $\mu$s & 1.00 & 0.29 \\
+    3 & $V=20$ m\,s$^{-1}$；$30/20/15$ MPa & 5.52 & 6.0 $\mu$s & 1.00 & 0.38 \\
+    4 & 电磁 X；$A=400$ MPa，$\tau=200~\mu$s；$30/20/15$ MPa & 4.59 & 10.0 $\mu$s & 1.00 & 0.25 \\
+    5 & 电磁 XYZ；相同 $A,\tau$；Y/Z 延时 $80/160~\mu$s & 5.39 & 10.0 $\mu$s & 1.00 & 0.37 \\
+    6 & 电磁 $\pm$XYZ；每对向杆相同 $A,\tau$ & 0.00 & -- & 0.00 & 0.00 \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.22cm}
+  \begin{block}{核心信息}
+    六种模式采用可比的材料输入，但并不产生相同的破坏机制：
+    模式 1--5 驱动剪切破坏，而模式 6 需要体积压实验证。
+  \end{block}
+\end{frame}
+
+\begin{frame}{输出将模型与实验相连}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{可导出数据}
+        \begin{itemize}
+          \item 应力--应变时程
+          \item 应变率时程
+          \item 入射/反射/透射能量
+          \item 第 2--4 步 CSV/XLSX 汇总
+        \end{itemize}
+      \end{exampleblock}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{验证目标}
+        \begin{itemize}
+          \item 杆应变片幅值与延时
+          \item DIC 应变定位
+          \item CT 损伤体积与裂纹取向
+          \item DEM 接触键断裂与耗散能量
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ###################################################################
+\section{结语：实验室能够展示什么}
+% ###################################################################
+
+\begin{frame}{这份重组后的演示文稿现在展示了什么}
+  \begin{itemize}
+    \item 在介绍改进型装置模式之前先引入经典 SHPB 理论。
+    \item 模式 2 作为传统围压腔扩展呈现。
+    \item 模式 3 作为真三轴、原位地应力扩展呈现。
+    \item 模式 4--6 归为电磁加载，用于受控的幅值、
+          持续时间、时序与对称性研究。
+    \item 对比与损伤结果使用相同的岩样基础，
+          并围绕 $\dot{\varepsilon}_{\mathrm{ref}}=10^{-5}\ \mathrm{s}^{-1}$
+          进行统一标定。
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{在教学与研究中的推荐用法}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \textbf{教学顺序}
+      \begin{enumerate}
+        \item 从模式 1 的波形还原开始
+        \item 通过模式 2--3 加入围压
+        \item 进入模式 4--6 的电磁脉冲控制
+        \item 以第 2--4 步损伤验证收尾
+      \end{enumerate}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{研究顺序}
+      \begin{enumerate}
+        \item 依据应力路径问题选择模式
+        \item 检查杆塑性与应力平衡
+        \item 导出还原后的时程
+        \item 标定损伤与 DEM 描述量
+      \end{enumerate}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{结语}
+  \begin{center}
+    \Large 岩石动态测试因此成为一个应力路径问题。\\[6pt]
+    \normalsize 这六种模式将单轴强度、原位地应力、
+    类爆炸脉冲、地震时序与开挖扰动，
+    转化为可比较的实验室证据。
+  \end{center}
+\end{frame}
+
+\end{document}
