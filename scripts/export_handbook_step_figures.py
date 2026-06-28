@@ -232,11 +232,17 @@ def compute_case():
     E_D = E_GPa * (1.0 - D)
     cp_D = cp0 * np.sqrt(np.maximum(1.0 - D, 0.0))
 
-    # --- Orthotropic (diagonal) damage tensor, tension-driven per axis ---
+    # --- Orthotropic (diagonal) damage tensor: a DOMINANT directional-tensile
+    # driver per axis plus a SMALL isotropic shear/compaction driver from the
+    # deviatoric failure index F=q/qf (wing-crack, shear-microcrack and
+    # grain-crushing damage under net compression), so axial damage is small but
+    # nonzero rather than exactly zero. ---
     eps_t0 = max(sigma_t_MPa, 1e-6) / E_MPa
-    Fx = np.maximum(-el_x, 0.0) / eps_t0
-    Fy = np.maximum(-el_y, 0.0) / eps_t0
-    Fz = np.maximum(-el_z, 0.0) / eps_t0
+    F_s0, kappa_s = 0.5, 1.0
+    F_shear = np.maximum((F_index - F_s0) / (1.0 - F_s0), 0.0)
+    Fx = np.maximum(-el_x, 0.0) / eps_t0 + kappa_s * F_shear
+    Fy = np.maximum(-el_y, 0.0) / eps_t0 + kappa_s * F_shear
+    Fz = np.maximum(-el_z, 0.0) / eps_t0 + kappa_s * F_shear
     Dx = np.zeros_like(t); Dy = np.zeros_like(t); Dz = np.zeros_like(t)
     for i in range(1, len(t)):
         dti = t[i] - t[i - 1]
@@ -473,7 +479,7 @@ def plot_step4_damage(data):
     ax.set_xlabel(r"Time, $t$ ($\mu$s)")
     ax.set_ylabel(r"Damage-tensor component, $D_i$")
     ax.legend(loc="upper left", ncol=2)
-    save_panel(fig, ax, "step4_orthotropic_damage.png", "Orthotropic damage tensor (tension-driven)")
+    save_panel(fig, ax, "step4_orthotropic_damage.png", "Orthotropic damage tensor (tensile + shear/compaction)")
 
     # NEW (V6): directional stiffness degradation
     fig, ax = plt.subplots(figsize=(8.6, 4.7), dpi=240)

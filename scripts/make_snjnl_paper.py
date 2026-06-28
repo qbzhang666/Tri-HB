@@ -50,8 +50,8 @@ PREAMBLE = r"""%% Springer Nature (sn-jnl) version for Rock Mechanics and Rock E
 
 \begin{document}
 
-\title[Monash True-Triaxial Hopkinson Bar and Digital Twin]{Development of the
-Monash True-Triaxial Hopkinson Bar System and an Integrated Digital Twin for
+\title[Monash True-Triaxial Hopkinson Bar and Computational Workspace]{Development of the
+Monash True-Triaxial Hopkinson Bar System and an Integrated Computational Workspace for
 Multiaxial Dynamic Rock Characterisation}
 
 \author*[1]{\fnm{Qianbing} \sur{Zhang}}\email{qianbing.zhang@monash.edu}
@@ -80,7 +80,7 @@ TAIL = r"""
 part of the Tri-HB repository. All figures in this paper are produced from
 prescribed-pulse reference cases by the workspace's own analysis pipeline; no
 experimental data were used.\\[2pt]
-\textbf{Author contributions.} Q.B.Z. conceived the system and the digital-twin
+\textbf{Author contributions.} Q.B.Z. conceived the system and the workspace
 framework, implemented the analysis pipeline, and wrote the manuscript.
 
 \bibliography{refs}

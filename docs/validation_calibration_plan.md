@@ -1,7 +1,7 @@
-# Tri-HB Digital Twin — Validation & Calibration Plan
+# Tri-HB Computational Workspace — Validation & Calibration Plan
 
 **Purpose.** Turn the Virtual Tri-HB integrated app from a phenomenological
-teaching/design tool into a *validated* digital twin suitable for a Q1
+teaching/design tool into a *validated* computational workspace suitable for a Q1
 publication, by (i) calibrating every adjustable model parameter against
 measured data and (ii) validating the calibrated model against **independent**
 data it never saw during fitting.
@@ -60,6 +60,22 @@ and sets quantitative acceptance criteria.
 | `A_fail`, `B_fail`, `n_fail`, `lode_amp` | Step-3 failure surface q_f(p,θ) | 4 |
 | `tau_D`, `alpha_sat`, `m_over`, `beta_rate`, `F0`, `epsdot0` | Step-4 damage kinetics | 5 |
 | cap factor (currently `p_cap = 4·σ_c0`) | hydrostatic cap | 6 (Mode 6) |
+
+> **Pre-stress dependence — do not treat the specimen elastic parameters as
+> single constants.** The *bar* properties (`bar_E`, `bar_C0`, `bar_area`) are
+> pre-stress-independent to within a sub-percent acoustoelastic shift
+> (`ΔC0/C0 ≈ (β/E_b)·σ_s ≲ 0.3%`), so the bar-based three-wave reduction is robust
+> at every confinement. The *specimen* parameters are not: confinement closes
+> microcracks, so `E_s = E_s(p)` and `c_p = c_p(p)` can change by tens of percent
+> over the first tens of MPa. They must therefore be **calibrated at each
+> pre-stress level** (or fitted with a pressure-dependent modulus law), because
+> every specimen-property-based output — the equilibrium window
+> `t_eq ∝ L_s/c_p`, the Δt* regime map, and the energy partition — inherits this
+> dependence. Under true-triaxial pre-stress the closure is directional, so the
+> stiffness becomes an anisotropic, stress-dependent tensor with
+> `c_p,x ≠ c_p,y ≠ c_p,z` (stress-induced anisotropy); the three orthogonal bars
+> can measure the directional `c_p,i` and `E_i` to calibrate it. See the paper
+> §"Validity of the three-wave method under static pre-stress".
 
 ### 1c. Validated (predicted, then compared — never fitted)
 
@@ -233,7 +249,7 @@ is exactly the independent-prediction argument a Q1 reviewer wants.
 - Either real damage-field validation, or explicit scoping-out of the synthetic
   descriptors.
 
-Meeting these makes the digital-twin (Route A) or software/methods (Route B)
+Meeting these makes the workspace (Route A) or software/methods (Route B)
 paper defensible at Q1.
 
 ---
@@ -303,7 +319,7 @@ objections and make the calibration targets (ρ_t/ρ_c, b_env) measurable.
 None of 10.3 is publishable as *modelling* without experimental calibration and
 **blind** prediction (§§3–4, 8). The single highest-leverage step remains:
 calibrate on a subset of Monash Tri-HB tests, then blind-predict a held-out
-loading path / rate. Until then the app is a phenomenological digital twin and
+loading path / rate. Until then the app is a phenomenological computational workspace and
 design tool (legitimate, but a methods/instrument contribution — Route B below).
 
 ### 10.5 Calibrate-then-blind-predict protocol for the new envelope features
@@ -336,7 +352,7 @@ kinetics?).
 | Route | What it is | Publishable now? | Gate |
 |---|---|---|---|
 | **A — Experimental** (strongest) | Monash Tri-HB tests on true-triaxial loading-path effects, this app as the reduction/interpretation framework | **Yes**, once tests exist | run §8 matrix |
-| **B — Methods / instrument + digital twin** | the rig + integrated digital workflow (reduction → wave → stress path → damage → report) | **Likely** | Stage-0 + a few validation shots |
+| **B — Methods / instrument + computational workspace** | the rig + integrated digital workflow (reduction → wave → stress path → damage → report) | **Likely** | Stage-0 + a few validation shots |
 | **C — Validated model** | the coupled Lode + rate-dependent damage model, blind-validated | **Eventually** | calibrate + blind-predict (§10.5) |
 
 **Bottom line.** The standard pedigree of the damage law stops being a weakness

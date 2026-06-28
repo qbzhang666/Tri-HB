@@ -315,7 +315,7 @@ pulse arrives. This is what distinguishes the Tri-HB from a classical
 uniaxial SHPB. In the Step~1 sidebar, three sliders set the static pre-stress:
 $\sig_1$ on the X axis (the loading direction), $\sig_2$ on Y, and $\sig_3$ on
 Z. The default slider range is \SIrange{0}{50}{MPa} per axis; this is the value
-calibrated against the hydraulic loading frame currently in the digital twin
+calibrated against the hydraulic loading frame currently in the computational workspace
 and is the same upper bound for all four modes.
 
 The static and dynamic contributions superpose linearly to give the total
@@ -500,7 +500,7 @@ because there is only one bar carrying force on each lateral face, not two
         \SI{50}{m/s}, $\sigpeak \approx \SI{1020}{MPa}$ already exceeds
         $\sigprop$ -- the striker cannot be fired at full velocity without
         bar yielding. Practical maximum is $V \approx \SI{40}{m/s}$.
-  \item Static pre-stress range (current digital twin):
+  \item Static pre-stress range (current computational workspace):
         $0 \leq \sig_1, \sig_2, \sig_3 \leq \SI{50}{MPa}$ per axis.
   \item Strain rate range: $\epsdot \approx \SIrange{50}{500}{s^{-1}}$.
 \end{itemize}
@@ -527,7 +527,7 @@ identical to Mode~1.
         contact with cubic specimens. Bar geometry is editable in the Step~1
         sidebar (square or round, with user diameter).
   \item \textbf{Pre-stress}: servo-controlled hydraulic cylinders apply
-        $\sig_1$, $\sig_2$, $\sig_3$ independently. The current digital twin
+        $\sig_1$, $\sig_2$, $\sig_3$ independently. The current computational workspace
         uses the same \SI{50}{MPa} slider range as Mode~1; raise the slider
         cap in code if your physical facility supports a larger envelope.
 \end{itemize}
@@ -1035,7 +1035,7 @@ Best for & UCS, basic SHPB & Clean rate-dependence & Path-dependent failure & Ca
 \end{center}
 
 \noindent\textit{Note on slider range:} the \SI{50}{MPa} pre-stress cap reflects
-the current digital twin's calibration. The slider maximum is set in one place
+the current computational workspace's calibration. The slider maximum is set in one place
 (\texttt{max\_conf} in the simulator file) and can be raised if a physical bench
 upgrade supports a larger envelope.
 

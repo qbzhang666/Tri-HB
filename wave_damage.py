@@ -611,6 +611,10 @@ with st.sidebar:
     lode_ratio = 0.70             # rho_t/rho_c for 'lode'/'willam' (~0.6-0.8 for rock)
     env_dif_mode = "None"         # 'None' | 'Cohesion (A)' | 'Full (A and B)'
     b_env = 0.03                  # DIF slope for the rate-dependent envelope
+    # Failure criterion. Default is the Lode envelope q_f=(A+Bpⁿ)h(θ); Advanced
+    # mode can switch to a calibrated true-triaxial criterion (Mogi-Coulomb or
+    # modified Lade) derived from the same UCS and confinement ratio.
+    failure_criterion = "Lode envelope (q/q_f)"
 
     # Damage law defaults; guided presets can change these.
     tau_D_us = 30.0
@@ -625,6 +629,18 @@ with st.sidebar:
     # tension-driven anisotropy of blasting-induced fracturing. Advanced only.
     damage_model = "Isotropic"        # 'Isotropic' | 'Orthotropic'
     sigma_t_MPa = max(default_UCS_MPa / 12.0, 1.0)   # tensile strength for the onset strain
+
+    # Cyclic (repeated) dynamic loading -> cumulative damage to failure. n_cycles=1
+    # is the single-pulse default (current behaviour); >1 enables the dynamic-fatigue
+    # cycle map (Advanced). c_degrade=strength-degradation exponent, F_endurance=
+    # fatigue threshold, D_crit_cyc=failure damage.
+    n_cycles = 1
+    c_degrade = 2.5          # sharp threshold: high dynamic levels fail within ~10 impacts
+    ell_mm = 5.0             # internal length for gradient damage / phase-field (mm)
+    chi_f = 0.05             # fraction of W_diss attributed to fracture surface creation
+    show_spatial = False     # show spatial damage (Level 3 & 4) section
+    F_endurance = 0.6
+    D_crit_cyc = 0.95
 
     if control_level == "Guided":
         st.divider()
@@ -772,28 +788,45 @@ with st.sidebar:
                 A_fail = st.number_input("A in qf = (A+Bpⁿ)h(θ) (MPa)", value=A_fail, min_value=0.0, step=1.0)
                 B_fail = st.number_input("B in qf", value=B_fail, min_value=0.0, step=0.1)
                 n_fail = st.number_input("n in qf", value=n_fail, min_value=0.1, step=0.05)
-            st.markdown("**True-triaxial (σ₂) & rate options**")
-            lode_choice = st.selectbox(
-                "Deviatoric (Lode) shape",
-                ["Lode, extension-weakened (ρt/ρc)",
-                 "Willam–Warnke convex (ρt/ρc)",
-                 "Legacy cap (1+aθ(1−cos3θ))"],
-                index=0,
-                help="Default (Lode) and Willam–Warnke make extension WEAKER than "
-                     "compression (physically correct for rock) and capture the "
-                     "intermediate principal stress (σ₂) effect through the Lode "
-                     "angle θ. Legacy is the historical shape (raises extension) and "
-                     "is kept only for backward comparison.",
+            st.markdown("**True-triaxial (σ₂) criterion & rate options**")
+            failure_criterion = st.selectbox(
+                "Failure criterion",
+                ["Lode envelope (q/q_f)", "Mogi-Coulomb", "Modified Lade"],
+                help="Lode envelope: q_f=(A+Bpⁿ)h(θ) with the deviatoric shape "
+                     "below. Mogi-Coulomb (τ_oct = a + b·(σ₁+σ₃)/2) and modified "
+                     "Lade (I₁³/I₃ = 27+η) are calibrated true-triaxial criteria "
+                     "derived from the same UCS and k_conf; they set their own σ₂ "
+                     "dependence, so the deviatoric-shape control below is inactive "
+                     "for them.",
             )
-            if lode_choice.startswith("Legacy"):
-                lode_mode = "legacy"
-                lode_amp = st.number_input("Lode-angle amplitude, aθ", value=lode_amp, min_value=0.0, step=0.02)
+            if failure_criterion == "Lode envelope (q/q_f)":
+                lode_choice = st.selectbox(
+                    "Deviatoric (Lode) shape",
+                    ["Lode, extension-weakened (ρt/ρc)",
+                     "Willam–Warnke convex (ρt/ρc)",
+                     "Legacy cap (1+aθ(1−cos3θ))"],
+                    index=0,
+                    help="Default (Lode) and Willam–Warnke make extension WEAKER than "
+                         "compression (physically correct for rock) and capture the "
+                         "intermediate principal stress (σ₂) effect through the Lode "
+                         "angle θ. Legacy is the historical shape (raises extension) and "
+                         "is kept only for backward comparison.",
+                )
+                if lode_choice.startswith("Legacy"):
+                    lode_mode = "legacy"
+                    lode_amp = st.number_input("Lode-angle amplitude, aθ", value=lode_amp, min_value=0.0, step=0.02)
+                else:
+                    lode_mode = "willam" if lode_choice.startswith("Willam") else "lode"
+                    lode_ratio = st.number_input(
+                        "Extension/compression meridian ratio, ρt/ρc",
+                        value=lode_ratio, min_value=0.50, max_value=1.0, step=0.01,
+                        help="≈0.6–0.8 for rock; 1.0 = no intermediate-stress effect (von Mises circle).",
+                    )
             else:
-                lode_mode = "willam" if lode_choice.startswith("Willam") else "lode"
-                lode_ratio = st.number_input(
-                    "Extension/compression meridian ratio, ρt/ρc",
-                    value=lode_ratio, min_value=0.50, max_value=1.0, step=0.01,
-                    help="≈0.6–0.8 for rock; 1.0 = no intermediate-stress effect (von Mises circle).",
+                st.caption(
+                    f"{failure_criterion} is calibrated from UCS={default_UCS_MPa:.0f}~MPa "
+                    f"and k_conf={default_k_conf:.1f}; it sets its own intermediate-stress "
+                    f"dependence, and the Lode-shape control is inactive."
                 )
             env_dif_mode = st.selectbox(
                 "Envelope rate dependence (DIF on q_f)",
@@ -835,6 +868,56 @@ with st.sidebar:
             F0 = st.number_input("Failure-index normalisation, F0", value=F0, min_value=0.1, step=0.1)
             damage_threshold = st.slider("Damage threshold", 0.01, 0.9, damage_threshold, step=0.01)
             central_width = st.slider("Central region fraction", 0.1, 0.8, central_width, step=0.05)
+
+            st.markdown("**Cyclic / repeated dynamic loading (dynamic fatigue)**")
+            n_cycles = st.number_input(
+                "Dynamic impacts N (1 = single pulse)", value=int(n_cycles),
+                min_value=1, max_value=200, step=1,
+                help="Re-apply the SAME dynamic pulse on the fixed in-situ pre-stress "
+                     "N times; damage carries over and degrades the strength until the "
+                     "rock fails. At realistic (high) dynamic levels the rock fails "
+                     "within ~10 impacts via a sudden damage threshold, so N rarely "
+                     "needs to exceed ~10-15. Uses the SELECTED failure criterion for "
+                     "the per-cycle index F = q/q_f.",
+            )
+            if n_cycles > 1:
+                c_degrade = st.slider(
+                    "Strength-degradation exponent c_d   (q_f → q_f0(1−D)^{c_d})",
+                    0.0, 3.0, float(c_degrade), step=0.1,
+                    help="c_d<1: shakedown (no failure); c_d=1: Miner-like linear "
+                         "accumulation; c_d>1: accelerating progressive failure with a "
+                         "sudden damage threshold (c_d≈2.5 fails within ~10 impacts).",
+                )
+                F_endurance = st.slider(
+                    "Fatigue / endurance threshold F_th", 0.0, 1.0, float(F_endurance), step=0.05,
+                    help="No damage accrues per cycle below F_th (the dynamic endurance "
+                         "limit). F_th = 1 recovers the monotonic-only case.",
+                )
+                D_crit_cyc = st.slider("Failure damage, D_crit", 0.5, 1.0, float(D_crit_cyc), step=0.01)
+
+            st.markdown("**Spatial damage — Level 3 (gradient) & Level 4 (phase-field)**")
+            show_spatial = st.checkbox(
+                "Show gradient & phase-field spatial damage",
+                value=show_spatial,
+                help="Level 3: regularise D(x) with the Helmholtz BVP D − ℓ²∇²D = D_local "
+                     "(ℓ from CT crack spacing). "
+                     "Level 4: phase-field φ(x) with Griffith energy G_c from dissipation + CT area.",
+            )
+            if show_spatial:
+                ell_mm = st.slider(
+                    "Internal length ℓ (mm)   [CT: ℓ ≈ δ_crack / √2]",
+                    1.0, 20.0, float(ell_mm), step=0.5,
+                    help="Sets the gradient-damage process zone width ≈ 2√2·ℓ and "
+                         "the phase-field crack band width = 2ℓ. Calibrated from CT "
+                         "crack spacing measured after each Tri-HB impact.",
+                )
+                chi_f = st.slider(
+                    "Fracture fraction χ_f   (for G_c estimate)",
+                    0.01, 0.20, float(chi_f), step=0.01,
+                    help="Fraction of W_diss attributed to fracture surface energy. "
+                         "The rest is micro-crack friction and heat. "
+                         "Refine from K_Ic: G_c = K_Ic²/E₀ ≈ 50–200 J/m² for granite.",
+                )
 
 # Make sure runtime variables exist in all branches.
 tmax_us = float(locals().get("tmax_us", max(default_tmax_us, td_us * 1.3, delay_us + td_us * 1.15, delay_z_us + td_us * 1.15)))
@@ -963,9 +1046,43 @@ else:
     dif_env = np.ones_like(t)
 A_eff = A_fail * dif_env
 B_eff = B_fail * (dif_env if env_dif_mode == "Full (A and B)" else np.ones_like(t))
-qf = (A_eff + B_eff * np.maximum(p, 0.0) ** n_fail) * h_theta
+
+# Failure index F = q/q_f. Default: the Lode envelope above. Advanced mode can
+# instead select a calibrated true-triaxial criterion (Mogi-Coulomb or modified
+# Lade), derived from the SAME unconfined strength and confinement ratio so the
+# three are directly comparable. Each yields F (crossing 1 at failure); an
+# effective q_f = q/F is reported so the existing plots/exports stay consistent.
+qf_lode = (A_eff + B_eff * np.maximum(p, 0.0) ** n_fail) * h_theta
+if failure_criterion == "Mogi-Coulomb":
+    # tau_oct = a + b*(sigma1+sigma3)/2, with a,b from the Coulomb c,phi implied
+    # by UCS and k_conf (reduces to sigma1 = UCS at sigma3 = 0).
+    _sphi = min(max((default_k_conf - 1.0) / (default_k_conf + 1.0), 0.0), 0.999)
+    a_mc = (np.sqrt(2.0) / 3.0) * default_UCS_MPa * (1.0 - _sphi)
+    b_mc = (2.0 * np.sqrt(2.0) / 3.0) * _sphi
+    a_eff_mc = a_mc * dif_env
+    b_eff_mc = b_mc * (dif_env if env_dif_mode == "Full (A and B)" else np.ones_like(t))
+    sigma_m2 = 0.5 * (np.maximum.reduce([sx, sy, sz]) + np.minimum.reduce([sx, sy, sz]))
+    tau_oct = (np.sqrt(2.0) / 3.0) * q
+    strength_mc = np.maximum(a_eff_mc + b_eff_mc * sigma_m2, 1e-9)
+    F_index = tau_oct / strength_mc
+    qf = (3.0 / np.sqrt(2.0)) * strength_mc          # failure q at the current sigma_m2
+elif failure_criterion == "Modified Lade":
+    # (I1''^3 / I3'') = 27 + eta, with translated stresses sigma+S (Ewy 1999).
+    _sphi = min(max((default_k_conf - 1.0) / (default_k_conf + 1.0), 1e-3), 0.999)
+    _cphi = np.sqrt(1.0 - _sphi ** 2)
+    _tphi = _sphi / _cphi
+    _c = default_UCS_MPa * (1.0 - _sphi) / (2.0 * _cphi)
+    eta_lade = 4.0 * _tphi ** 2 * (9.0 - 7.0 * _sphi) / (1.0 - _sphi)
+    S_lade = (_c / max(_tphi, 1e-6)) * dif_env
+    I1pp = (sx + sy + sz) + 3.0 * S_lade
+    I3pp = (sx + S_lade) * (sy + S_lade) * (sz + S_lade)
+    g_lade = I1pp ** 3 / np.where(np.abs(I3pp) > 1e-9, I3pp, 1e-9)
+    F_index = np.clip((g_lade - 27.0) / max(eta_lade, 1e-9), 0.0, 1e6)
+    qf = np.where(F_index > 1e-6, q / np.maximum(F_index, 1e-6), qf_lode)
+else:  # "Lode envelope (q/q_f)" -- default, unchanged
+    qf = qf_lode
+    F_index = q / np.maximum(qf, 1e-9)
 qf_safe = np.maximum(qf, 1e-9)
-F_index = q / qf_safe
 
 tau_D = tau_D_us * 1e-6
 Ddot = np.zeros_like(t)
@@ -979,14 +1096,20 @@ el_y = (sy - nu * (sx + sz)) / E_MPa
 el_z = (sz - nu * (sx + sy)) / E_MPa
 
 if damage_model == "Orthotropic":
-    # Diagonal damage tensor: each D_i grows from the directional tensile-strain
-    # index F_i = <-eps_i>+ / eps_t0 via the SAME overstress kinetics (tau_D,
-    # alpha, m, beta, F0). Damage grows only under directional extension (none in
-    # pure compression) -> the tension-driven anisotropy of blasting fracturing.
+    # Diagonal damage tensor: each D_i grows via the SAME overstress kinetics
+    # (tau_D, alpha, m, beta, F0) from a driver F_i with two parts: a DOMINANT
+    # directional-tensile term <-eps_i>+/eps_t0 (opens cracks normal to axis i),
+    # plus a SMALL isotropic shear/compaction term from the deviatoric failure
+    # index F = q/qf above an onset F_s0. The shear term represents wing-crack,
+    # shear-microcrack and grain-crushing damage that occurs even under net
+    # compression, so the axial component is small but NONZERO (D_x << D_y,D_z)
+    # rather than exactly zero (the unphysical limit of a pure-tension model).
     eps_t0 = max(sigma_t_MPa, 1e-6) / E_MPa
-    Fx = np.maximum(-el_x, 0.0) / eps_t0
-    Fy = np.maximum(-el_y, 0.0) / eps_t0
-    Fz = np.maximum(-el_z, 0.0) / eps_t0
+    F_s0, kappa_s = 0.5, 1.0
+    F_shear = np.maximum((F_index - F_s0) / (1.0 - F_s0), 0.0)
+    Fx = np.maximum(-el_x, 0.0) / eps_t0 + kappa_s * F_shear
+    Fy = np.maximum(-el_y, 0.0) / eps_t0 + kappa_s * F_shear
+    Fz = np.maximum(-el_z, 0.0) / eps_t0 + kappa_s * F_shear
     Dx = np.zeros_like(t); Dy = np.zeros_like(t); Dz = np.zeros_like(t)
     for i in range(1, len(t)):
         dt_i = t[i] - t[i - 1]
@@ -1021,13 +1144,43 @@ cp_Dx = cp0 * np.sqrt(np.maximum(1.0 - Dx, 0.0))
 cp_Dy = cp0 * np.sqrt(np.maximum(1.0 - Dy, 0.0))
 cp_Dz = cp0 * np.sqrt(np.maximum(1.0 - Dz, 0.0))
 
+# ---- Cyclic (repeated) dynamic loading: cumulative damage to failure ----
+# Each cycle resets to the in-situ static pre-stress and re-applies the SAME
+# dynamic pulse; damage carries over and degrades the strength q_f(D)=q_f0(1-D)^c_d,
+# so a sub-critical pulse can accumulate to failure over many cycles (dynamic
+# fatigue). Cycle-jump map using F from the SELECTED criterion (F_index = q/q_f):
+#   (1-D)F_k = F_1 (1-D)^{1-c_d};   dD_k = K <(1-D)F_k - F_th>^m (1-D)^alpha,
+# with K fixed so cycle 1 reproduces the single-pulse damage dD_1.
+F1_cyc = float(np.max(F_index)) if F_index.size else 0.0   # first-cycle peak F = q_peak/q_f
+dD1_cyc = float(np.max(D))                                  # single-pulse damage = cycle-1 increment
+D_cycles = np.array([0.0])
+N_fail_cycle = None
+if n_cycles > 1 and F1_cyc > F_endurance and dD1_cyc > 1e-9:
+    base_cyc = max(F1_cyc - F_endurance, 1e-9) ** m_over
+    K_cyc = dD1_cyc / base_cyc                              # so cycle 1 -> single-pulse damage
+    Dc = [0.0]
+    for _k in range(1, int(n_cycles) + 1):
+        Dp = Dc[-1]
+        eff_k = F1_cyc * (1.0 - Dp) ** (1.0 - c_degrade)    # effective driving (1-D)F_k
+        dDk = K_cyc * max(eff_k - F_endurance, 0.0) ** m_over * (1.0 - Dp) ** alpha_sat
+        Dk = min(1.0, Dp + dDk)
+        Dc.append(Dk)
+        if Dk >= D_crit_cyc:
+            N_fail_cycle = _k
+            break
+        if dDk < 1e-10:                                     # shakedown (converged)
+            break
+    D_cycles = np.array(Dc)
+
 # ---- Energy balance (closes by construction: W_input = W_el + W_diss) ----
 # Damage degrades the secant modulus to E(1-D), so the specimen carries the
 # damage-coupled elastic strain. Loading while D grows is not fully recoverable:
 # the input work that cannot be returned on unloading IS the continuum-damage
 # dissipation, so the first law holds exactly. The partition uses the scalar
-# (aggregate, worst-axis) damage D so it stays thermodynamically consistent for
-# any loading; the per-direction tensor D_x/D_y/D_z and the directional stiffness
+# (aggregate, worst-axis) damage D so the partition stays energy-consistent (the
+# dissipation is non-negative and the first law closes) for any loading; full
+# thermodynamic admissibility (a pointwise Clausius-Duhem dissipation inequality)
+# is future work. The per-direction tensor D_x/D_y/D_z and the directional stiffness
 # losses E_i are reported separately. (A full anisotropic energy partition, where
 # each direction dissipates against its own work-conjugate stress, is Stage 2.)
 one_minus_D = np.maximum(1.0 - D, 1e-6)
@@ -1259,15 +1412,17 @@ with st.expander(equation_title, expanded=False):
         st.latex(r"D_i=\operatorname{clip}\!\left[D_{i-1}+\dot D_{i-1}(t_i-t_{i-1}),\,0,\,1\right]")
         st.latex(r"E(D)=E_0(1-D),\qquad c_p(D)=c_{p0}\sqrt{\max(1-D,0)}")
         if damage_model == "Orthotropic":
-            st.markdown("**Orthotropic (diagonal tensor, tension-driven):**")
-            st.latex(r"\dot D_i=\frac{(1-D_i)^\alpha}{\tau_D}\Big\langle\frac{(1-D_i)F_i-1}{F_0}\Big\rangle^m\Big(\frac{|\dot\varepsilon_{eq}|}{\dot\varepsilon_0}\Big)^\beta,\quad F_i=\frac{\langle-\varepsilon_i\rangle_+}{\sigma_t/E_0}\ \ (i=x,y,z)")
+            st.markdown("**Orthotropic (diagonal tensor: dominant tensile + small shear/compaction driver):**")
+            st.latex(r"\dot D_i=\frac{(1-D_i)^\alpha}{\tau_D}\Big\langle\frac{(1-D_i)F_i-1}{F_0}\Big\rangle^m\Big(\frac{|\dot\varepsilon_{eq}|}{\dot\varepsilon_0}\Big)^\beta,\quad F_i=\frac{\langle-\varepsilon_i\rangle_+}{\sigma_t/E_0}+\kappa_s\Big\langle\frac{F-F_{s0}}{1-F_{s0}}\Big\rangle\ \ (i=x,y,z)")
             st.latex(r"E_i=E_0(1-D_i),\quad c_{p,i}=c_{p0}\sqrt{1-D_i},\quad D=\max_i D_i")
             st.caption(
-                "Each direction's damage grows only under its own extensile strain "
-                "⟨−ε_i⟩₊ (no damage in pure compression), so cracks form normal to "
-                "the axes in tension — the anisotropy of blasting-induced fracturing. "
-                "Calibrate each D_i from the per-axis E_i / wave-speed loss the Tri-HB "
-                "measures. Energy is partitioned with the scalar D=max_i D_i (Stage 1)."
+                "Each direction's damage is driven mainly by its own extensile strain "
+                "⟨−ε_i⟩₊ (cracks normal to the axis in tension) plus a small "
+                "shear/compaction term κ_s⟨(F−F_s0)/(1−F_s0)⟩, so the axial component "
+                "is small but nonzero (D_x ≪ D_y, D_z) rather than exactly zero — the "
+                "anisotropy of blasting-induced fracturing. Calibrate each D_i from the "
+                "per-axis E_i / wave-speed loss the Tri-HB measures. Energy is "
+                "partitioned with the scalar D=max_i D_i (Stage 1)."
             )
         st.caption(
             "Damage is driven by the EFFECTIVE failure index (1-D)F, i.e. the stress "
@@ -1624,16 +1779,19 @@ with tab_damage:
         d_notes = (
             "**What it shows.** The diagonal damage-tensor components D_x, D_y, D_z "
             "(0 = intact, 1 = fully cracked normal to that axis).\n\n"
-            "- Each D_i grows from the **directional tensile (extensile) strain**, so "
-            "cracks form perpendicular to the axis in tension — e.g. axial X "
-            "compression drives lateral D_y, D_z (axial splitting) with D_x≈0.\n"
+            "- Each D_i is driven mainly by the **directional tensile (extensile) "
+            "strain** (cracks open normal to the axis in tension), plus a small "
+            "**shear/compaction** term (∝ deviatoric index F=q/q_f) for wing-crack, "
+            "shear-microcrack and grain-crushing damage under net compression.\n"
+            "- So axial X compression drives large lateral D_y, D_z (axial splitting) "
+            "while the axial D_x stays **small but nonzero** (D_x ≪ D_y, D_z).\n"
             "- Confinement on an axis suppresses its extensile strain and its damage "
             "(this is what the Tri-HB pre-stress controls).\n"
             "- Scalar D = max_i D_i (dotted) governs the energy / stiffness summary."
         )
         d_eqs = [
             r"\dot D_i=\frac{(1-D_i)^{\alpha}}{\tau_D}\Big\langle\frac{(1-D_i)F_i-1}{F_0}\Big\rangle^{m}\Big(\frac{|\dot\varepsilon_{\mathrm{eq}}|}{\dot\varepsilon_0}\Big)^{\beta}",
-            r"F_i=\frac{\langle-\varepsilon_i\rangle_+}{\varepsilon_{t0}},\quad \varepsilon_{t0}=\frac{\sigma_t}{E_0}\qquad(i=x,y,z)",
+            r"F_i=\frac{\langle-\varepsilon_i\rangle_+}{\varepsilon_{t0}}+\kappa_s\Big\langle\frac{F-F_{s0}}{1-F_{s0}}\Big\rangle,\quad \varepsilon_{t0}=\frac{\sigma_t}{E_0}\qquad(i=x,y,z)",
         ]
     else:
         ax7.plot(t_us, D, color=PUB_COLORS["blue"], label=r"$D(t)$")
@@ -1696,6 +1854,150 @@ with tab_damage:
     lines2, labels2 = ax8b.get_legend_handles_labels()
     ax8.legend(lines + lines2, labels + labels2)
     show_step_figure(fig8, "tri_hb_step4_stiffness_degradation.png", notes=s_notes, equations=s_eqs)
+
+    if n_cycles > 1:
+        fig9, ax9 = plt.subplots(figsize=(10, 4.1))
+        cyc_idx = np.arange(len(D_cycles))
+        ax9.plot(cyc_idx, D_cycles, color=PUB_COLORS["blue"], lw=2.2, marker="o", ms=3)
+        ax9.axhline(D_crit_cyc, color=PUB_COLORS["vermillion"], ls=":", lw=1.4,
+                    label=f"D_crit = {D_crit_cyc:.2f}")
+        if N_fail_cycle is not None:
+            ax9.scatter([N_fail_cycle], [D_cycles[N_fail_cycle]],
+                        color=PUB_COLORS["vermillion"], s=70, zorder=5)
+            ax9.set_title(f"Cyclic dynamic loading — progressive failure at N_f = {N_fail_cycle} cycles")
+        else:
+            ax9.set_title("Cyclic dynamic loading — shakedown (no failure within N cycles)")
+        ax9.set_xlabel(r"Dynamic cycle number, $N$")
+        ax9.set_ylabel(r"Cumulative damage, $D_N$")
+        ax9.set_ylim(0, 1.02)
+        ax9.grid(True, alpha=0.35); ax9.legend()
+        c_notes = (
+            "**What it shows.** Cumulative damage when the SAME dynamic pulse is "
+            "re-applied on the fixed in-situ pre-stress, cycle after cycle "
+            f"(first-cycle level F₁ = q_peak/q_f = {F1_cyc:.2f} from the selected "
+            "failure criterion).\n\n"
+            "- Damage carries over between cycles and degrades the strength "
+            "q_f(D)=q_f0(1−D)^{c_d}, so a sub-critical pulse can accumulate to failure.\n"
+            "- c_d>1 → a **sudden** progressive failure (the strength-degradation "
+            "feedback gives a sharp threshold; at realistic high levels the rock fails "
+            "within ~10 impacts); c_d<1 or F₁≤F_th → **shakedown**.\n"
+            "- After each cycle, D_N can be measured **independently by CT** (directional "
+            "crack-density tensor → D_i) and by the per-axis wave-speed / modulus loss, "
+            "giving a measured damage-vs-cycle curve to validate this prediction.\n"
+            "- This recursion is the spatially-uniform reduction of a two-scale "
+            "**wave IBVP + gradient-damage BVP** (internal length ℓ, set by the CT "
+            "fracture-band width). The Perzyna law is retained — valid for low-cycle "
+            "(N≲20) dynamic fatigue, where each high-amplitude impact is a real "
+            "overstress excursion."
+        )
+        c_eqs = [
+            r"\rho\,\partial_{tt}u=\partial_x\!\big[E_0(1-D)\,\partial_x u\big]\qquad\text{(intra-impact wave IBVP, fast scale)}",
+            r"\partial_t D=\frac{(1-D)^\alpha}{\tau_D}\Big\langle\frac{(1-D)F-1}{F_0}\Big\rangle^m\Big(\frac{|\dot\varepsilon_{eq}|}{\dot\varepsilon_0}\Big)^\beta,\quad q_f(D)=q_{f,0}(1-D)^{c_d}",
+            r"\frac{\partial D}{\partial N}=\frac{1}{\tau_N}\big\langle(1-D)\,\bar F-F_{th}\big\rangle^m(1-D)^\alpha,\quad \bar D=D-\ell^2\nabla^2 D\qquad\text{(slow BVP, internal length }\ell)",
+            r"\Delta D_k=K\,\big\langle (1-D_{k-1})F_k-F_{\mathrm{th}}\big\rangle^{m}(1-D_{k-1})^{\alpha},\quad F_k=F_1(1-D_{k-1})^{-c_d}\qquad\text{(0-D cycle map)}",
+        ]
+        show_step_figure(fig9, "tri_hb_step4_cyclic_damage.png", notes=c_notes, equations=c_eqs)
+        cc1, cc2, cc3 = st.columns(3)
+        cc1.metric("Cycles to failure N_f", f"{N_fail_cycle}" if N_fail_cycle else "— (shakedown)")
+        cc2.metric("First-cycle level F₁", f"{F1_cyc:.2f}")
+        cc3.metric("Final cumulative D", f"{D_cycles[-1]:.3f}")
+
+    # ── Level 3 & 4: spatial gradient damage + phase-field ───────────────────
+    if show_spatial:
+        from scipy.linalg import solve_banded as _solve_banded
+
+        _L_sp = 50.0           # specimen length (mm) — Tri-HB standard
+        _N_sp = 400
+        _xv = np.linspace(0.0, _L_sp, _N_sp)
+        _h = _xv[1] - _xv[0]
+        _x0 = _L_sp / 2.0
+        # D_local: Gaussian peak at specimen centre using current damage outputs
+        _D_pk = float(np.nanmax([Dy[-1], Dz[-1], D[-1]]))
+        _D_bg = float(max(Dx[-1], 0.05))
+        _D_loc = _D_bg + (_D_pk - _D_bg) * np.exp(-0.5 * ((_xv - _x0) / (_L_sp / 10.0)) ** 2)
+
+        def _grad_solve(D_loc, ell, h, N):
+            if ell < 1e-6:
+                return D_loc.copy()
+            r = (ell / h) ** 2
+            ab = np.zeros((3, N))
+            ab[0, 1:] = -r;  ab[1, :] = 1.0 + 2.0 * r;  ab[2, :-1] = -r
+            ab[1, 0] = 1.0 + r;  ab[1, -1] = 1.0 + r
+            return _solve_banded((1, 1), ab, D_loc)
+
+        _D_reg = _grad_solve(_D_loc, ell_mm, _h, _N_sp)
+        _phi   = np.exp(-np.abs(_xv - _x0) / ell_mm)
+
+        # G_c estimate: chi_f × W_diss × V / A_fracture  (primary fracture plane)
+        _Wdiss_Jm3 = float(W_diss_estimate[-1]) * 1e6   # MJ/m³ → J/m³
+        _V_spec    = (_L_sp * 1e-3) ** 3                # 50 mm cube → m³
+        _A_frac    = (_L_sp * 1e-3) ** 2                # primary fracture plane → m²
+        Gc_est     = chi_f * _Wdiss_Jm3 * _V_spec / _A_frac
+
+        fig_sp, (ax_sL, ax_sR) = plt.subplots(1, 2, figsize=(10.5, 4.2))
+        _BC = {"blue": "#0072B2", "verm": "#D55E00", "grey": "#888888"}
+
+        # Left panel — gradient damage
+        ax_sL.plot(_xv, _D_loc,  color=_BC["grey"], lw=1.2, ls=":", label=r"$D_\mathrm{local}$ (Perzyna)")
+        ax_sL.plot(_xv, _grad_solve(_D_loc, 0, _h, _N_sp), color=_BC["grey"],
+                   lw=1.6, ls="--", label=r"$\ell=0$ (local)")
+        ax_sL.plot(_xv, _D_reg,  color=_BC["blue"],  lw=2.2,
+                   label=fr"$\ell={ell_mm:.1f}$ mm (regularised)")
+        ax_sL.set_xlabel("Position, x (mm)");  ax_sL.set_ylabel("Damage D(x)")
+        ax_sL.set_title(r"Level 3 — gradient BVP: $D - \ell^2\nabla^2 D = D_\mathrm{local}$")
+        ax_sL.set_ylim(0, 1.0);  ax_sL.legend(fontsize=9.5);  ax_sL.grid(True, alpha=0.35)
+        ax_sL.spines["top"].set_visible(False);  ax_sL.spines["right"].set_visible(False)
+
+        # Right panel — phase-field
+        ax_sR.plot(_xv, _phi, color=_BC["verm"], lw=2.2,
+                   label=fr"$\phi = \exp(-|x-x_0|/\ell)$,  $\ell={ell_mm:.1f}$ mm")
+        ax_sR.axhline(np.exp(-1), color=_BC["grey"], lw=1.0, ls="--", alpha=0.8)
+        ax_sR.text(1.0, np.exp(-1) + 0.03, r"$e^{-1}$, band width $= 2\ell$", fontsize=9)
+        ax_sR.axvline(_x0, color=_BC["grey"], lw=0.7, ls=":", alpha=0.5)
+        ax_sR.set_xlabel("Position, x (mm)")
+        ax_sR.set_ylabel(r"Phase field $\phi(x)$  [0 = intact,  1 = broken]")
+        ax_sR.set_title(r"Level 4 — phase-field: $\eta\dot\phi - G_c\ell\nabla^2\phi + (G_c/\ell)\phi = 2(1-\phi)\Psi^+$")
+        ax_sR.set_ylim(0, 1.08);  ax_sR.legend(fontsize=9.5);  ax_sR.grid(True, alpha=0.35)
+        ax_sR.spines["top"].set_visible(False);  ax_sR.spines["right"].set_visible(False)
+        fig_sp.tight_layout(pad=1.2)
+
+        sp_notes = (
+            "**What it shows.** The spatial extension of the specimen-averaged damage model "
+            "using Tri-HB bar-signal data (BCs) and CT measurements (calibration).\n\n"
+            "**Level 3 (left)** solves the gradient BVP "
+            r"$D - \ell^2\nabla^2 D = D_\mathrm{local}$. "
+            f"The local form (ℓ=0) collapses to a point (mesh-dependent); "
+            f"ℓ = {ell_mm:.1f} mm smears it into a process zone ≈ 2√2·ℓ ≈ {2*1.414*ell_mm:.1f} mm wide. "
+            "**Calibration:** CT crack spacing after each impact → ℓ ≈ δ_crack/√2; "
+            "computed D(x,k) compared slice-by-slice to CT attenuation contrast per cycle.\n\n"
+            "**Level 4 (right)** shows the 1-D equilibrium phase-field profile "
+            r"φ = exp(−|x−x₀|/ℓ) "
+            f"(AT2 model, crack at specimen centre). "
+            f"Crack band width at e⁻¹ level = 2ℓ = {2*ell_mm:.1f} mm — directly CT-measurable. "
+            f"**G_c estimate:** χ_f · W_diss · V / A_fracture ≈ **{Gc_est:.0f} J/m²** "
+            f"(χ_f = {chi_f:.2f}). "
+            "Compare with K_Ic-based value: G_c = K_Ic²/E₀ ≈ 50–200 J/m² for granite. "
+            "CT fracture area A_fracture (marching-cubes segmentation) tightens this directly. "
+            "High-speed camera crack front velocity calibrates the viscous parameter η."
+        )
+        sp_eqs = [
+            r"D(\mathbf{x},t)-\ell^2\nabla^2 D=D_\mathrm{local}(\boldsymbol\varepsilon),\quad\nabla D\cdot\mathbf{n}=0\text{ on }\partial\Omega\qquad(\text{Level 3: gradient BVP})",
+            r"\mathcal{E}(\mathbf{u},\phi)=\int_\Omega\!\left[(1-\phi)^2\Psi^++\Psi^-+G_c\!\left(\tfrac{\phi^2}{2\ell}+\tfrac{\ell}{2}|\nabla\phi|^2\right)\right]d\Omega\qquad(\text{Level 4: phase-field functional})",
+            r"\eta\dot\phi-G_c\ell\nabla^2\phi+\tfrac{G_c}{\ell}\phi=2(1-\phi)\Psi^+\qquad(\text{phase-field PDE, viscous regularisation})",
+            r"\phi(x)=\exp\!\left(-\tfrac{|x-x_0|}{\ell}\right),\quad G_c\approx\frac{\chi_f\,W_\mathrm{diss}^\mathrm{total}}{A_\mathrm{fracture}}\qquad(\text{1-D crack profile; Griffith energy from CT})",
+        ]
+        show_step_figure(
+            fig_sp, "tri_hb_step4_spatial_damage.png",
+            caption=(f"Spatial damage at ℓ = {ell_mm:.1f} mm. "
+                     f"Left: gradient-regularised D(x); "
+                     f"Right: phase-field φ(x) with G_c ≈ {Gc_est:.0f} J/m² (χ_f = {chi_f:.2f})."),
+            notes=sp_notes, equations=sp_eqs,
+        )
+        sp1, sp2, sp3, sp4 = st.columns(4)
+        sp1.metric("Internal length ℓ", f"{ell_mm:.1f} mm")
+        sp2.metric("Process zone ≈2√2·ℓ", f"{2*1.414*ell_mm:.1f} mm")
+        sp3.metric("Crack band width 2ℓ", f"{2*ell_mm:.1f} mm")
+        sp4.metric("G_c estimate", f"{Gc_est:.0f} J/m²")
 
     d1, d2, d3, d4 = st.columns(4)
     d1.metric("Peak F", f"{np.nanmax(F_index):.2f}")

@@ -2424,6 +2424,10 @@
     <bcf:citekey order="30" intorder="2">Zhang2019Tri</bcf:citekey>
     <bcf:citekey order="31" intorder="1">Perzyna1966</bcf:citekey>
     <bcf:citekey order="31" intorder="2">Murakami2012</bcf:citekey>
+    <bcf:citekey order="32" intorder="1">ZHU2024105948</bcf:citekey>
+    <bcf:citekey order="33" intorder="1">wang2022progressive</bcf:citekey>
+    <bcf:citekey order="34" intorder="1">pijaudier1987</bcf:citekey>
+    <bcf:citekey order="35" intorder="1">bourdin2000</bcf:citekey>
   </bcf:section>
   <!-- SORTING TEMPLATES -->
   <bcf:sortingtemplate name="none">

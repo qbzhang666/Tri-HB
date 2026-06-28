@@ -2375,23 +2375,43 @@
   </bcf:bibdata>
   <bcf:section number="0">
     <bcf:citekey order="1" intorder="1">zhang2014</bcf:citekey>
-    <bcf:citekey order="1" intorder="2">xia2015</bcf:citekey>
+    <bcf:citekey order="1" intorder="2">WANG2026106436</bcf:citekey>
     <bcf:citekey order="2" intorder="1">hopkinson1914</bcf:citekey>
     <bcf:citekey order="3" intorder="1">davies1948</bcf:citekey>
     <bcf:citekey order="4" intorder="1">kolsky1949</bcf:citekey>
     <bcf:citekey order="5" intorder="1">frew2002</bcf:citekey>
     <bcf:citekey order="6" intorder="1">zhou2012</bcf:citekey>
     <bcf:citekey order="6" intorder="2">zhang2014</bcf:citekey>
-    <bcf:citekey order="6" intorder="3">xia2015</bcf:citekey>
+    <bcf:citekey order="6" intorder="3">WANG2026106436</bcf:citekey>
     <bcf:citekey order="7" intorder="1">christensen1972</bcf:citekey>
     <bcf:citekey order="8" intorder="1">lindholm1974</bcf:citekey>
     <bcf:citekey order="9" intorder="1">mogi1971</bcf:citekey>
     <bcf:citekey order="10" intorder="1">willam1975</bcf:citekey>
     <bcf:citekey order="11" intorder="1">zhao2000</bcf:citekey>
-    <bcf:citekey order="12" intorder="1">perzyna1966</bcf:citekey>
-    <bcf:citekey order="12" intorder="2">lemaitre1985</bcf:citekey>
-    <bcf:citekey order="13" intorder="1">grady1980</bcf:citekey>
-    <bcf:citekey order="13" intorder="2">taylor1986</bcf:citekey>
+    <bcf:citekey order="12" intorder="1">ZHU2024105948</bcf:citekey>
+    <bcf:citekey order="13" intorder="1">willam1975</bcf:citekey>
+    <bcf:citekey order="14" intorder="1">ZHU2024105948</bcf:citekey>
+    <bcf:citekey order="15" intorder="1">ZHU2024105948</bcf:citekey>
+    <bcf:citekey order="16" intorder="1">mogi1971</bcf:citekey>
+    <bcf:citekey order="16" intorder="2">alajmi2005</bcf:citekey>
+    <bcf:citekey order="17" intorder="1">ewy1999</bcf:citekey>
+    <bcf:citekey order="18" intorder="1">yu2002</bcf:citekey>
+    <bcf:citekey order="19" intorder="1">wiebols1968</bcf:citekey>
+    <bcf:citekey order="20" intorder="1">colmenares2002</bcf:citekey>
+    <bcf:citekey order="21" intorder="1">wang2022progressive</bcf:citekey>
+    <bcf:citekey order="22" intorder="1">mogi1971</bcf:citekey>
+    <bcf:citekey order="23" intorder="1">perzyna1966</bcf:citekey>
+    <bcf:citekey order="23" intorder="2">lemaitre1985</bcf:citekey>
+    <bcf:citekey order="24" intorder="1">grady1980</bcf:citekey>
+    <bcf:citekey order="24" intorder="2">taylor1986</bcf:citekey>
+    <bcf:citekey order="25" intorder="1">wang2022progressive</bcf:citekey>
+    <bcf:citekey order="26" intorder="1">ZHU2024105948</bcf:citekey>
+    <bcf:citekey order="27" intorder="1">perzyna1966</bcf:citekey>
+    <bcf:citekey order="27" intorder="2">lemaitre1985</bcf:citekey>
+    <bcf:citekey order="28" intorder="1">wang2022progressive</bcf:citekey>
+    <bcf:citekey order="29" intorder="1">pijaudier1987</bcf:citekey>
+    <bcf:citekey order="30" intorder="1">pijaudier1987</bcf:citekey>
+    <bcf:citekey order="31" intorder="1">bourdin2000</bcf:citekey>
   </bcf:section>
   <!-- SORTING TEMPLATES -->
   <bcf:sortingtemplate name="nyt">

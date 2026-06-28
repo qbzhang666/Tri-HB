@@ -1756,6 +1756,29 @@ def _find_latex_engine(name: str) -> str | None:
                 return hits[-1]
         elif cand.exists():
             return str(cand)
+    # Last resort: ask MiKTeX's own console for its bin directory, then look there.
+    if os.name == "nt":
+        try:
+            r = subprocess.run(
+                ["miktex", "--print-path-to", "miktex.exe"],
+                capture_output=True, timeout=10,
+            )
+            if r.returncode == 0:
+                miktex_dir = Path(r.stdout.decode().strip()).parent
+                cand = miktex_dir / exe
+                if cand.exists():
+                    return str(cand)
+        except Exception:  # noqa: BLE001
+            pass
+        # Also try: where.exe pdflatex (honors user PATH registry entry)
+        try:
+            r = subprocess.run(["where.exe", name], capture_output=True, timeout=5)
+            if r.returncode == 0:
+                first = r.stdout.decode().splitlines()[0].strip()
+                if first:
+                    return first
+        except Exception:  # noqa: BLE001
+            pass
     return None
 
 
@@ -2010,7 +2033,7 @@ def _build_report_tex(rows: list, registry: list, cfg: dict, fig_names: list) ->
             A(r"\clearpage")
 
     A(r"\section*{5. Notes and scope}")
-    A("This is a planning- and design-grade digital-twin report. The wave/stress "
+    A("This is a planning- and design-grade workspace report. The wave/stress "
       "histories are reduced from prescribed pulse envelopes; the failure surface "
       "is derived consistently with the Step~1 strength model; the spatial damage "
       "descriptors are model indicators. For quantitative validation, calibrate "
@@ -2144,7 +2167,7 @@ def _build_presentation_tex(rows: list, registry: list, cfg: dict, fig_names: li
     # Closing
     A(r"\begin{frame}{Scope}")
     A(r"\footnotesize")
-    A("Planning- and design-grade digital-twin results. Wave/stress histories "
+    A("Planning- and design-grade workspace results. Wave/stress histories "
       "are reduced from prescribed pulse envelopes; the failure surface is "
       "derived consistently with the Step~1 strength model; spatial damage "
       "descriptors are model indicators. Calibrate against measured Tri-HB data "

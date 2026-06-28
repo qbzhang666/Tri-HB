@@ -9,6 +9,20 @@ $ErrorActionPreference = "Stop"
 # Run from this script's folder so the app finds Tri-HB.py and wave_damage.py
 Set-Location -Path $PSScriptRoot
 
+# Ensure MiKTeX (pdflatex) is on PATH for PDF report generation.
+# The installers may only register MiKTeX in the user PATH, which is not
+# visible to all shell launchers (VS Code, Task Scheduler, etc.).
+$miktexDirs = @(
+    "C:\Program Files\MiKTeX\miktex\bin\x64",
+    "$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64"
+)
+foreach ($dir in $miktexDirs) {
+    if ((Test-Path $dir) -and ($env:PATH -notlike "*$dir*")) {
+        $env:PATH = "$dir;$env:PATH"
+        Write-Host "  Added MiKTeX to PATH: $dir"
+    }
+}
+
 # Pick the Python launcher: prefer 'py -3.13', fall back to 'python'
 $python = $null
 if (Get-Command py -ErrorAction SilentlyContinue) {

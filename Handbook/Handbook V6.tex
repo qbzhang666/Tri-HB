@@ -238,7 +238,7 @@ safety regulations of their host institution.
 \noindent This handbook documents the theory, apparatus, and computational
 workflow of the triaxial Hopkinson pressure bar (Tri-HB) facility developed by
 the Rock Mechanics and Dynamics group at Monash University, together with its
-digital twin, the \emph{Virtual Tri-HB Integrated Workspace}
+simulation framework, the \emph{Virtual Tri-HB Integrated Workspace}
 (\texttt{tri\_hb\_integrated.py}). The material is intended as a self-contained
 reference for postgraduate students in geomechanics, mining engineering,
 civil engineering, and applied mechanics, and as a working document for
@@ -470,7 +470,7 @@ given after the list.
       Gas-gun uniaxial SHPB}. A pneumatically
       launched striker bar strikes the incident bar; a copper or rubber pulse
       shaper smooths the otherwise near-rectangular striker pulse into a
-      half-sine incident wave, which the digital twin models directly as a
+      half-sine incident wave, which the computational workspace models directly as a
       half-sine of the same peak amplitude and striker round-trip duration.
       The specimen is loaded along a single axis, with no active confining
       pressure.
@@ -521,14 +521,14 @@ configuration retains the machine-readable fields
 numbered modes and the handbook equations.
 
 \noindent All branches permit static pre-stress in the range
-\SIrange{0}{50}{MPa} for the current Monash digital twin.  The stress
+\SIrange{0}{50}{MPa} for the current Monash computational workspace.  The stress
 components are independent in the true-triaxial branches, linked as
 $\sig_2=\sig_3=p_c$ in the confinement-chamber branch, and tied to a
 single hydrostatic value $p_0=\sig_1=\sig_2=\sig_3$ when the full
 symmetric $\pm X\pm Y\pm Z$ hydrostatic topology is selected.
 
 The handbook is intended to be read in conjunction with the
-\emph{Virtual Tri-HB Integrated Workspace}, a Streamlit-based digital twin
+\emph{Virtual Tri-HB Integrated Workspace}, a Streamlit-based simulation framework
 (file \texttt{tri\_hb\_integrated.py}) that bundles six analysis steps into
 one shared experimental setup: (1) configuration and simulation or reduction
 of bar-gauge data; (2) wave propagation modelling and equilibrium analysis;
@@ -570,7 +570,7 @@ the triaxial quasi-static pre-stress on the dynamic behaviour of rocks to be
 investigated systematically. The six physics branches described above are
 realised on this physical platform (Modes~1--3, with the cylindrical
 specimen of Mode~2 and the cubic specimen of Mode~3) and on its
-electromagnetic extension and digital twin (Modes~4--6).
+electromagnetic extension and computational workspace (Modes~4--6).
 
 \section{Scope and assumed background}
 
@@ -624,7 +624,7 @@ equation \cite{Graff1975}:
 \end{equation}
 For 42CrMo steel ($E_b = \SI{210}{GPa}$, $\rho_b = \SI{7850}{kg/m^{3}}$) the
 nominal bar wave speed is $\Cz \approx \SI{5172}{m/s}$. The Step~1 sidebar of
-the digital twin exposes $E_b$ and $\Cz$ as editable inputs so that a
+the computational workspace exposes $E_b$ and $\Cz$ as editable inputs so that a
 different bar material, or a dispersion-corrected calibrated speed, may be
 entered without code changes.
 
@@ -701,7 +701,7 @@ harmonics and is therefore prone to spurious oscillations as the pulse
 propagates; the half-sine pulse of the electromagnetic modes and the
 pulse-shaped (half-sine) gas-gun modes both concentrate energy at
 $ka \ll 1$ and are essentially dispersion-free for the geometries used here.
-This is the reason the digital twin represents every loading mode, including
+This is the reason the computational workspace represents every loading mode, including
 the gas-gun modes, with a smooth half-sine incident wave.
 
 A working rule is that bar dispersion is negligible provided
@@ -784,7 +784,7 @@ The stress comes from a single bar gauge (the transmitted-wave gauge); the
 strain rate, from the reflected gauge alone. Equations
 \eqref{eq:sig3wave} and \eqref{eq:1wave} should agree in the equilibrium
 window; their divergence is a quantitative measure of non-equilibrium
-\cite{RaviChandar2002}. The Step~1 data reducer of the digital twin offers
+\cite{RaviChandar2002}. The Step~1 data reducer of the computational workspace offers
 both forms.
 
 \subsection{Stress equilibrium criterion}
@@ -792,11 +792,13 @@ both forms.
 The standard quantitative criterion for stress equilibrium
 \cite{RaviChandar2002,Zhou2010} is
 \begin{equation}
-  \mathcal{R}(t) \;\equiv\; \frac{|F_1(t)-F_2(t)|}{\tfrac{1}{2}\bigl(F_1(t)+F_2(t)\bigr)} \;<\; 0.05,
+  \mathcal{R}(t) \;\equiv\; \frac{|F_1(t)-F_2(t)|}{\tfrac{1}{2}\bigl(|F_1(t)|+|F_2(t)|\bigr)} \;<\; 0.05,
   \label{eq:equilibrium}
 \end{equation}
 that is, the force imbalance is less than \SI{5}{\percent} of the mean
-force. The time at which this is first achieved scales with the wave
+force. The force \emph{magnitudes} in the denominator keep $\mathcal{R}$
+well-defined through the early transient, where $F_1+F_2$ can momentarily pass
+through zero. The time at which this is first achieved scales with the wave
 travel time \cite{DaviesHunter1963}:
 \begin{equation}
   t_{\text{eq}} \;\approx\; (3\text{ to }5)\,t_{\text{travel}}
@@ -828,7 +830,7 @@ used in the Tri-HB facility correspond to $\Ls/d_s = 1.0$ on each axis.
 
 The three-wave method, and indeed all of the analysis in this handbook,
 assumes that the bars remain linearly elastic. In the current Streamlit
-digital twin, the 42CrMo bar proportional limit is set to
+computational workspace, the 42CrMo bar proportional limit is set to
 $\sigprop=\SI{1000}{MPa}$. Whenever the stress
 carried by any bar exceeds this value, the wave equation \eqref{eq:wave-eq}
 is no longer valid, and the gauge signal cannot be interpreted by linear
@@ -838,7 +840,7 @@ facility:
   \sig_{\text{bar}}^{\max} \;\le\; \sigprop = \SI{1000}{MPa}.
   \label{eq:bar-limit}
 \end{empheq}
-The digital twin implements a three-tier visual warning system:
+The computational workspace implements a three-tier visual warning system:
 \emph{caution} at $0.85\,\sigprop$ (yellow), \emph{warning} at $\sigprop$
 (orange), and \emph{critical} at the yield stress
 $\sig_Y = \SI{1080}{MPa}$ (red). Every test, simulated or planned, should
@@ -850,7 +852,7 @@ Every Tri-HB test admits independent quasi-static pre-stress on each of the
 three principal axes, applied through servo-controlled hydraulic cylinders
 \emph{before} the dynamic pulse arrives. The three pre-stresses are denoted
 $\sig_1$ on the X (loading) axis, $\sig_2$ on Y, and $\sig_3$ on Z, with
-slider range \SIrange{0}{50}{MPa} per axis in the current digital-twin
+slider range \SIrange{0}{50}{MPa} per axis in the current workspace
 calibration.
 
 The static and dynamic stress contributions superpose linearly during the
@@ -1043,7 +1045,7 @@ generalisations of it.
   \item \textbf{Incident and transmission bars.} The Step~1 sidebar of the digital
         twin offers \texttt{Square 50$\times$50\,mm}
         ($\Ab=\SI{2500}{mm^{2}}$) or \texttt{Round} with an editable
-        diameter, $\Ab=\pi(d/2)^{2}$. The current digital twin uses a
+        diameter, $\Ab=\pi(d/2)^{2}$. The current computational workspace uses a
         default round diameter of $\Phi 50$
         ($\Ab\approx\SI{1963}{mm^{2}}$) and defaults to the square
         cross-section so that the same bars are shared with the
@@ -1066,7 +1068,7 @@ bar follows from the Hopkinson identity \eqref{eq:v-eps}:
             \;=\; \tfrac{1}{2}\,\frac{E_b}{\Cz}\,V.
   \label{eq:Hopkinson-impact}
 \end{empheq}
-The two forms are identical because $E_b=\rho_b\Cz^{2}$; the digital twin
+The two forms are identical because $E_b=\rho_b\Cz^{2}$; the computational workspace
 internally uses $\tfrac{1}{2}E_b V/\Cz$ so that the editable bar parameters
 propagate directly to the peak stress.
 
@@ -1103,7 +1105,7 @@ step to a finite rise of \SIrange{20}{40}{\micro s}, which (i) reduces the
 high-frequency content responsible for Pochhammer--Chree oscillations
 (\S\ref{sec:dispersion}), and (ii) gives the specimen time to reach dynamic
 stress equilibrium before failure. Design rules for pulse shapers are
-discussed by Frew \& Forrestal \cite{FrewForrestal2002}. The digital twin
+discussed by Frew \& Forrestal \cite{FrewForrestal2002}. The computational workspace
 represents the shaped pulse directly as a half-sine,
 $\sigma_I(t)=\sigpeak\sin(\pi t/\tau)$, with the same peak amplitude
 $\sigpeak=\tfrac12(E_b/\Cz)V$ and the same striker round-trip duration
@@ -1194,7 +1196,7 @@ sum of the static confining pre-stress and the dynamic contribution.
         $V\lesssim\SI{49}{m/s}$, or about $\SI{40}{m/s}$ for conservative
         margin.
   \item \textbf{Pre-stress range:} $0\le\sig_1,\sig_2,\sig_3\le\SI{50}{MPa}$
-        per axis in the current digital-twin calibration.
+        per axis in the current workspace calibration.
   \item \textbf{Strain rate range:} $\epsdot\sim\SIrange{50}{500}{s^{-1}}$.
 \end{itemize}
 
@@ -1444,7 +1446,7 @@ apparent dynamic strength is overestimated.
 \section{Worked example: sandstone in a steel chamber}
 
 A sandstone specimen ($\sig_{c0}=\SI{80}{MPa}$, $k_{\text{conf}}=4.5$,
-$b_{\text{rate}}=0.18$) is to be tested at the digital-twin default
+$b_{\text{rate}}=0.18$) is to be tested at the workspace default
 state for the Confinement-chamber mode: $\sig_1=\SI{30}{MPa}$ axial,
 $p_c=\sig_2=\sig_3=\SI{20}{MPa}$ confining, with a striker velocity
 $V=\SI{20}{m/s}$.
@@ -1500,7 +1502,7 @@ required.
         $V\lesssim\SI{49}{m/s}$ is the practical elastic upper bound for
         the default bar constants.
   \item \textbf{Confining pressure:} $0\le p_c\le\SI{50}{MPa}$ for the
-        digital-twin slider; the physical chamber rating may permit
+        workspace slider; the physical chamber rating may permit
         higher values (\SIrange{100}{300}{MPa} in published rigs).
   \item \textbf{Axial baseline:} $0\le\sig_1\le\SI{50}{MPa}$.
   \item \textbf{Strain rate range:} $\epsdot\sim\SIrange{50}{500}{s^{-1}}$.
@@ -1690,7 +1692,7 @@ Appendix~\ref{app:exercises} explores this asymmetry quantitatively.
 \section{Worked example: sandstone under triaxial pre-stress}
 
 A sandstone specimen ($\sig_{c0}=\SI{80}{MPa}$, $k_{\text{conf}}=4.5$,
-$b_{\text{rate}}=0.18$) is to be tested at the digital-twin default
+$b_{\text{rate}}=0.18$) is to be tested at the workspace default
 pre-stress state for the Monash Tri-HB mode, $\sig_1=\SI{30}{MPa}$ axial,
 $\sig_2=\SI{20}{MPa}$, $\sig_3=\SI{15}{MPa}$ (note that $\sig_2$ and
 $\sig_3$ may be set independently in this mode), with a striker velocity
@@ -1756,7 +1758,7 @@ rate \cite{Liu2019}.
         \S\ref{sec:mode1-envelope}).
   \item \textbf{Confining pre-stress range:}
         $0\le\sig_2,\sig_3\le\SI{50}{MPa}$ per axis (slider cap of the
-        current digital-twin calibration; matched to the
+        current workspace calibration; matched to the
         \SI{50}{MPa} hydraulic-cylinder rating of the Monash bench).
   \item \textbf{Axial baseline:} $0\le\sig_1\le\SI{50}{MPa}$. The total
         axial stress $\sig_1+\sig_X^{\text{dyn}}$ must remain within the
@@ -1896,7 +1898,7 @@ critical for brittle materials.
 Consider a sandstone specimen with quasi-static UCS $\sig_{c0}\approx
 \SI{80}{MPa}$, Mohr--Coulomb slope $k_{\text{conf}}\approx 4.5$, and
 rate-hardening coefficient $b_{\text{rate}}=0.18$, to be tested at the
-digital-twin default pre-stress state for the electromagnetic modes,
+workspace default pre-stress state for the electromagnetic modes,
 $\sig_1=\SI{30}{MPa}$ axial baseline, $\sig_2=\SI{20}{MPa}$,
 $\sig_3=\SI{15}{MPa}$, at a target strain rate
 $\bar\epsdot\approx\SI{200}{s^{-1}}$.
@@ -1932,7 +1934,7 @@ proportional limit ($\sim 39\%$ of $\sigprop$): safe to proceed. Charge
 the capacitor for $\sigpeak\approx\SI{500}{MPa}$ (allowing a margin above
 \SI{393}{MPa} to drive the specimen through peak), choose
 $\tau\approx\SI{200}{\micro s}$ to achieve the target strain rate. The
-digital twin reports a total axial stress reaching $\sim\SI{423}{MPa}$ on
+computational workspace reports a total axial stress reaching $\sim\SI{423}{MPa}$ on
 the $\sig_X$ trace, comprising the static $\sig_1=\SI{30}{MPa}$ plus the
 dynamic peak.
 
@@ -2131,7 +2133,7 @@ instant. Define
 By construction, in symmetric mode $\eps_I^{+}=\eps_I^{-}=\eps_I$ at the
 specimen position. After interaction with the specimen, each bar carries a
 reflected wave $\eps_R^{+}$ or $\eps_R^{-}$ travelling back outward. The
-digital twin records both reflected waves explicitly so that the symmetric
+computational workspace records both reflected waves explicitly so that the symmetric
 energy folding \eqref{eq:sym-energy} can be applied directly.
 
 \begin{figure}[htbp]
@@ -2273,7 +2275,7 @@ damaging the bars.
 
 \section{Symmetric sub-modes}
 
-The digital twin offers three configurations:
+The computational workspace offers three configurations:
 
 \begin{description}[leftmargin=2em,style=nextline]
   \item[Symmetric $\pm X$ only]
@@ -2315,7 +2317,7 @@ rate-scaled using the same DIF convention as the axial strength model:
   \!\left(\frac{\max(\epsdot,\epsdot_{\text{ref}})}
   {\epsdot_{\text{ref}}}\right).
 \end{equation}
-The digital twin automatically switches to this constitutive regime when
+The computational workspace automatically switches to this constitutive regime when
 the full-hydrostatic sub-mode is selected.
 
 \begin{figure}[htbp]
@@ -2432,7 +2434,7 @@ Best application & UCS, baseline SHPB & Standard confined SHPB & In-situ confine
 \end{center}
 
 \noindent\textit{Note on slider range.} The \SI{50}{MPa} pre-stress cap
-reflects the current digital-twin calibration. The slider maximum is set in
+reflects the current workspace calibration. The slider maximum is set in
 one location (\texttt{max\_conf} in \texttt{tri\_hb\_integrated.py}) and can
 be raised when the physical bench is upgraded.
 
@@ -2471,12 +2473,12 @@ be raised when the physical bench is upgraded.
         material, which is inaccessible in any one-sided mode.
 \end{itemize}
 
-\section{Common pitfalls and digital-twin diagnostics}
+\section{Common pitfalls and workspace diagnostics}
 
 \begin{itemize}[leftmargin=*,itemsep=3pt]
   \item \textbf{Bar plasticity violation.} The three-tier warning system of
         \S\ref{sec:bar-plasticity} catches this in real time. Plan every
-        physical test in the digital twin first.
+        physical test in the computational workspace first.
   \item \textbf{Loss of stress equilibrium.} For very brittle specimens or
         very short pulses, the specimen may fail before reverberations
         equilibrate it. Check \eqref{eq:equilibrium}. Step~2 reports the
@@ -2499,7 +2501,7 @@ be raised when the physical bench is upgraded.
         compression test). Use the compression-convention radio button to
         flip data acquired with the opposite polarity; an inverted
         convention typically appears as a negative absorbed energy, which
-        the digital twin flags explicitly.
+        the computational workspace flags explicitly.
 \end{itemize}
 
 %==============================================================================
@@ -2739,7 +2741,7 @@ coloured warning banner appears at the top of the page:
         $\sig_Y=\SI{1080}{MPa}$: bars deform plastically; the
         configuration must not be run on the physical apparatus.
 \end{itemize}
-This is the digital twin's primary safety feature. The banner should be
+This is the computational workspace's primary safety feature. The banner should be
 clear (or at most cautionary) before any configuration is considered for
 physical testing.
 
@@ -3023,7 +3025,7 @@ the latter shaded on the time-history plot.
 \begin{equation}
   \Delta t^{\ast} \;=\; \frac{\Delta t}{t_{\text{travel}}}.
 \end{equation}
-The digital twin partitions $\Delta t^{\ast}$ into four physically
+The computational workspace partitions $\Delta t^{\ast}$ into four physically
 distinct regimes:
 \begin{center}
 \renewcommand{\arraystretch}{1.25}
@@ -3366,6 +3368,25 @@ default is the Lode form with $\rho_t/\rho_c=0.70$.
   \label{fig:v6-lode}
 \end{figure}
 
+\paragraph{Why a Mohr--Coulomb meridian?} The meridian
+$A_{\mathrm{eff}},B_{\mathrm{eff}}$ is the linear Mohr--Coulomb meridian
+calibrated from the unconfined strength and the confinement slope
+$k_{\mathrm{conf}}$, so the surface reduces exactly to the Step-1 strength model
+($F=1$ at peak) and needs no true-triaxial data to instantiate. In the
+decomposition $q_f=[\,\text{meridian}(p)\,]\,h(\theta)$ the intermediate principal
+stress enters through the Lode angle --- through $h(\theta)$, not the meridian ---
+so Mohr--Coulomb only sets the compression reference ($\theta=0$,
+$\sigma_2=\sigma_3$); it is a calibration anchor, not a claim that $\sigma_2$ is
+unimportant. For studies targeting the $\sigma_2$ effect directly, the default may
+be \emph{replaced} by a criterion that depends on $\sigma_2$ intrinsically ---
+Mogi--Coulomb ($\tau_{\mathrm{oct}}=a+b\,\tfrac12(\sigma_1+\sigma_3)$) or modified
+Lade ($I_1''^{3}/I_3''=27+\eta$) --- both derived from the same UCS and
+$k_{\mathrm{conf}}$ so all three are directly comparable. A linear meridian with a
+monotone $h(\theta)$ cannot reproduce the \emph{non-monotonic} $\sigma_2$ effect
+(the strength rise-then-fall as $\sigma_2\!\to\!\sigma_1$), which is what the Mogi
+and Lade options capture; ultimately the meridian, the Lode ratio and the
+criterion are all to be fitted to the Tri-HB's true-triaxial data.
+
 \paragraph{Rate-dependent envelope.} Optionally, a dynamic increase factor
 inflates the envelope so the failure \emph{onset} shifts with strain rate, in
 addition to the rate term already in the damage law:
@@ -3419,24 +3440,32 @@ plotted in Figure~\ref{fig:step4-energy-density-histories}.
 Blasting-induced fracturing is directional: cracks open perpendicular to the
 local tension, so the stiffness and wave-speed loss differ by direction. Version~6
 offers a diagonal damage tensor $D=\mathrm{diag}(D_x,D_y,D_z)$ aligned with the
-bars (which are the principal loading directions in the rig). Each component is
-driven by the directional tensile (extensile) strain through the same overstress
-kinetics,
+bars (which are the principal loading directions in the rig). Each component
+evolves through the same overstress kinetics, driven by a \emph{dominant
+directional-tensile} term plus a \emph{small shear/compaction} term,
 %
 \begin{equation}
 \dot D_i=\frac{(1-D_i)^{\alpha}}{\tau_D}
 \Big\langle\frac{(1-D_i)F_i-1}{F_0}\Big\rangle^{m}
 \Big(\frac{|\dot\varepsilon_{\mathrm{eq}}|}{\dot\varepsilon_0}\Big)^{\beta},
 \qquad
-F_i=\frac{\langle-\varepsilon_i\rangle_+}{\varepsilon_{t0}},\quad
-\varepsilon_{t0}=\frac{\sigma_t}{E_0},
+F_i=\frac{\langle-\varepsilon_i\rangle_+}{\varepsilon_{t0}}
++\kappa_s\Big\langle\frac{F-F_{s0}}{1-F_{s0}}\Big\rangle,
 \end{equation}
 %
-for $i=x,y,z$. Damage grows only under directional extension ($\langle\cdot
-\rangle_+$ is the positive part, so there is no damage in pure compression) ---
-the tension-driven anisotropy of blasting. Axial X compression therefore drives
-the lateral components $D_y,D_z$ (axial splitting) while $D_x\approx 0$, and
-confinement on an axis suppresses its damage (Figure~\ref{fig:v6-orthotropic}).
+for $i=x,y,z$, with $\varepsilon_{t0}=\sigma_t/E_0$ ($\sigma_t$ the tensile
+strength), $F=q/q_f$ the deviatoric failure index (\S\ref{sec:v6-envelope}) and
+$(\kappa_s,F_{s0})=(1,0.5)$. The first term is tensile ($\langle-\varepsilon_i
+\rangle_+$ is the extensile part, opening cracks normal to axis $i$); the second
+is a small isotropic shear/compaction contribution --- the wing-crack,
+shear-microcrack and grain-crushing damage that real rock accrues \emph{even under
+net compression} --- so the axial component is \emph{small but nonzero}, not
+exactly zero. Under single-axis dynamic loading (Mode~3) this yields the clean
+axial-splitting limit $D_x\ll D_y,D_z$ (the compressed axis stays nearly intact
+while the unconfined lateral axes crack); under the multi-axial asynchronous XYZ
+case shown here, every axis is dynamically extended in turn, so all three
+components accrue substantial, directionally-distinct damage. Confinement on an
+axis suppresses its tensile damage (Figure~\ref{fig:v6-orthotropic}).
 The per-axis modulus and wave speed degrade independently,
 $E_i=E_0(1-D_i)$, $c_{p,i}=c_{p0}\sqrt{1-D_i}$
 (Figure~\ref{fig:v6-directional}) --- the directional quantities the Tri-HB's
@@ -3447,9 +3476,10 @@ component-by-component. A uniaxial split-Hopkinson bar cannot do this.
   \centering
   \includegraphics[width=0.82\linewidth]{figures/handbook_steps/step4_orthotropic_damage.png}
   \caption{Orthotropic (diagonal) damage-tensor components $D_x,D_y,D_z$ for the
-  default sandstone asynchronous XYZ case. Each grows from its own directional
-  extensile strain; the scalar $D=\max_i D_i$ governs the energy/stiffness
-  summary.}
+  default sandstone asynchronous XYZ case. Each grows from a dominant directional
+  extensile-strain driver plus a small shear/compaction driver; under this
+  multi-axial loading all three accrue substantial damage. The scalar
+  $D=\max_i D_i$ governs the energy/stiffness summary.}
   \label{fig:v6-orthotropic}
 \end{figure}
 
@@ -3463,8 +3493,9 @@ component-by-component. A uniaxial split-Hopkinson bar cannot do this.
 \end{figure}
 
 \begin{conceptbox}[Stage-1 scope]
-The Version~6 orthotropic model is Stage~1: tension-driven directional damage
-growth plus directional stiffness/wave-speed degradation. The energy partition
+The Version~6 orthotropic model is Stage~1: directional damage growth (a dominant
+tensile driver plus a small shear/compaction driver) with directional
+stiffness/wave-speed degradation. The energy partition
 uses the scalar aggregate $D=\max_i D_i$ so the first law stays consistent for
 any loading. A full anisotropic energy partition, unilateral crack-closure
 stiffness recovery in compression, and a full second-order damage tensor with
@@ -3472,6 +3503,320 @@ principal-direction rotation are Stage~2--3; see
 \texttt{docs/validation\_calibration\_plan.md}~\S11 for the roadmap and the
 component-by-component calibration route.
 \end{conceptbox}
+
+\subsection{Cyclic (repeated) dynamic loading and cumulative damage}\label{sec:v6-cyclic}
+
+A distinctive Tri-HB capability is \emph{progressive} dynamic damage: hold the
+specimen at its in-situ static pre-stress, fire one dynamic pulse (which damages
+the rock only slightly), reset to the same static state, and re-apply the
+\emph{same} dynamic level --- repeating until the rock fails. This reproduces
+repeated blasting, repeated rockburst loading, and dynamic fatigue of a
+pre-stressed rock mass, none of which a single-shot SHPB can access.
+
+Damage carries over between cycles and degrades the strength~\cite{ZHU2024105948},
+so a pulse the rock survives once can accumulate to failure within a few cycles --- typically
+$N_f\!\lesssim\!10$ at the high dynamic levels used in practice, where applying
+tens or hundreds of impacts is neither feasible nor observed. With cycle index $k$
+(damage $D_{k-1}$ entering cycle $k$, $D_0=0$) and the failure index $F=q/q_f$
+from the active criterion (Lode envelope, Mogi--Coulomb or modified Lade), the
+cycle-jump map is
+%
+\begin{align}
+q_f(D) &= q_{f,0}\,(1-D)^{c_d}, \qquad
+F_k = \frac{q_{\mathrm{peak}}}{q_f(D_{k-1})} = F_1\,(1-D_{k-1})^{-c_d}, \\
+\Delta D_k &= K\,\big\langle (1-D_{k-1})F_k - F_{\mathrm{th}} \big\rangle^{m}\,(1-D_{k-1})^{\alpha},
+\qquad D_k = \min(D_{k-1}+\Delta D_k,\,1),
+\end{align}
+%
+where $c_d$ is the strength-degradation exponent, $F_{\mathrm{th}}$ the
+fatigue/endurance threshold, and $K$ is fixed so the first cycle reproduces the
+single-pulse damage $\Delta D_1$. Failure is declared at
+$N_f=\min\{k:D_k\ge D_{\mathrm{crit}}\}$. The effective driving collapses to
+$(1-D)F_k = F_1(1-D)^{1-c_d}$, which exposes three regimes through the single
+exponent $1-c_d$:
+%
+\begin{itemize}
+  \item $c_d<1$: load-shedding wins, $\Delta D_k\!\to\!0$ --- the rock
+    \emph{shakes down} to $D_\infty<D_{\mathrm{crit}}$ and survives indefinitely;
+  \item $c_d=1$: neutral, linear (Palmgren--Miner-like) accumulation;
+  \item $c_d>1$: strength degrades faster than load sheds, $\Delta D_k$ grows ---
+    accelerating \emph{progressive failure} at finite $N_f$.
+\end{itemize}
+%
+Below the endurance limit ($F_1\le F_{\mathrm{th}}$) no damage accrues and the
+life is infinite. Plotting $N_f$ against the dynamic level $F_1$ yields a
+dynamic-fatigue ($S$--$N$) curve (Figure~\ref{fig:v6-cyclic}b).
+
+The failure is \emph{abrupt}. Because the strength degradation is a positive
+feedback --- damage lowers $q_f$, which raises $F_k$, which accelerates damage ---
+$D_N$ follows a sharp sigmoid: nearly flat for the first few impacts, then a
+sudden cascade to failure. This matches synchrotron micro-CT observations of
+multi-impact tests~\cite{wang2022progressive}, in which the fracture volume jumps
+within a narrow band of impacts. A useful marker is the critical damage
+$D^\ast=1-F_1^{1/c_d}$ at which the degraded strength is first exceeded
+($F_k\!\to\!1$) and the cascade begins. Experimentally, the locus of the
+per-impact \emph{peak} stresses traces the \emph{monotonic} post-peak (softening)
+envelope, so the cyclic and single-event responses degrade along the same
+backbone curve --- a consistency the workspace reproduces, and a practical way to
+recover the softening branch from a sequence of sub-critical impacts.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{figures/handbook_steps/step4_cyclic_damage.png}
+  \caption{Cumulative damage under repeated dynamic loading. (a) Damage versus
+  impact number at several dynamic levels: high levels fail the rock within a few
+  impacts through a \emph{sudden} damage threshold (sharp sigmoid), while low
+  levels need impractically many. (b) The resulting dynamic-fatigue ($S$--$N$)
+  curve --- impacts-to-failure fall into the realistic $\lesssim\!10$ band at high
+  level and diverge at the endurance limit $F_{\mathrm{th}}$.}
+  \label{fig:v6-cyclic}
+\end{figure}
+
+\begin{conceptbox}[Damage measured two ways, per cycle]
+The cyclic test is the natural place to combine the model's damage with
+\emph{measured} damage. After each cycle the recovered specimen (soft-recovered by
+the momentum trap) can be CT-scanned: the directional crack-density tensor
+$\boldsymbol{\omega}=\tfrac1V\sum_k a_k^3\,(\mathbf n_k\!\otimes\!\mathbf n_k)$ is
+converted to a model-compatible $D_i=1-E_i(\boldsymbol\omega)/E_0$ by a
+micromechanical (e.g.\ Budiansky--O'Connell) homogenisation, and the per-axis
+wave-speed loss gives a third, independent estimate. The failure criteria supply
+the per-cycle index $F_k$; CT supplies the geometric $D_k$. A measured
+$D_k^{\mathrm{CT}}$-vs-cycle curve then validates (or calibrates) the cycle map
+above --- an over-determined check the three orthogonal bars make possible.
+\end{conceptbox}
+
+\subsection{PDE / boundary-value formulation of cyclic damage}\label{sec:v6-cyclic-bvp}
+
+The cycle map of \S\ref{sec:v6-cyclic} is the spatially uniform reduction of an
+underlying field problem. Because the specimen's properties degrade after each
+impact, the wave-propagation coefficients become \emph{evolving, heterogeneous
+fields}, and the problem separates into two scales: a fast intra-impact wave
+problem (time $t\sim\mu$s) and a slow inter-impact damage drift (impact number
+$N$), with small parameter $\varepsilon=\max_k\Delta D_k\ll1$.
+
+\paragraph{Fast scale --- intra-impact wave IBVP.}
+During impact $k$ the axial displacement $u(x,t)$ and the damage field $D(x,t)$
+obey
+%
+\begin{align}
+\rho\,\partial_{tt}u &= \partial_x\!\big[E_0(1-D)\,\partial_x u\big],
+  \qquad x\in(0,\Ls),\ t\in(0,T_p), \label{eq:cyc-wave}\\
+\partial_t D &= \frac{(1-D)^{\alpha}}{\tau_D}
+  \Big\langle\frac{(1-D)F-1}{F_0}\Big\rangle^{m}
+  \Big(\frac{|\dot\varepsilon_{\mathrm{eq}}|}{\dot\varepsilon_0}\Big)^{\beta},
+  \quad F=\frac{q}{q_f(D)},\ \ q_f(D)=q_{f,0}(1-D)^{c_d}. \label{eq:cyc-damage}
+\end{align}
+%
+The boundary conditions are the bar tractions
+$\sigma(0,t)=(E_b\Ab/\As)(\varepsilon_{\mathrm{in}}+\varepsilon_{\mathrm{re}})$ and
+$\sigma(\Ls,t)=(E_b\Ab/\As)\,\varepsilon_{\mathrm{tr}}$ (with lateral confinement on
+$Y,Z$); the initial conditions are the static pre-stress state and, crucially, the
+\emph{inherited} damage field $D(x,0)=D_{k-1}(x)$. Equation~\eqref{eq:cyc-damage}
+keeps the same Perzyna overstress law as the single-event model: this is justified
+because repeated dynamic impact is \emph{low-cycle} fatigue ($N\!\lesssim\!20$) ---
+at the high amplitudes used in practice each impact is a genuine overstress
+excursion (not a sub-yield elastic cycle), and the damage variable already
+represents the microcracking that drives brittle-rock degradation, so no
+kinematic-hardening or ratcheting term is needed. (High-cycle, sub-critical
+fatigue would instead require an endurance-based law.)
+
+\paragraph{Evolving heterogeneous properties.}
+After impact $k$ the specimen is a new, aging medium,
+%
+\begin{equation}
+\begin{aligned}
+E_k(x)&=E_0[1-D_k(x)], & c_{p,k}(x)&=c_{p0}\sqrt{1-D_k(x)},\\
+Z_k(x)&=\rho\,c_{p,k}(x), & q_{f,k}(x)&=q_{f,0}[1-D_k(x)]^{c_d},
+\end{aligned}
+\label{eq:cyc-coeff}
+\end{equation}
+%
+with the carry-over $D_k(x,0)=D_{k-1}(x,T_p)$. The heterogeneous impedance
+$Z_k(x)$ scatters waves \emph{inside} the specimen, so the three-wave reduction
+returns an effective (volume-averaged) response in late impacts, and the
+equilibration time $t_{\mathrm{eq}}\propto\Ls/c_{p,k}$ \emph{grows} each impact as
+the rock softens.
+
+\paragraph{Slow scale --- inter-impact damage PDE.}
+Averaging \eqref{eq:cyc-damage} over one pulse (cycle-jump) gives a field equation
+in $(x,N)$,
+%
+\begin{equation}
+\frac{\partial D}{\partial N}(x,N)=\int_0^{T_p}\partial_t D\,\mathrm{d}t
+\;\equiv\;\mathcal{G}\big(x;D,[u]\big),
+\label{eq:cyc-slow}
+\end{equation}
+%
+in which $\mathcal{G}$ embeds the fast solution of
+\eqref{eq:cyc-wave}--\eqref{eq:cyc-damage}.
+
+\paragraph{Regularisation --- a well-posed BVP.}
+Strain softening ($q_f$ decreasing with $D$) makes the local form
+\eqref{eq:cyc-slow} ill-posed: damage localises to a zero-width band and the
+``sudden threshold'' is a localisation instability. A gradient (nonlocal) term
+with internal length $\ell$ regularises it,
+%
+\begin{equation}
+\frac{\partial D}{\partial N}
+=\frac{1}{\tau_N}\big\langle(1-D)\,\bar F-F_{\mathrm{th}}\big\rangle^{m}(1-D)^{\alpha},
+\qquad \bar F=\frac{q_{\mathrm{peak}}}{q_{f,0}(1-\bar D)^{c_d}},
+\qquad \bar D=D-\ell^2\nabla^2 D,
+\label{eq:cyc-bvp}
+\end{equation}
+%
+with boundary condition $\nabla D\cdot\mathbf{n}=0$ on $\partial\Omega$ (plus an
+optional nucleation source where the bar interfaces concentrate stress), initial
+condition $D(x,0)=0$, and failure when $\max_x D(x,N)\to D_{\mathrm{crit}}$. Here
+$\tau_N$ is the cycle-damage time scale and $\ell$ the internal length that sets
+the fracture-band width --- both calibrated from the per-impact micro-CT field
+(the band width fixes $\ell$; the $D_k^{\mathrm{CT}}$ trajectory fixes
+$\tau_N$, $c_d$ and $F_{\mathrm{th}}$).
+
+\paragraph{Reduction to the implemented cycle map.}
+The spatially uniform limit ($\nabla^2D=0$, $D=D(N)$) of \eqref{eq:cyc-bvp}
+recovers the recursion of \S\ref{sec:v6-cyclic},
+%
+\begin{equation}
+\begin{aligned}
+D_k&=\min(D_{k-1}+\Delta D_k,\,1),\qquad F_k=F_1(1-D_{k-1})^{-c_d},\\
+\Delta D_k&=K\big\langle(1-D_{k-1})F_k-F_{\mathrm{th}}\big\rangle^{m}(1-D_{k-1})^{\alpha},
+\end{aligned}
+\label{eq:cyc-map}
+\end{equation}
+%
+with critical damage $D^\ast=1-F_1^{1/c_d}$ and
+$N_f=\min\{k:D_k\ge D_{\mathrm{crit}}\}$.
+
+\begin{remark}
+The cycle-jump average assumes $\Delta D_k\ll1$; it is accurate across the
+low-cycle range ($N\!\lesssim\!20$) but breaks down on the final cascade impact,
+which should be integrated with the full IBVP
+\eqref{eq:cyc-wave}--\eqref{eq:cyc-damage}.
+\end{remark}
+
+\subsection{Spatial gradient damage and phase-field fracture (Levels 3 \& 4)}\label{sec:v6-spatial}
+
+The cycle map of \S\ref{sec:v6-cyclic} and the gradient BVP of
+\S\ref{sec:v6-cyclic-bvp} both use a spatially uniform (specimen-averaged)
+damage scalar.  This section extends the framework to a spatial field
+$D(\mathbf{x},t)$ (Level~3) and further to a thermodynamically consistent
+phase-field formulation (Level~4), with every parameter calibrated from CT
+scans, bar-signal records, and fracture-area measurements of the Tri-HB
+campaign.  The thermal coupling is dropped throughout: at Tri-HB impact
+velocities ($v\lesssim15$~m/s) the adiabatic temperature rise is
+$\Delta T\lesssim1^{\circ}$C per pulse, shifting the rock strength by less than
+0.5\%, so the isothermal assumption is fully justified.
+
+\paragraph{Level~3 --- gradient-regularised damage field.}
+Lifting $D$ to a field $D(\mathbf{x},t)$ over the specimen domain $\Omega$ gives
+the two-field coupled problem
+%
+\begin{equation}
+\rho\,\ddot{\mathbf{u}}=\nabla\cdot\big[(1-D)\,\mathbf{E}_0:\nabla^s\mathbf{u}\big],
+\qquad
+D-\ell^2\nabla^2 D=D_{\mathrm{local}}\!\left(\boldsymbol\varepsilon(\mathbf{x},t)\right),
+\label{eq:v6-gradD}
+\end{equation}
+%
+with natural boundary condition $\nabla D\cdot\mathbf{n}=0$ on $\partial\Omega$.
+Bar signals supply the kinematic boundary conditions for the momentum equation.
+The Helmholtz operator smears the pointwise Perzyna field $D_{\mathrm{local}}$
+over a process zone of width ${\approx}2\sqrt{2}\,\ell$, preventing the
+ill-posed localisation of the local form ($\ell=0$) and making the solution
+mesh-independent~\cite{pijaudier1987}.  The spatially uniform limit
+($\nabla^2 D=0$) of \eqref{eq:v6-gradD} recovers the cycle-map recursion of
+\S\ref{sec:v6-cyclic}.
+
+The internal length $\ell$ is calibrated from the CT crack spacing
+$\delta_{\mathrm{crack}}$ measured after each Tri-HB impact:
+$\ell\approx\delta_{\mathrm{crack}}/\sqrt{2}$. The computed field $D(\mathbf{x},k)$
+at cycle $k$ is then compared slice-by-slice against the CT attenuation contrast
+(normalised Hounsfield unit change $\propto$ local porosity increase $\propto D$).
+In the workspace (Step~4 Advanced), the slider \emph{Internal length $\ell$} directly
+controls the gradient solve, and the resulting D(x) profile is displayed
+alongside the specimen-averaged value.
+
+\paragraph{Level~4 --- phase-field fracture.}
+The phase-field approach derives all governing equations from the single
+regularised energy functional~\cite{bourdin2000}
+%
+\begin{equation}
+\mathcal{E}(\mathbf{u},\phi)=\int_\Omega\!\left[
+(1-\phi)^2\Psi^+(\boldsymbol\varepsilon)+\Psi^-(\boldsymbol\varepsilon)
++G_c\!\left(\frac{\phi^2}{2\ell}+\frac{\ell}{2}|\nabla\phi|^2\right)
+\right]d\Omega,
+\label{eq:v6-pf}
+\end{equation}
+%
+where $\phi\in[0,1]$ is the phase field ($\phi=0$ intact, $\phi=1$ broken),
+$\Psi^\pm$ the spectral tension/compression split of the elastic energy density
+(only $\Psi^+$ drives fracture), $G_c$~[J\,m$^{-2}$] the Griffith fracture energy,
+and $\ell$ the same internal length as Level~3.  Stationarity
+$\delta\mathcal{E}=0$ gives the phase-field evolution PDE with viscous
+regularisation,
+%
+\begin{equation}
+\eta\dot\phi-G_c\ell\,\nabla^2\phi+\frac{G_c}{\ell}\phi
+=2(1-\phi)\,\Psi^+(\boldsymbol\varepsilon),
+\label{eq:v6-pfpde}
+\end{equation}
+%
+where $\eta$~[Pa\,s\,m] bounds the crack propagation speed (calibrated from
+high-speed-camera measurements of the crack front during the Tri-HB pulse).
+The model is thermodynamically consistent by construction:
+$\delta=G_c\,\partial_t\Gamma_\ell(\phi)\ge0$ for $\dot\phi\ge0$.  The
+irreversibility constraint $\dot\phi\ge0$ is enforced by the history field
+$H(\mathbf{x},t)=\max_{s\le t}\Psi^+(\mathbf{x},s)$.  The 1-D equilibrium
+crack profile,
+%
+\begin{equation}
+\phi(x)=\exp\!\left(-\tfrac{|x-x_0|}{\ell}\right),
+\label{eq:v6-phicrack}
+\end{equation}
+%
+has crack band width $2\ell$ at the $e^{-1}$ level, directly measurable from CT
+cross-sections.  The Griffith energy is estimated from the Step-3 dissipation and
+the CT fracture area,
+%
+\begin{equation}
+G_c\approx\frac{\chi_f\,W_{\mathrm{diss}}^{\mathrm{total}}}{A_{\mathrm{fracture}}},
+\label{eq:v6-gc}
+\end{equation}
+%
+where $W_{\mathrm{diss}}^{\mathrm{total}}=\int_\Omega W_{\mathrm{diss}}\,d\Omega$
+follows from the Step-3 energy partition, $A_{\mathrm{fracture}}$ is the total crack
+surface area from marching-cubes CT segmentation, and $\chi_f\in(0,1)$ is the
+fracture fraction of dissipation (recoverable from acoustic-emission energy
+partitioning or from the $K_{\mathrm{Ic}}$-based reference
+$G_c=K_{\mathrm{Ic}}^2/E_0$, giving $G_c\approx50$--$200$~J\,m$^{-2}$ for
+granite).
+
+\paragraph{Cross-level correspondences.}
+The phase-field and scalar-damage levels are linked by the identifications
+$\phi^2\leftrightarrow D$ (AT2 degradation function) and
+$\Psi^+\leftrightarrow Y=-\partial\Psi/\partial D$ (thermodynamic driving
+force).  All four levels therefore share the same internal length $\ell$, the same
+Clausius--Duhem admissibility argument, and the same calibration data: CT crack
+spacing (for~$\ell$), Step-3 dissipation + CT fracture area (for~$G_c$), and
+high-speed-camera crack velocity (for~$\eta$).
+
+\begin{table}[h]
+\centering
+\caption{Parameter-to-measurement map for Levels 3 and 4.}
+\label{tab:spatial-calib}
+\begin{tabular}{lll}
+\toprule
+Parameter & Physical meaning & Tri-HB measurement \\
+\midrule
+$\ell$ & Process zone / crack band width & CT crack spacing, $\ell\approx\delta_{\mathrm{crack}}/\sqrt{2}$ \\
+$G_c$ & Griffith fracture energy & $\chi_f W_{\mathrm{diss}}/A_{\mathrm{fracture}}$; refined by $K_{\mathrm{Ic}}$ \\
+$\eta$ & Viscous crack speed limit & High-speed camera crack front \\
+$\chi_f$ & Fracture energy fraction & AE energy partitioning or $K_{\mathrm{Ic}}$ reference \\
+$D(\mathbf{x},k)$ & Spatial damage field & CT attenuation contrast per cycle \\
+$\phi(\mathbf{x})$ & Phase-field (crack pattern) & Normalised CT attenuation $\in[0,1]$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Document generation: Step~6}\label{sec:docgen}
 
@@ -3519,7 +3864,7 @@ installation, so a first cold run does not stall. If no engine is found, the
 
 \section{Bar properties (42CrMo steel) -- default values}
 
-These are the digital twin's default bar parameters; each is editable in
+These are the computational workspace's default bar parameters; each is editable in
 the Step~1 \emph{Experimental setup} sidebar tab.
 
 \begin{center}
@@ -3607,7 +3952,7 @@ $F_0$ & Failure-index normalisation & 1.0 \\
   \item In Mode~1 (gas-gun), determine the maximum striker velocity for
         which a granite specimen with \SI{50}{MPa} confinement remains
         within the bar proportional limit. Verify the hand calculation
-        against the warning system of the digital twin.
+        against the warning system of the computational workspace.
   \item In Mode~3 (gas-gun coupled triaxial), test sandstone
         ($\sig_{c0}=\SI{80}{MPa}$, $k_{\text{conf}}=4.5$,
         $b_{\text{rate}}=0.18$) at striker velocity $V=\SI{20}{m/s}$ and
