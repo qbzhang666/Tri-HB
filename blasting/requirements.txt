@@ -1,11 +1,6 @@
-streamlit
-numpy>=1.24
-pandas>=2.0
-plotly>=5.17
-openpyxl>=3.1
-XlsxWriter
-scipy
-scikit-learn
-matplotlib>=3.7
-seaborn>=0.12
-mplstereonet
+streamlit>=1.44,<2
+numpy>=1.24,<3
+pandas>=2.0,<3
+plotly>=5.17,<7
+openpyxl>=3.1,<4
+XlsxWriter>=3.1,<4
