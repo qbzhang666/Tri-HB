@@ -16,6 +16,26 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from datetime import datetime, timezone
+from pathlib import Path
+import sys
+
+
+def _find_project_root() -> Path:
+    """Locate the canonical model package for root and nested entry points."""
+
+    script_directory = Path(__file__).resolve().parent
+    for candidate in (script_directory, *script_directory.parents):
+        if (candidate / "models" / "shock_blast.py").is_file():
+            return candidate
+    raise ModuleNotFoundError(
+        "Cannot locate models/shock_blast.py. Deploy the complete repository "
+        "rather than only shock_blast_integrated.py."
+    )
+
+
+PROJECT_ROOT = _find_project_root()
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import numpy as np
 import pandas as pd
@@ -96,11 +116,11 @@ st.markdown(
     }}
     div[data-testid="stMetricLabel"] {{ color: {COLORS['muted']}; }}
     .chain {{
-        display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+        display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px; margin: 0.5rem 0 1.1rem 0;
     }}
     .chain > div {{
-        min-height: 74px; border-left: 3px solid {COLORS['blue']};
+        min-height: 82px; border-left: 3px solid {COLORS['blue']};
         background: {COLORS['paper']}; color: {COLORS['ink']}; padding: 10px 11px;
     }}
     .chain b {{ display: block; color: {COLORS['ink']}; font-size: 0.84rem; margin-bottom: 4px; }}
@@ -114,6 +134,9 @@ st.markdown(
         padding: 10px 13px; margin: 0.6rem 0 1rem 0; color: {COLORS['ink']};
     }}
     @media (max-width: 900px) {{
+        .chain {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+    }}
+    @media (max-width: 560px) {{
         .chain {{ grid-template-columns: 1fr; }}
         .chain > div {{ min-height: auto; }}
     }}
@@ -155,6 +178,75 @@ FLYER_PRESETS = {
     "Custom flyer": "custom",
 }
 
+WORKSPACE_PAGES = [
+    "Case overview",
+    "Plate-impact animation",
+    "Virtual plate-impact test",
+    "Shock state and EOS",
+    "Experimental validation",
+    "C-J blast source",
+    "Pressure and PPV",
+    "Established model scope",
+    "Engineering consequences",
+    "Summary and export",
+]
+
+CASE_DEFAULTS = {
+    "case_name": "Chapter 17 demonstration",
+    "material_preset": "Competent rock example",
+    "impact_velocity": 900.0,
+    "target_thickness": 12.0,
+    "pullback_velocity": 70.0,
+    "flyer_preset": "Identical material",
+    "flyer_density": 2700.0,
+    "flyer_c0": 5350.0,
+    "flyer_slope": 1.34,
+    "flyer_cl": 6300.0,
+    "flyer_hel": 0.3,
+    "flyer_tensile": 200.0,
+    "flyer_ucs": 300.0,
+    "flyer_thickness": 4.0,
+    "explosive_density": 1200.0,
+    "vod": 4500.0,
+    "product_gamma": 3.0,
+    "coupling_factor": 0.42,
+    "charge_mass": 4.0,
+    "observation_distance": 20.0,
+    "reference_pressure_mpa": 120.0,
+    "reference_z": 1.0,
+    "pressure_exponent": 1.55,
+    "ppv_k": 850.0,
+    "ppv_n": 1.55,
+    "borehole_radius_mm": 45.0,
+    "radial_exponent": 1.6,
+    "engineering_borehole_radius_mm": 45.0,
+    "engineering_radial_exponent": 1.6,
+}
+
+CASE_PRESETS = {
+    "Balanced demonstration": {},
+    "Plate-impact validation": {
+        "case_name": "Plate-impact validation screen",
+        "impact_velocity": 1200.0,
+        "flyer_preset": "Aluminium-like flyer",
+        "flyer_thickness": 5.0,
+        "target_thickness": 10.0,
+        "pullback_velocity": 80.0,
+    },
+    "Near-field blast screen": {
+        "case_name": "Near-field blast screen",
+        "charge_mass": 4.0,
+        "observation_distance": 0.75,
+        "coupling_factor": 0.42,
+    },
+    "Field vibration screen": {
+        "case_name": "Field vibration screen",
+        "charge_mass": 40.0,
+        "observation_distance": 100.0,
+        "coupling_factor": 0.25,
+    },
+}
+
 
 def _load_material_preset() -> None:
     preset = MATERIAL_PRESETS[st.session_state.material_preset]
@@ -162,40 +254,25 @@ def _load_material_preset() -> None:
         st.session_state[f"mat_{key}"] = value
 
 
+def _load_case_preset() -> None:
+    selected = dict(CASE_DEFAULTS)
+    selected.update(CASE_PRESETS[st.session_state.case_preset])
+    material_name = selected.pop("material_preset")
+    st.session_state.material_preset = material_name
+    for key, value in MATERIAL_PRESETS[material_name].items():
+        st.session_state[f"mat_{key}"] = value
+    for key, value in selected.items():
+        st.session_state[key] = value
+
+
 def _initialise_state() -> None:
-    defaults = MATERIAL_PRESETS["Competent rock example"]
-    st.session_state.setdefault("material_preset", "Competent rock example")
+    defaults = MATERIAL_PRESETS[CASE_DEFAULTS["material_preset"]]
+    st.session_state.setdefault("case_preset", "Balanced demonstration")
+    st.session_state.setdefault("workspace_page", WORKSPACE_PAGES[0])
+    st.session_state.setdefault("material_preset", CASE_DEFAULTS["material_preset"])
     for key, value in defaults.items():
         st.session_state.setdefault(f"mat_{key}", value)
-    state_defaults = {
-        "case_name": "Chapter 17 demonstration",
-        "impact_velocity": 900.0,
-        "target_thickness": 12.0,
-        "pullback_velocity": 70.0,
-        "flyer_preset": "Identical material",
-        "flyer_density": 2700.0,
-        "flyer_c0": 5350.0,
-        "flyer_slope": 1.34,
-        "flyer_cl": 6300.0,
-        "flyer_hel": 0.3,
-        "flyer_tensile": 200.0,
-        "flyer_ucs": 300.0,
-        "flyer_thickness": 4.0,
-        "explosive_density": 1200.0,
-        "vod": 4500.0,
-        "product_gamma": 3.0,
-        "coupling_factor": 0.42,
-        "charge_mass": 4.0,
-        "observation_distance": 20.0,
-        "reference_pressure_mpa": 120.0,
-        "reference_z": 1.0,
-        "pressure_exponent": 1.55,
-        "ppv_k": 850.0,
-        "ppv_n": 1.55,
-        "borehole_radius_mm": 45.0,
-        "radial_exponent": 1.6,
-    }
-    for key, value in state_defaults.items():
+    for key, value in CASE_DEFAULTS.items():
         st.session_state.setdefault(key, value)
 
 
@@ -343,16 +420,37 @@ def _finite_numeric_frame(frame: pd.DataFrame, columns: list[str]) -> pd.DataFra
 with st.sidebar:
     st.title("Shock and blast")
     st.caption("Chapter 17 computational workspace")
-    st.text_input("Case name", key="case_name")
-
-    st.subheader("Material")
-    st.selectbox(
-        "Illustrative preset",
-        list(MATERIAL_PRESETS),
-        key="material_preset",
+    page = st.radio(
+        "Workspace",
+        WORKSPACE_PAGES,
+        key="workspace_page",
+        label_visibility="collapsed",
     )
-    st.button("Load material preset", on_click=_load_material_preset, width="stretch")
-    with st.expander("Hugoniot and strength inputs", expanded=False):
+
+    st.divider()
+    with st.expander("Case and presets", expanded=True):
+        st.selectbox("Starting case", list(CASE_PRESETS), key="case_preset")
+        st.button(
+            "Apply starting case",
+            on_click=_load_case_preset,
+            width="stretch",
+        )
+        st.text_input("Case name", key="case_name")
+
+    material_pages = {
+        "Plate-impact animation",
+        "Virtual plate-impact test",
+        "Shock state and EOS",
+        "Experimental validation",
+        "Established model scope",
+    }
+    with st.expander("Target material", expanded=page in material_pages):
+        st.selectbox(
+            "Illustrative material",
+            list(MATERIAL_PRESETS),
+            key="material_preset",
+            on_change=_load_material_preset,
+        )
         st.number_input("Initial density (kg/m3)", min_value=500.0, max_value=8000.0, step=10.0, key="mat_density")
         st.number_input("Hugoniot intercept c0 (m/s)", min_value=500.0, max_value=10000.0, step=50.0, key="mat_c0")
         st.number_input("Hugoniot slope s", min_value=0.2, max_value=4.0, step=0.05, key="mat_slope")
@@ -361,10 +459,16 @@ with st.sidebar:
         st.number_input("Tensile strength (MPa)", min_value=0.1, max_value=500.0, step=0.5, key="mat_tensile")
         st.number_input("UCS (MPa)", min_value=1.0, max_value=2000.0, step=5.0, key="mat_ucs")
 
-    st.subheader("Plate impact")
-    st.selectbox("Flyer", list(FLYER_PRESETS), key="flyer_preset")
-    if st.session_state.flyer_preset == "Custom flyer":
-        with st.expander("Custom flyer Hugoniot", expanded=True):
+    plate_pages = {
+        "Plate-impact animation",
+        "Virtual plate-impact test",
+        "Shock state and EOS",
+        "Experimental validation",
+    }
+    with st.expander("Plate-impact inputs", expanded=page in plate_pages):
+        st.selectbox("Flyer", list(FLYER_PRESETS), key="flyer_preset")
+        if st.session_state.flyer_preset == "Custom flyer":
+            st.caption("Custom flyer Hugoniot")
             st.number_input("Flyer density (kg/m3)", min_value=500.0, max_value=20000.0, step=10.0, key="flyer_density")
             st.number_input("Flyer Hugoniot intercept c0 (m/s)", min_value=500.0, max_value=15000.0, step=50.0, key="flyer_c0")
             st.number_input("Flyer Hugoniot slope s", min_value=0.2, max_value=4.0, step=0.05, key="flyer_slope")
@@ -372,54 +476,40 @@ with st.sidebar:
             st.number_input("Flyer HEL (GPa)", min_value=0.01, max_value=100.0, step=0.1, key="flyer_hel")
             st.number_input("Flyer tensile strength (MPa)", min_value=0.1, max_value=5000.0, step=1.0, key="flyer_tensile")
             st.number_input("Flyer compressive strength (MPa)", min_value=1.0, max_value=10000.0, step=5.0, key="flyer_ucs")
-    st.number_input("Impact velocity (m/s)", min_value=10.0, max_value=6000.0, step=25.0, key="impact_velocity")
-    st.number_input("Flyer thickness (mm)", min_value=0.1, max_value=100.0, step=0.5, key="flyer_thickness")
-    st.number_input("Target thickness (mm)", min_value=1.0, max_value=200.0, step=1.0, key="target_thickness")
-    st.number_input("Pullback velocity (m/s)", min_value=0.0, max_value=1000.0, step=5.0, key="pullback_velocity")
+        st.number_input("Impact velocity (m/s)", min_value=10.0, max_value=6000.0, step=25.0, key="impact_velocity")
+        st.number_input("Flyer thickness (mm)", min_value=0.1, max_value=100.0, step=0.5, key="flyer_thickness")
+        st.number_input("Target thickness (mm)", min_value=1.0, max_value=200.0, step=1.0, key="target_thickness")
+        st.number_input("Pullback velocity (m/s)", min_value=0.0, max_value=1000.0, step=5.0, key="pullback_velocity")
 
-    st.subheader("Blast source")
-    with st.expander("C-J screening inputs", expanded=False):
+    with st.expander("Blast-source inputs", expanded=page == "C-J blast source"):
         st.number_input("Explosive density (kg/m3)", min_value=200.0, max_value=3000.0, step=25.0, key="explosive_density")
         st.number_input("Measured or assumed VOD (m/s)", min_value=500.0, max_value=12000.0, step=100.0, key="vod")
         st.number_input("Product gamma", min_value=1.05, max_value=8.0, step=0.05, key="product_gamma")
         st.slider("Wall-pressure coupling factor", min_value=0.05, max_value=1.0, step=0.01, key="coupling_factor")
 
-    st.subheader("Field point")
-    st.number_input("Charge mass per delay (kg)", min_value=0.01, max_value=100000.0, step=0.5, key="charge_mass")
-    st.number_input("Observation distance (m)", min_value=0.05, max_value=10000.0, step=1.0, key="observation_distance")
-    with st.expander("Site attenuation inputs", expanded=False):
+    field_pages = {"Pressure and PPV", "Engineering consequences"}
+    with st.expander("Field-transfer inputs", expanded=page in field_pages):
+        st.number_input("Charge mass per delay (kg)", min_value=0.01, max_value=100000.0, step=0.5, key="charge_mass")
+        st.number_input("Observation distance (m)", min_value=0.05, max_value=10000.0, step=1.0, key="observation_distance")
         st.number_input("Pressure at reference Z (MPa)", min_value=0.001, max_value=10000.0, step=5.0, key="reference_pressure_mpa")
         st.number_input("Reference cubic-root Z", min_value=0.01, max_value=100.0, step=0.1, key="reference_z")
         st.number_input("Pressure exponent m", min_value=0.1, max_value=5.0, step=0.05, key="pressure_exponent")
         st.number_input("PPV site constant K", min_value=0.01, max_value=100000.0, step=10.0, key="ppv_k")
         st.number_input("PPV exponent n", min_value=0.1, max_value=5.0, step=0.05, key="ppv_n")
 
-    st.divider()
-    page = st.radio(
-        "Workspace",
-        [
-            "Case overview",
-            "Plate-impact animation",
-            "Virtual plate-impact test",
-            "Shock state and EOS",
-            "Experimental validation",
-            "C-J blast source",
-            "Pressure and PPV",
-            "Established model scope",
-            "Engineering consequences",
-            "Summary and export",
-        ],
-        label_visibility="collapsed",
-    )
-
-
-values = _case_values()
-material: HugoniotMaterial = values["material"]
-shock = values["shock"]
-cj = values["cj"]
-virtual_test = _virtual_plate_impact(values)
 
 st.title("Shock and blast computation")
+try:
+    values = _case_values()
+    material: HugoniotMaterial = values["material"]
+    shock = values["shock"]
+    cj = values["cj"]
+    virtual_test = _virtual_plate_impact(values)
+except (ValueError, FloatingPointError, OverflowError) as exc:
+    st.error("The current inputs are outside the valid calculation domain.")
+    st.caption(str(exc))
+    st.stop()
+
 st.caption(
     f"{st.session_state.case_name} | {material.name} | pressure positive in compression | SI computation"
 )
@@ -457,8 +547,8 @@ def render_overview() -> None:
         evidence = pd.DataFrame(
             [
                 ["Initial stress and disturbance", "Pressure/rate path and unloading state", "Chapters 3 and 7"],
-                ["Fracture and cumulative damage", "Tension, shear, crack orientation and history", "Sections 13.6 and 14.6"],
-                ["Classical model card", "EOS, strength surface, rate, damage and residual response", "Section 14.2"],
+                ["Fracture and cumulative damage", "Tension, shear, crack orientation and history", "Chapters 13 and 14"],
+                ["Classical model card", "EOS, strength surface, rate, damage and residual response", "Chapter 14"],
                 ["Shock behaviour", "Us-up, HEL, release, spall and recovered damage", "Chapter 15"],
                 ["Excavation transfer", "Geometry, source, drilling, free surfaces and acceptance", "Chapter 20"],
                 ["Blast consequences", "Crushed zone, EDZ, PPV, overbreak and cumulative damage", "Chapter 22"],
@@ -1400,8 +1490,9 @@ def render_models() -> None:
 
     st.info(
         "These curves expose established equation families with illustrative "
-        "coefficients. Use Chapter 18 to identify the data sources, uncertainty, "
-        "limitations and application scope required for a calibrated software card."
+        "coefficients. Use this chapter's implementation and validation workflow "
+        "to identify the data sources, uncertainty, limitations and application "
+        "scope required for a calibrated software card."
     )
 
 
@@ -1409,11 +1500,25 @@ def render_engineering() -> None:
     st.subheader("From source pressure to engineering evidence")
     c1, c2 = st.columns(2)
     with c1:
-        st.number_input("Borehole radius (mm)", min_value=1.0, max_value=1000.0, step=1.0, key="borehole_radius_mm")
+        borehole_radius_mm = st.number_input(
+            "Borehole radius (mm)",
+            min_value=1.0,
+            max_value=1000.0,
+            value=45.0,
+            step=1.0,
+            key="engineering_borehole_radius_mm_v2",
+        )
     with c2:
-        st.number_input("Near-field radial exponent", min_value=0.2, max_value=5.0, step=0.05, key="radial_exponent")
-    rb = float(st.session_state.borehole_radius_mm) / 1000.0
-    exponent = float(st.session_state.radial_exponent)
+        exponent = st.number_input(
+            "Near-field radial exponent",
+            min_value=0.2,
+            max_value=5.0,
+            value=1.6,
+            step=0.05,
+            key="engineering_radial_exponent_v2",
+        )
+    rb = float(borehole_radius_mm) / 1000.0
+    exponent = float(exponent)
     wall = values["coupled_wall_pressure_pa"]
     hel_radius = threshold_radius_m(rb, wall, material.hel_pa, exponent)
     crush_radius = threshold_radius_m(rb, wall, material.uniaxial_compressive_strength_pa, exponent)
@@ -1648,5 +1753,5 @@ st.divider()
 st.caption(
     "Chapter links: Ch3 shock and detonation fundamentals | Ch7 shock/blast experiments | "
     "Ch13 fracture and cumulative damage | Ch14 constitutive models | Ch15 shock response | "
-    "Ch20 excavation design | Ch22 blast damage and overbreak."
+    "Chapter 20 excavation design | Chapter 22 blast damage and overbreak."
 )
